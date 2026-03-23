@@ -204,8 +204,17 @@ const PIECE_ROTATIONS: Record<PieceType, readonly ShapeGrid[]> = {
 class Piece {
     readonly type: PieceType;
 
-    constructor( type: PieceType ) {
+    x: number;
+    y: number;
+
+    constructor( type: PieceType, x: number, y: number ) {
         this.type = type;
+        this.x = x;
+        this.y = y;
+    }
+
+    rotate() {
+
     }
 }
 
