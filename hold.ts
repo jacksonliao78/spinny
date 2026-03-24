@@ -1,7 +1,6 @@
 import {Piece} from './piece';
 
 class Hold {
-    
     holdPiece: Piece | null = null;
 
     constructor() {

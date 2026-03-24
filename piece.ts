@@ -207,14 +207,27 @@ class Piece {
     x: number;
     y: number;
 
+    rotation: number;
+
     constructor( type: PieceType, x: number, y: number ) {
         this.type = type;
         this.x = x;
         this.y = y;
+        this.rotation = 0;
     }
 
-    rotate() {
+    get_shape() {
+        return PIECE_ROTATIONS[this.type][this.rotation]
+    }
 
+    move( dx: number, dy: number ) {
+        this.x += dx;
+        this.y += dy;
+    }
+
+    rotate( times: number ) {
+        const rotations: number = ( (times % 4) + 4 ) % 4;
+        this.rotation = (rotations + this.rotation) % 4;
     }
 }
 
