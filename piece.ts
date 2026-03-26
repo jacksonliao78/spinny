@@ -216,8 +216,9 @@ class Piece {
         this.rotation = 0;
     }
 
-    get_shape() {
-        return PIECE_ROTATIONS[this.type][this.rotation]
+    // requires rotation to be between 0 and 3, inclusive
+    get_shape( rotation: number ) {
+        return PIECE_ROTATIONS[this.type][rotation]
     }
 
     move( dx: number, dy: number ) {
