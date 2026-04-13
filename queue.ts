@@ -1,44 +1,46 @@
-import {Piece, PieceType} from './piece';
+import { Piece, PieceType } from "./piece";
 
-let pieces: PieceType[] = ['O', 'I', 'Z', 'S', 'L', 'J', 'T']
+const ALL_TYPES: PieceType[] = ["O", "I", "Z", "S", "L", "J", "T"];
 
 class Queue {
+  private preview: PieceType[] = [];
+  private bag: Piece[] = [];
 
-    queue: Piece[] = [];
-    bag: Piece[] = [];
-
-    constructor() {
-        this.generate_bag(1);
-        for( let i = 0; i < 5; i++ ) {
-            let piece = this.bag.pop();
-            if( piece !== undefined )
-                this.queue.push( piece );
-        }
+  constructor() {
+    this.refillBag();
+    while (this.preview.length < 5) {
+      this.preview.push(this.takeFromBag().type);
     }
+  }
 
-    generate_bag( n: number ) {
-        this.bag = [];
-        for( let _ = 0; _ < n; _++ ) {
-            let set = [...pieces];
-            let pieceSet = set.map((element => new Piece( element, 0, 0 )));
-            pieceSet = this.shuffle( pieceSet );
-            this.bag = [...this.bag, ...pieceSet]
-        }
+  private shuffle<T>( arr: T[] ): T[] {
+    const a = [ ...arr ];
+    for ( let i = a.length - 1; i > 0; i-- ) {
+      const j = Math.floor( Math.random() * (i + 1) );
+      [a[i], a[j]] = [a[j], a[i]];
     }
+    return a;
+  }
 
-    get_piece() {
-        if( this.bag.length == 0 ) {
-            this.generate_bag( 2 );
-        }
-        return this.bag.pop();
-    }
-    
-    //shuffles a bag of pieces, returning the shuffled bag
-    shuffle<T>( arr: T[]) {
-        for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor( Math.random() * (i + 1) );
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-        }
-        return arr;
+  private refillBag(): void {
+    const shuffled = this.shuffle( ALL_TYPES.map((t) => new Piece(t, 0, 0)) );
+    this.bag.push( ...shuffled );
+  }
+
+  private takeFromBag(): Piece {
+    if ( this.bag.length === 0 ) this.refillBag();
+    return this.bag.pop()!;
+  }
+
+  peekNext( n: number ): PieceType[] {
+    return this.preview.slice(0, n);
+  }
+
+  consumeNext( spawnX: number, spawnY: number ): Piece {
+    const t = this.preview.shift()!;
+    this.preview.push( this.takeFromBag().type );
+    return new Piece( t, spawnX, spawnY );
+  }
 }
-}
+
+export { Queue };
