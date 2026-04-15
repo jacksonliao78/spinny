@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spinny</title>
+  </head>
+  <body>
+    <style>
+      body {
+        margin: 1rem;
+        font-family: system-ui, sans-serif;
+        background: #1a1a1a;
+        color: #ddd;
+      }
+      #game {
+        display: block;
+        outline: 2px solid #444;
+        background: #000;
+      }
+      .hint {
+        margin-top: 0.75rem;
+        font-size: 0.9rem;
+        max-width: 40rem;
+      }
+    </style>
+    <canvas id="game" width="320" height="640" tabindex="0"></canvas>
+    <p class="hint">
+      Click canvas for focus. Arrows: move / soft drop. Up / X: rotate CW. Z: rotate CCW. Space: hard drop. C: hold.
+      P: pause. R: restart.
+    </p>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>

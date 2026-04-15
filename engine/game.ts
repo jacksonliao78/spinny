@@ -16,6 +16,9 @@ export type GameSnapshot = {
   gameOver: boolean;
 };
 
+const LOCK_DELAY_MS = 500;
+const MAX_LOCK_RESETS = 15;
+
 class Game {
   readonly board: Board;
   private readonly queue: Queue;
@@ -28,6 +31,9 @@ class Game {
   private gravityMs = 0;
   readonly gravityIntervalMs: number;
 
+  private lockDelayRemainingMs: number | null = null;
+  private lockDelayResetsUsed = 0;
+
   constructor(
     width = 10,
     height = 20,
@@ -38,6 +44,21 @@ class Game {
     this.holdSlot = new Hold();
     this.gravityIntervalMs = gravityIntervalMs;
     this.spawn();
+  }
+
+  private isOnGround(): boolean {
+    if (!this.activePiece) return false;
+    const [gx, gy] = this.board.gravityDelta();
+    return !this.board.canMove(this.activePiece, gx, gy);
+  }
+
+  private resetLockResets(): void {
+    this.lockDelayResetsUsed = 0;
+  }
+
+  private clearLockDelayState(): void {
+    this.lockDelayRemainingMs = null;
+    this.lockDelayResetsUsed = 0;
   }
 
   getSnapshot(): GameSnapshot {
@@ -80,6 +101,22 @@ class Game {
       this.gravityMs -= this.gravityIntervalMs;
       if (!this.stepGravity()) break;
     }
+
+    if (!this.activePiece || this.gameOver) return;
+
+    if (this.isOnGround()) {
+      if (this.lockDelayRemainingMs === null) {
+        this.lockDelayRemainingMs = LOCK_DELAY_MS;
+      } else {
+        this.lockDelayRemainingMs -= dtMs;
+        if (this.lockDelayRemainingMs <= 0) {
+          this.lockAndSpawn();
+          return;
+        }
+      }
+    } else {
+      this.lockDelayRemainingMs = null;
+    }
   }
 
   /** One gravity step; returns true if piece moved along gravity. */
@@ -88,9 +125,10 @@ class Game {
     const [gx, gy] = this.board.gravityDelta();
     if (this.board.canMove(this.activePiece, gx, gy)) {
       this.activePiece.move(gx, gy);
+      this.resetLockResets();
+      this.lockDelayRemainingMs = null;
       return true;
     }
-    this.lockAndSpawn();
     return false;
   }
 
