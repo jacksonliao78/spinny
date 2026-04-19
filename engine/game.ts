@@ -61,6 +61,22 @@ class Game {
     this.lockDelayResetsUsed = 0;
   }
 
+  private onDownwardAdvance(): void {
+    this.resetLockResets();
+    this.lockDelayRemainingMs = this.isOnGround() ? LOCK_DELAY_MS : null;
+  }
+
+  private onGroundedMoveOrRotate(): void {
+    if (!this.isOnGround()) {
+      this.clearLockDelayState();
+      return;
+    }
+    if (this.lockDelayResetsUsed < MAX_LOCK_RESETS) {
+      this.lockDelayRemainingMs = LOCK_DELAY_MS;
+      this.lockDelayResetsUsed += 1;
+    }
+  }
+
   getSnapshot(): GameSnapshot {
     return {
       width: this.board.width,
@@ -107,12 +123,10 @@ class Game {
     if (this.isOnGround()) {
       if (this.lockDelayRemainingMs === null) {
         this.lockDelayRemainingMs = LOCK_DELAY_MS;
-      } else {
-        this.lockDelayRemainingMs -= dtMs;
-        if (this.lockDelayRemainingMs <= 0) {
-          this.lockAndSpawn();
-          return;
-        }
+      }
+      this.lockDelayRemainingMs -= dtMs;
+      if (this.lockDelayRemainingMs <= 0) {
+        this.lockAndSpawn();
       }
     } else {
       this.lockDelayRemainingMs = null;
@@ -125,8 +139,7 @@ class Game {
     const [gx, gy] = this.board.gravityDelta();
     if (this.board.canMove(this.activePiece, gx, gy)) {
       this.activePiece.move(gx, gy);
-      this.resetLockResets();
-      this.lockDelayRemainingMs = null;
+      this.onDownwardAdvance();
       return true;
     }
     return false;
@@ -147,8 +160,11 @@ class Game {
     const [gx, gy] = this.board.gravityDelta();
     if (this.board.canMove(this.activePiece, gx, gy)) {
       this.activePiece.move(gx, gy);
+      this.onDownwardAdvance();
     } else {
-      this.lockAndSpawn();
+      if (this.lockDelayRemainingMs === null) {
+        this.lockDelayRemainingMs = LOCK_DELAY_MS;
+      }
     }
   }
 
@@ -195,12 +211,14 @@ class Game {
       this.activePiece = next;
     }
     this.holdLocked = true;
+    this.clearLockDelayState();
   }
 
   private tryMove(dx: number, dy: number): void {
     if (!this.activePiece || this.gameOver) return;
     if (this.board.canMove(this.activePiece, dx, dy)) {
       this.activePiece.move(dx, dy);
+      this.onGroundedMoveOrRotate();
     }
   }
 
@@ -208,6 +226,7 @@ class Game {
     if (!this.activePiece || this.gameOver) return;
     if (this.board.canRotate(this.activePiece, rotations)) {
       this.activePiece.rotate(rotations);
+      this.onGroundedMoveOrRotate();
     }
   }
 
@@ -216,6 +235,7 @@ class Game {
     this.board.lockPiece(this.activePiece);
     this.board.clearLines();
     this.board.rotate();
+    this.clearLockDelayState();
     this.holdLocked = false;
     this.activePiece = null;
     this.spawn();
@@ -223,6 +243,7 @@ class Game {
 
   private spawn(): void {
     if (this.gameOver) return;
+    this.clearLockDelayState();
     const s = this.getSpawnCoords();
     const piece = this.queue.consumeNext(s.x, s.y);
     if (!this.board.canMove(piece, 0, 0)) {

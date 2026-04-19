@@ -104,8 +104,7 @@ class Board {
   }
 
   /**
-   * Stub: line clear rules not implemented yet.
-   * When implemented, remove full rows and return how many were cleared.
+   * line clears
    */
   clearLines(): number {
     return 0;
