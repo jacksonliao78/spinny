@@ -88,6 +88,7 @@ test("hard drop locks immediately", () => {
   const game = new Game(6, 8, 10_000);
   clearBoard(game);
   game.board.rotation = 0;
+  game.gameOver = false;
   game.activePiece = new Piece("O", 1, 0);
 
   game.hardDrop();

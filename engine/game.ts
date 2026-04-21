@@ -3,13 +3,14 @@ import { Hold } from "./hold";
 import type { PieceType } from "./piece";
 import { Piece } from "./piece";
 import { Queue } from "./queue";
+import { tryKicks } from "./srs";
 
 export type GameSnapshot = {
   width: number;
   height: number;
   /** 0–3: how many quarter-turns the playfield has taken (gravity cycles with this). */
   boardRotation: number;
-  locked: (PieceType | null)[][];
+  locked: (PieceType | null | 1)[][];
   active: Piece | null;
   next: PieceType[];
   hold: PieceType | null;
@@ -227,6 +228,9 @@ class Game {
     if (this.board.canRotate(this.activePiece, rotations)) {
       this.activePiece.rotate(rotations);
       this.onGroundedMoveOrRotate();
+    }
+    else {
+      const placement = 1
     }
   }
 

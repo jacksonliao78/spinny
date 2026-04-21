@@ -18,6 +18,8 @@ const COLORS: Record<PieceType, string> = {
   T: "#1abc9c",
 };
 
+const OBSTACLE_COLOR = "#6b7280";
+
 type Renderer = {
   // Recompute canvas size when game dimensions change.
   syncGameConfig: (game: Game) => void;
@@ -165,6 +167,23 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
       ctx.globalAlpha = 1;
     };
 
+    const drawLockedCell = (x: number, y: number, cell: PieceType | null | 1, alpha = 1) => {
+      if (cell === null) return;
+      ctx.globalAlpha = alpha;
+      if (cell === 1) {
+        ctx.fillStyle = OBSTACLE_COLOR;
+        ctx.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.fillRect(x * CELL + 3, y * CELL + 3, CELL - 6, 6);
+      } else {
+        ctx.fillStyle = COLORS[cell];
+        ctx.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        ctx.fillRect(x * CELL + 3, y * CELL + 3, CELL - 6, 6);
+      }
+      ctx.globalAlpha = 1;
+    };
+
     // Rotate only the playfield; HUD panels stay fixed.
     ctx.save();
     ctx.translate(boardX + playWidth / 2, boardY + playHeight / 2);
@@ -195,7 +214,7 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     for (let y = 0; y < snap.height; y++) {
       for (let x = 0; x < snap.width; x++) {
         const c = snap.locked[y][x];
-        if (c) drawCell(x, y, c);
+        if (c !== null) drawLockedCell(x, y, c);
       }
     }
 
