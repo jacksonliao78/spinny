@@ -1,0 +1,2 @@
+When a piece hits the ground, the fifteen rotational resets should be counted even if the piece is in the air, 
+as long as it doesn't move down past it's lowest position. However, if it's just falling, those rotations shouldn't count.

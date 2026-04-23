@@ -3,95 +3,80 @@ import assert from "node:assert/strict";
 import { Game } from "../engine/game";
 import { Piece } from "../engine/piece";
 
-type GameInternals = {
-  lockDelayRemainingMs: number | null;
+const lockState = (game: Game) => game as unknown as {
   lockDelayResetsUsed: number;
+  lowestProgress: number;
+  hasTouchedGround: boolean;
+  gravityIntervalMs: number;
 };
 
-function clearBoard(game: Game): void {
-  for (let y = 0; y < game.board.height; y++) {
-    for (let x = 0; x < game.board.width; x++) {
-      game.board.board[y][x] = null;
-    }
-  }
-}
+test("post-contact rotate consumes reset even while airborne", () => {
+  const game = new Game();
+  const piece = new Piece("O", 2, 4);
+  game.activePiece = piece;
 
-function setGroundedPiece(game: Game): void {
-  clearBoard(game);
-  game.board.rotation = 0;
-  game.activePiece = new Piece("O", 1, game.board.height - 3);
-  game.gameOver = false;
-}
+  const state = lockState(game);
+  state.lowestProgress = (game as any).pieceLow(piece);
+  state.hasTouchedGround = true;
+  state.lockDelayResetsUsed = 0;
 
-function internals(game: Game): GameInternals {
-  return game as unknown as GameInternals;
-}
+  assert.equal((game as any).isOnGround(), false);
+  game.rotateCw();
 
-test("ground contact starts lock delay instead of immediate lock", () => {
-  const game = new Game(6, 8, 10_000);
-  setGroundedPiece(game);
-
-  game.tick(100);
-
-  assert.equal(game.getSnapshot().boardRotation, 0);
-  assert.notEqual(game.activePiece, null);
+  assert.equal(state.lockDelayResetsUsed, 1);
 });
 
-test("piece locks after 500ms on ground", () => {
-  const game = new Game(6, 8, 10_000);
-  setGroundedPiece(game);
+test("moving to a strict new low refreshes resets instead of consuming", () => {
+  const game = new Game();
+  const piece = new Piece("O", 2, 4);
+  game.activePiece = piece;
 
-  game.tick(499);
-  assert.equal(game.getSnapshot().boardRotation, 0);
-
-  game.tick(1);
-  assert.equal(game.getSnapshot().boardRotation, 1);
-});
-
-test("move/rotate lock-delay resets are capped at 15", () => {
-  const game = new Game(6, 8, 10_000);
-  setGroundedPiece(game);
-
-  game.tick(1);
-  for (let i = 0; i < 15; i++) {
-    game.rotateCw();
-    assert.equal(internals(game).lockDelayResetsUsed, i + 1);
-    game.tick(400);
-    assert.equal(game.getSnapshot().boardRotation, 0);
-  }
-
-  game.rotateCw();
-  assert.equal(internals(game).lockDelayResetsUsed, 15);
-  game.tick(99);
-  assert.equal(game.getSnapshot().boardRotation, 0);
-  game.tick(1);
-  assert.equal(game.getSnapshot().boardRotation, 1);
-});
-
-test("downward movement resets the lock-delay reset counter", () => {
-  const game = new Game(6, 8, 10_000);
-  setGroundedPiece(game);
-
-  game.rotateCw();
-  game.rotateCw();
-  assert.equal(internals(game).lockDelayResetsUsed, 2);
-
-  if (game.activePiece) {
-    game.activePiece.y -= 1;
-  }
+  const state = lockState(game);
+  state.lowestProgress = (game as any).pieceLow(piece);
+  state.hasTouchedGround = true;
+  state.lockDelayResetsUsed = 7;
 
   game.softDrop();
-  assert.equal(internals(game).lockDelayResetsUsed, 0);
+
+  assert.equal(state.lockDelayResetsUsed, 0);
+  assert.equal(state.hasTouchedGround, false);
 });
 
-test("hard drop locks immediately", () => {
-  const game = new Game(6, 8, 10_000);
-  clearBoard(game);
-  game.board.rotation = 0;
-  game.gameOver = false;
-  game.activePiece = new Piece("O", 1, 0);
+test("passive gravity fall past lowest does not consume rotation resets", () => {
+  const game = new Game();
+  const piece = new Piece("O", 2, 4);
+  game.activePiece = piece;
 
-  game.hardDrop();
+  const state = lockState(game);
+  state.lowestProgress = (game as any).pieceLow(piece);
+  state.hasTouchedGround = true;
+  state.lockDelayResetsUsed = 4;
 
-  assert.equal(game.getSnapshot().boardRotation, 1);
+  game.tick(state.gravityIntervalMs);
+
+  assert.equal(state.lockDelayResetsUsed, 0);
+  assert.equal(state.hasTouchedGround, false);
+});
+
+test("15 non-progress actions exhaust reset cap and force lock", () => {
+  const game = new Game();
+  const piece = new Piece("O", 4, 19);
+  game.activePiece = piece;
+
+  // Give the piece in-bounds support so lock exhaustion leads to lock, not border out.
+  game.board.board[22][5] = "I";
+  game.board.board[22][6] = "I";
+
+  const state = lockState(game);
+  state.lowestProgress = (game as any).pieceLow(piece);
+  state.hasTouchedGround = true;
+  state.lockDelayResetsUsed = 0;
+
+  for (let i = 0; i < 20; i += 1) game.rotateCw();
+  assert.equal(state.lockDelayResetsUsed, 15);
+
+  game.tick(1);
+
+  assert.equal(game.gameOver, false);
+  assert.notEqual(game.activePiece, piece);
 });

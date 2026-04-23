@@ -121,6 +121,41 @@ class Board {
     return true;
   }
 
+  /**
+   * Returns true when every gravity-facing bottom cell of the piece is border / empty cell supported.
+   */
+  isBottomBordered(piece: Piece): boolean {
+    const curPiece = piece.get_shape(piece.rotation);
+    const [gx, gy] = this.gravityDelta();
+
+    let foundBottom = false;
+    for (const [rowIdx, row] of curPiece.entries()) {
+      for (const [colIdx, cell] of row.entries()) {
+        if (cell === 0) continue;
+
+        const nextRow = rowIdx + gy;
+        const nextCol = colIdx + gx;
+        const hasOwnBelow = nextRow >= 0 && nextRow < curPiece.length &&
+          nextCol >= 0 && nextCol < curPiece[nextRow].length && curPiece[nextRow][nextCol] !== 0;
+        if (hasOwnBelow) continue;
+
+        const x = piece.x + colIdx;
+        const y = piece.y + rowIdx;
+        const belowX = x + gx;
+        const belowY = y + gy;
+        foundBottom = true;
+
+        // in-bounds support keeps this piece in play
+        if (belowX >= 0 && belowX < this.width && belowY >= 0 && belowY < this.height) {
+          if (this.board[belowY][belowX] !== null) return false;
+        }
+      }
+    }
+
+    return foundBottom;
+  }
+
+
   lockPiece(piece: Piece): void {
     const shape = piece.get_shape(piece.rotation);
     for (const [rowIdx, row] of shape.entries()) {
