@@ -172,7 +172,108 @@ class Board {
    * line clears
    */
   clearLines(): number {
-    return 0;
+    const minCenterX = Math.floor((this.width - 3) / 2);
+    const minCenterY = Math.floor((this.height - 3) / 2);
+    const maxCenterX = minCenterX + 2;
+    const maxCenterY = minCenterY + 2;
+
+    const ringDistance = (x: number, y: number): number => {
+      const dx = x < minCenterX ? minCenterX - x : x > maxCenterX ? x - maxCenterX : 0;
+      const dy = y < minCenterY ? minCenterY - y : y > maxCenterY ? y - maxCenterY : 0;
+      return Math.max(dx, dy);
+    };
+    const stepTowardCenter = (x: number, y: number): [number, number] => {
+      let nx = x;
+      let ny = y;
+      if (x < minCenterX) nx += 1;
+      else if (x > maxCenterX) nx -= 1;
+      if (y < minCenterY) ny += 1;
+      else if (y > maxCenterY) ny -= 1;
+      return [nx, ny];
+    };
+    const isRingCorner = (x: number, y: number, ring: number): boolean => {
+      const left = minCenterX - ring;
+      const right = maxCenterX + ring;
+      const top = minCenterY - ring;
+      const bottom = maxCenterY + ring;
+      const onVerticalEdge = x === left || x === right;
+      const onHorizontalEdge = y === top || y === bottom;
+      return onVerticalEdge && onHorizontalEdge;
+    };
+
+    const maxRing = Math.max(
+      minCenterX,
+      minCenterY,
+      this.width - 1 - maxCenterX,
+      this.height - 1 - maxCenterY,
+    );
+
+    const clearedRings: number[] = [];
+    for (let ring = 1; ring <= maxRing; ring++) {
+      let hasCells = false;
+      let full = true;
+      for (let y = 0; y < this.height; y++) {
+        for (let x = 0; x < this.width; x++) {
+          if (ringDistance(x, y) !== ring) continue;
+          hasCells = true;
+          if (this.board[y][x] === null) {
+            full = false;
+            break;
+          }
+        }
+        if (!full) break;
+      }
+      if (hasCells && full) clearedRings.push(ring);
+    }
+
+    if (clearedRings.length === 0) return 0;
+
+    const source = this.getLockedCopy();
+    const isCleared = new Set(clearedRings);
+    const countClearedInside = (ring: number): number => {
+      let n = 0;
+      for (const r of clearedRings) {
+        if (r < ring) n += 1;
+      }
+      return n;
+    };
+    const stepTowardCenterTimes = (x: number, y: number, steps: number): [number, number] => {
+      let nx = x;
+      let ny = y;
+      for (let i = 0; i < steps; i++) {
+        [nx, ny] = stepTowardCenter(nx, ny);
+      }
+      return [nx, ny];
+    };
+
+    const nextBoard = Array.from(
+      { length: this.height },
+      () => Array<PieceType | null | 1>(this.width).fill(null),
+    );
+    for (let y = minCenterY; y <= maxCenterY; y++) {
+      for (let x = minCenterX; x <= maxCenterX; x++) {
+        nextBoard[y][x] = 1;
+      }
+    }
+
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const cell = source[y][x];
+        if (cell === null || cell === 1) continue;
+
+        const ring = ringDistance(x, y);
+        if (isCleared.has(ring)) continue;
+
+        const shift = countClearedInside(ring);
+        if (shift > 0 && isRingCorner(x, y, ring)) continue;
+
+        const [nx, ny] = stepTowardCenterTimes(x, y, shift);
+        if (nextBoard[ny][nx] === null) nextBoard[ny][nx] = cell;
+      }
+    }
+
+    this.board = nextBoard;
+    return clearedRings.length;
   }
 }
 

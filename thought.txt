@@ -1,2 +1,7 @@
-When a piece hits the ground, the fifteen rotational resets should be counted even if the piece is in the air, 
-as long as it doesn't move down past it's lowest position. However, if it's just falling, those rotations shouldn't count.
+TODOs:
+
+abstract certain parts of board to allow for:
+
+1. different gamemodes
+2. different board types
+3. other board specific features (like gravity, line clearing)

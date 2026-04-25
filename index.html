@@ -8,27 +8,47 @@
   <body>
     <style>
       body {
-        margin: 1rem;
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         font-family: system-ui, sans-serif;
-        background: #1a1a1a;
-        color: #ddd;
+        background:
+          radial-gradient(circle at 15% 20%, rgba(43, 81, 147, 0.35), transparent 42%),
+          radial-gradient(circle at 85% 15%, rgba(109, 61, 167, 0.3), transparent 38%),
+          linear-gradient(180deg, #070b13 0%, #0a1020 100%);
+        color: #dbe6ff;
+      }
+      .app {
+        padding: 1.5rem 2rem;
+        border: 1px solid rgba(172, 198, 255, 0.2);
+        border-radius: 16px;
+        background: rgba(5, 9, 18, 0.45);
+        backdrop-filter: blur(2px);
+        box-shadow: 0 18px 42px rgba(0, 0, 0, 0.45);
       }
       #game {
         display: block;
-        outline: 2px solid #444;
+        outline: 1px solid rgba(150, 185, 255, 0.45);
         background: #000;
+        border-radius: 12px;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
       }
       .hint {
-        margin-top: 0.75rem;
-        font-size: 0.9rem;
-        max-width: 40rem;
+        margin: 0.95rem 0 0;
+        font-size: 0.88rem;
+        max-width: 52rem;
+        color: #9fb1d3;
       }
     </style>
-    <canvas id="game" width="320" height="640" tabindex="0"></canvas>
-    <p class="hint">
-      Click canvas for focus. Arrows: move / soft drop. Up / X: rotate CW. Z: rotate CCW. Space: hard drop. C: hold.
-      P: pause. R: restart.
-    </p>
+    <div class="app">
+      <canvas id="game" width="320" height="640" tabindex="0"></canvas>
+      <p class="hint">
+        Click canvas for focus. Arrows: move / soft drop. Up / X: rotate CW. Z: rotate CCW. Space: hard drop.
+        C: hold. P: pause. R: restart.
+      </p>
+    </div>
     <script type="module" src="/main.ts"></script>
   </body>
 </html>

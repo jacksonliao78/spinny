@@ -3,9 +3,10 @@ import { PIECE_ROTATIONS } from "@game/piece";
 import { Piece } from "@game/piece";
 import type { PieceType } from "@game/piece";
 
-const CELL = 28;
-const PANEL_WIDTH = 150;
-const PADDING = 12;
+const CELL = 24;
+const PANEL_WIDTH = 178;
+const PADDING = 20;
+const PANEL_INNER_GAP = 10;
 const SPIN_DURATION_MS = 180;
 
 const COLORS: Record<PieceType, string> = {
@@ -93,14 +94,22 @@ function drawPanel(
   height: number,
   title: string,
 ): void {
-  ctx.fillStyle = "#171b24";
+  const gradient = ctx.createLinearGradient(x, y, x, y + height);
+  gradient.addColorStop(0, "#1a2232");
+  gradient.addColorStop(1, "#101725");
+  ctx.fillStyle = gradient;
   ctx.fillRect(x, y, width, height);
-  ctx.strokeStyle = "#31394a";
+  ctx.strokeStyle = "#2e3f5b";
   ctx.strokeRect(x, y, width, height);
-  ctx.fillStyle = "#aeb9d4";
+  ctx.fillStyle = "#d6e4ff";
   ctx.font = "bold 14px system-ui, sans-serif";
   ctx.textAlign = "left";
-  ctx.fillText(title, x + 10, y + 20);
+  ctx.fillText(title, x + PANEL_INNER_GAP, y + 22);
+  ctx.strokeStyle = "rgba(214, 228, 255, 0.2)";
+  ctx.beginPath();
+  ctx.moveTo(x + PANEL_INNER_GAP, y + 30);
+  ctx.lineTo(x + width - PANEL_INNER_GAP, y + 30);
+  ctx.stroke();
 }
 
 function easeOutCubic(t: number): number {
@@ -159,7 +168,10 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     const viewW = snap.width * CELL;
     const viewH = snap.height * CELL;
 
-    ctx.fillStyle = "#0d1117";
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+    bgGradient.addColorStop(0, "#0a101a");
+    bgGradient.addColorStop(1, "#0f1726");
+    ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     const drawCell = (x: number, y: number, type: PieceType, alpha = 1, ghost = false) => {
@@ -197,24 +209,24 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     ctx.translate(-playWidth / 2, -playHeight / 2);
 
     // Full board area includes spawn buffer.
-    ctx.fillStyle = "#0f1622";
+    ctx.fillStyle = "#111a2a";
     ctx.fillRect(0, 0, playWidth, playHeight);
     // Main playfield gets the stronger frame.
-    ctx.fillStyle = "#111827";
+    ctx.fillStyle = "#0f1728";
     ctx.fillRect(viewX, viewY, viewW, viewH);
-    ctx.strokeStyle = "#273247";
+    ctx.strokeStyle = "#3b4e6e";
     ctx.strokeRect(viewX, viewY, viewW, viewH);
 
     // Draw grid only in the main visible playfield.
     for (let y = 0; y <= snap.height; y++) {
-      ctx.strokeStyle = "#1a2230";
+      ctx.strokeStyle = "#1c2738";
       ctx.beginPath();
       ctx.moveTo(viewX, viewY + y * CELL);
       ctx.lineTo(viewX + viewW, viewY + y * CELL);
       ctx.stroke();
     }
     for (let x = 0; x <= snap.width; x++) {
-      ctx.strokeStyle = "#1a2230";
+      ctx.strokeStyle = "#1c2738";
       ctx.beginPath();
       ctx.moveTo(viewX + x * CELL, viewY);
       ctx.lineTo(viewX + x * CELL, viewY + viewH);
@@ -268,31 +280,40 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     ctx.restore();
 
     // Side panels and status text.
-    drawPanel(ctx, PADDING, PADDING, PANEL_WIDTH - PADDING, 160, "Hold");
+    const panelWidth = PANEL_WIDTH - PADDING;
+    drawPanel(ctx, PADDING, PADDING, panelWidth, 170, "Hold");
     if (snap.hold) {
-      drawMiniPiece(ctx, snap.hold, PADDING + 14, PADDING + 40, 20);
+      drawMiniPiece(ctx, snap.hold, PADDING + 16, PADDING + 48, 18);
     }
-    drawPanel(ctx, PADDING, PADDING + 172, PANEL_WIDTH - PADDING, 150, "Stats");
-    ctx.fillStyle = "#d6deeb";
+    drawPanel(ctx, PADDING, PADDING + 184, panelWidth, 220, "Stats");
+    ctx.fillStyle = "#dbe7ff";
     ctx.font = "13px system-ui, sans-serif";
-    ctx.fillText(`Rotation: ${snap.boardRotation}`, PADDING + 10, PADDING + 205);
-    ctx.fillText(`Gravity: ${game.board.gravityDelta().join(", ")}`, PADDING + 10, PADDING + 230);
-    ctx.fillText(`View: ${snap.width}x${snap.height}`, PADDING + 10, PADDING + 255);
-    ctx.fillText(`Full: ${fullWidth}x${fullHeight}`, PADDING + 10, PADDING + 280);
-    ctx.fillText(`Offset: ${snap.viewOffsetX},${snap.viewOffsetY}`, PADDING + 10, PADDING + 305);
+    ctx.fillText(`Rotation: ${snap.boardRotation}`, PADDING + PANEL_INNER_GAP, PADDING + 218);
+    ctx.fillText(
+      `Gravity: ${game.board.gravityDelta().join(", ")}`,
+      PADDING + PANEL_INNER_GAP,
+      PADDING + 244,
+    );
+    ctx.fillText(`View: ${snap.width}x${snap.height}`, PADDING + PANEL_INNER_GAP, PADDING + 270);
+    ctx.fillText(`Full: ${fullWidth}x${fullHeight}`, PADDING + PANEL_INNER_GAP, PADDING + 296);
+    ctx.fillText(
+      `Offset: ${snap.viewOffsetX},${snap.viewOffsetY}`,
+      PADDING + PANEL_INNER_GAP,
+      PADDING + 322,
+    );
     ctx.fillText(
       `State: ${snap.gameOver ? "Game Over" : paused ? "Paused" : "Running"}`,
-      PADDING + 10,
-      PADDING + 330,
+      PADDING + PANEL_INNER_GAP,
+      PADDING + 348,
     );
-    ctx.fillStyle = "#93a1bb";
-    ctx.fillText("P: Pause", PADDING + 10, PADDING + 360);
-    ctx.fillText("R: Restart", PADDING + 10, PADDING + 380);
+    ctx.fillStyle = "#9aaed1";
+    ctx.fillText("P: Pause", PADDING + PANEL_INNER_GAP, PADDING + 376);
+    ctx.fillText("R: Restart", PADDING + PANEL_INNER_GAP, PADDING + 396);
 
     const rightX = boardX + playWidth + PADDING;
-    drawPanel(ctx, rightX, PADDING, PANEL_WIDTH - PADDING, playHeight, "Next");
+    drawPanel(ctx, rightX, PADDING, panelWidth, playHeight, "Next");
     snap.next.slice(0, 5).forEach((type, idx) => {
-      drawMiniPiece(ctx, type, rightX + 14, PADDING + 34 + idx * 92, 14);
+      drawMiniPiece(ctx, type, rightX + 16, PADDING + 42 + idx * 88, 15);
     });
 
     if (paused && !snap.gameOver) {
