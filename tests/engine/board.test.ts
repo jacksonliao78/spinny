@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Board } from "../../engine/board";
+import { RingBoard } from "../../engine/board/ring";
 
 test("Board gravity and lateral deltas follow rotation", () => {
-  const board = new Board(10, 20);
+  const board = new RingBoard(10, 20);
   const expected = [
     { gravity: [0, 1], left: [-1, 0], right: [1, 0] },
     { gravity: [1, 0], left: [0, 1], right: [0, -1] },
@@ -22,7 +22,7 @@ test("Board gravity and lateral deltas follow rotation", () => {
 });
 
 test("Board clearLines clears a full ring and keeps center obstacle intact", () => {
-  const board = new Board(7, 7);
+  const board = new RingBoard(7, 7);
   for (let y = 0; y < board.height; y++) {
     for (let x = 0; x < board.width; x++) {
       const inCenter = x >= 2 && x <= 4 && y >= 2 && y <= 4;
@@ -40,7 +40,7 @@ test("Board clearLines clears a full ring and keeps center obstacle intact", () 
 });
 
 test("Board clearLines shrink deletes outer-ring corners", () => {
-  const board = new Board(7, 7);
+  const board = new RingBoard(7, 7);
   for (let y = 0; y < board.height; y++) {
     for (let x = 0; x < board.width; x++) {
       const inCenter = x >= 2 && x <= 4 && y >= 2 && y <= 4;

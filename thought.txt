@@ -1,7 +1,5 @@
 TODOs:
 
-abstract certain parts of board to allow for:
-
-1. different gamemodes
-2. different board types
-3. other board specific features (like gravity, line clearing)
+fix ring board line clears
+add regular board type
+frontend and cooler piece skins

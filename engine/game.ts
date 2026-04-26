@@ -1,4 +1,5 @@
-import { Board } from "./board";
+import type { BoardFactory, BoardModel } from "./board/types";
+import { createBoard } from "./board/factory";
 import { Hold } from "./hold";
 import type { PieceType } from "./piece";
 import { Piece } from "./piece";
@@ -24,7 +25,7 @@ const MAX_LOCK_RESETS = 15;
 const SPAWN_PAD = 2;
 
 class Game {
-  readonly board: Board;
+  readonly board: BoardModel;
   private readonly queue: Queue;
   private readonly holdSlot: Hold;
   readonly playWidth: number;
@@ -47,11 +48,12 @@ class Game {
     width = 10,
     height = 20,
     gravityIntervalMs = 800,
+    boardFactory: BoardFactory = (boardWidth, boardHeight) => createBoard("ring", boardWidth, boardHeight),
   ) {
     this.playWidth = width;
     this.playHeight = height;
     this.spawnPad = SPAWN_PAD;
-    this.board = new Board(width + SPAWN_PAD * 2, height + SPAWN_PAD * 2);
+    this.board = boardFactory(width + SPAWN_PAD * 2, height + SPAWN_PAD * 2);
     this.queue = new Queue();
     this.holdSlot = new Hold();
     this.gravityIntervalMs = gravityIntervalMs;

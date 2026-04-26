@@ -11,9 +11,10 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+    "types": ["node"],
     "paths": {
       "@game/*": ["./engine/*"]
     }
   },
-  "include": ["main.ts", "engine/**/*.ts", "vite.config.ts"]
+  "include": ["main.ts", "engine/**/*.ts", "vite.config.ts", "tests/**/*.ts"]
 }

@@ -1,6 +1,7 @@
-import { PieceType, Piece } from "./piece";
+import { PieceType, Piece } from "../piece";
+import type { BoardModel } from "./types";
 
-class Board {
+class RingBoard implements BoardModel {
   width: number;
   height: number;
   board: (PieceType | null | 1)[][];
@@ -277,4 +278,4 @@ class Board {
   }
 }
 
-export { Board };
+export { RingBoard };
