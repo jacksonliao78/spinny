@@ -1,10 +1,19 @@
-import type { BoardFactory, BoardModel } from "./board/types";
-import { createBoard } from "./board/factory";
-import { Hold } from "./hold";
-import type { PieceType } from "./piece";
-import { Piece } from "./piece";
-import { Queue } from "./queue";
-import { tryKicks } from "./srs";
+import type { BoardFactory, BoardModel } from "../board/types";
+import { createBoard } from "../board/factory";
+import { DEFAULT_GAME_CONFIG, DEFAULT_GAME_RULES, getGravityIntervalMs, getLineClearBasePoints } from "./rules";
+import { Hold } from "../hold";
+import type { PieceType } from "../piece";
+import { Piece } from "../piece";
+import { Queue } from "../queue";
+import { tryKicks } from "../srs";
+import type { GameConfig, GameMode } from "./rules";
+import { pieceLow, syncLowProgress } from "./progression";
+import {
+  applyDownwardAdvanceLockDelayTransition,
+  applyGroundedActionLockDelayTransition,
+  lockDelayShouldLock,
+} from "./lock_delay";
+import { getSpawnCoords, getVisibleBounds, respectsViewBounds } from "./spawn_bounds";
 
 export type GameSnapshot = {
   width: number;
@@ -17,6 +26,12 @@ export type GameSnapshot = {
   active: Piece | null;
   next: PieceType[];
   hold: PieceType | null;
+  score: number;
+  level: number;
+  linesClearedTotal: number;
+  gameMode: GameMode;
+  remainingMs: number | null;
+  gravityIntervalMs: number;
   gameOver: boolean;
 };
 
@@ -37,7 +52,14 @@ class Game {
   gameOver = false;
 
   private gravityMs = 0;
-  readonly gravityIntervalMs: number;
+  private readonly config: GameConfig;
+  private readonly gameMode: GameMode;
+  private readonly timedDurationMs: number;
+  private baseGravityIntervalMs: number;
+  private score = 0;
+  private level = 1;
+  private linesClearedTotal = 0;
+  private remainingMs: number | null;
 
   private lockTimerMs = 0;
   private lockDelayResetsUsed = 0;
@@ -45,10 +67,11 @@ class Game {
   private hasTouchedGround = false;
 
   constructor(
-    width = 10,
-    height = 20,
-    gravityIntervalMs = 800,
+    width = DEFAULT_GAME_RULES.width,
+    height = DEFAULT_GAME_RULES.height,
+    gravityIntervalMs = DEFAULT_GAME_RULES.gravityIntervalMs,
     boardFactory: BoardFactory = (boardWidth, boardHeight) => createBoard("ring", boardWidth, boardHeight),
+    config: Partial<GameConfig> = {},
   ) {
     this.playWidth = width;
     this.playHeight = height;
@@ -56,7 +79,22 @@ class Game {
     this.board = boardFactory(width + SPAWN_PAD * 2, height + SPAWN_PAD * 2);
     this.queue = new Queue();
     this.holdSlot = new Hold();
-    this.gravityIntervalMs = gravityIntervalMs;
+    this.config = {
+      ...DEFAULT_GAME_CONFIG,
+      ...config,
+      timed: {
+        ...DEFAULT_GAME_CONFIG.timed,
+        ...config.timed,
+      },
+      lineClearPoints: {
+        ...DEFAULT_GAME_CONFIG.lineClearPoints,
+        ...config.lineClearPoints,
+      },
+    };
+    this.gameMode = this.config.mode;
+    this.timedDurationMs = this.config.timed.durationMs;
+    this.baseGravityIntervalMs = gravityIntervalMs;
+    this.remainingMs = this.gameMode === "timed" ? this.timedDurationMs : null;
     this.spawn();
   }
 
@@ -71,16 +109,29 @@ class Game {
       active: this.activePiece,
       next: this.queue.peekNext(5),
       hold: this.holdSlot.getHoldType(),
+      score: this.score,
+      level: this.level,
+      linesClearedTotal: this.linesClearedTotal,
+      gameMode: this.gameMode,
+      remainingMs: this.remainingMs,
+      gravityIntervalMs: this.currentGravityIntervalMs(),
       gameOver: this.gameOver,
     };
   }
 
   /** Advance simulation time; applies gravity when interval elapses. */
   tick(dtMs: number): void {
+    if (this.gameMode === "timed" && this.remainingMs !== null) {
+      this.remainingMs = Math.max(0, this.remainingMs - dtMs);
+      if (this.remainingMs === 0) {
+        this.gameOver = true;
+        this.activePiece = null;
+      }
+    }
     if (this.gameOver || !this.activePiece) return;
     this.gravityMs += dtMs;
-    while (this.gravityMs >= this.gravityIntervalMs) {
-      this.gravityMs -= this.gravityIntervalMs;
+    while (this.gravityMs >= this.currentGravityIntervalMs()) {
+      this.gravityMs -= this.currentGravityIntervalMs();
       if (!this.stepGravity()) break;
     }
 
@@ -90,9 +141,15 @@ class Game {
       this.hasTouchedGround = true;
       this.lockTimerMs += dtMs;
 
-      const lockDelayExpired = this.lockTimerMs >= LOCK_DELAY_MS;
-      const lockResetsExhausted = this.lockDelayResetsUsed >= MAX_LOCK_RESETS;
-      const shouldLock = lockDelayExpired || lockResetsExhausted;
+      const shouldLock = lockDelayShouldLock(
+        {
+          lockTimerMs: this.lockTimerMs,
+          lockDelayResetsUsed: this.lockDelayResetsUsed,
+          hasTouchedGround: this.hasTouchedGround,
+        },
+        LOCK_DELAY_MS,
+        MAX_LOCK_RESETS,
+      );
       if (shouldLock) {
         if (this.board.isBottomBordered(this.activePiece)) {
           this.gameOver = true;
@@ -129,6 +186,7 @@ class Game {
     const [gx, gy] = this.board.gravityDelta();
     if (this.canMovePiece(this.activePiece, gx, gy)) {
       this.activePiece.move(gx, gy);
+      this.score += this.config.softDropPointPerCell;
       this.onDownwardAdvance();
     }
   }
@@ -136,9 +194,12 @@ class Game {
   hardDrop(): void {
     if (!this.activePiece || this.gameOver) return;
     const [gx, gy] = this.board.gravityDelta();
+    let movedCells = 0;
     while (this.canMovePiece(this.activePiece, gx, gy)) {
       this.activePiece.move(gx, gy);
+      movedCells += 1;
     }
+    this.score += movedCells * this.config.hardDropPointPerCell;
 
     const shouldGameOverFromBorder = this.board.isBottomBordered(this.activePiece);
     if (shouldGameOverFromBorder) {
@@ -219,24 +280,24 @@ class Game {
       this.onGroundedAction();
     }
     else {
-      const newRotation = ((this.activePiece.rotation + rotations % 4) + 4 ) % 4
+      const newRotation = ((this.activePiece.rotation + rotations % 4) + 4 ) % 4;
       const placement = tryKicks( {
         pieceType: this.activePiece.type,
         fromRot: this.activePiece.rotation,
         toRot: newRotation,
-        spin: rotations === 1 ? 'cw' : 'ccw',
+        spin: rotations === 1 ? "cw" : "ccw",
         baseX: this.activePiece.x,
         baseY: this.activePiece.y,
         canPlace: (rot, x, y) => {
           return this.canPlacePiece(this.activePiece!, rot, x, y);
         }
-      })
+      });
 
       if(placement) {
-        this.activePiece.x = placement!.x
-        this.activePiece.y = placement!.y
+        this.activePiece.x = placement.x;
+        this.activePiece.y = placement.y;
 
-        this.activePiece.rotate(rotations)
+        this.activePiece.rotate(rotations);
         //usedKick isn't necessary at this time
         this.onGroundedAction();
       }
@@ -251,10 +312,6 @@ class Game {
     return !this.canMovePiece(this.activePiece, gx, gy);
   }
 
-  private resetLockResets(): void {
-    this.lockDelayResetsUsed = 0;
-  }
-
   private clearLockDelayState(): void {
     this.lockTimerMs = 0;
     this.lockDelayResetsUsed = 0;
@@ -263,35 +320,43 @@ class Game {
 
   private onDownwardAdvance(): void {
     const reachedNewLow = this.syncLowProgress();
-    if (reachedNewLow) {
-      this.resetLockResets();
-      this.lockTimerMs = 0;
-      this.hasTouchedGround = false;
-    }
-    if (this.isOnGround()) this.hasTouchedGround = true;
+    const next = applyDownwardAdvanceLockDelayTransition(
+      {
+        lockTimerMs: this.lockTimerMs,
+        lockDelayResetsUsed: this.lockDelayResetsUsed,
+        hasTouchedGround: this.hasTouchedGround,
+      },
+      reachedNewLow,
+      this.isOnGround(),
+    );
+    this.lockTimerMs = next.lockTimerMs;
+    this.lockDelayResetsUsed = next.lockDelayResetsUsed;
+    this.hasTouchedGround = next.hasTouchedGround;
   }
 
   private onGroundedAction(): void {
     const reachedNewLow = this.syncLowProgress();
-    if (reachedNewLow) {
-      this.resetLockResets();
-      this.lockTimerMs = 0;
-      this.hasTouchedGround = false;
-    }
-
-    if (this.isOnGround()) this.hasTouchedGround = true;
-
-    if (this.hasTouchedGround && !reachedNewLow && this.lockDelayResetsUsed < MAX_LOCK_RESETS) {
-      this.lockTimerMs = 0;
-      this.lockDelayResetsUsed += 1;
-    }
+    const next = applyGroundedActionLockDelayTransition(
+      {
+        lockTimerMs: this.lockTimerMs,
+        lockDelayResetsUsed: this.lockDelayResetsUsed,
+        hasTouchedGround: this.hasTouchedGround,
+      },
+      reachedNewLow,
+      this.isOnGround(),
+      MAX_LOCK_RESETS,
+    );
+    this.lockTimerMs = next.lockTimerMs;
+    this.lockDelayResetsUsed = next.lockDelayResetsUsed;
+    this.hasTouchedGround = next.hasTouchedGround;
   }
 
   /** Locks current piece, rotates board, and spawns the next piece. */
   private lockAndSpawn(): void {
     if (!this.activePiece) return;
     this.board.lockPiece(this.activePiece);
-    this.board.clearLines();
+    const linesCleared = this.board.clearLines();
+    this.applyLineClearProgress(linesCleared);
     this.board.rotate();
     this.clearLockDelayState();
     this.holdLocked = false;
@@ -299,11 +364,28 @@ class Game {
     this.spawn();
   }
 
+  private applyLineClearProgress(linesCleared: number): void {
+    if (linesCleared <= 0) return;
+    const base = getLineClearBasePoints(linesCleared, this.config);
+    this.score += base * this.level;
+    this.linesClearedTotal += linesCleared;
+    const nextLevel = Math.floor(this.linesClearedTotal / this.config.linesPerLevel) + 1;
+    this.level = Math.max(1, nextLevel);
+  }
+
+  private currentGravityIntervalMs(): number {
+    const derived = getGravityIntervalMs(this.level, {
+      ...this.config,
+      baseGravityIntervalMs: this.baseGravityIntervalMs,
+    });
+    return derived;
+  }
+
   /** Spawns next queue piece at current entry side. */
   private spawn(): void {
     if (this.gameOver) return;
     this.clearLockDelayState();
-    const s = this.getSpawnCoords();
+    const s = getSpawnCoords(this.playWidth, this.playHeight, this.spawnPad, this.board.rotation);
     const piece = this.queue.consumeNext(s.x, s.y);
     if (!this.canMovePiece(piece, 0, 0)) {
       this.gameOver = true;
@@ -316,64 +398,24 @@ class Game {
 
   /** Where the next piece appears, relative to current `board.rotation` (entry side vs gravity). */
   private getSpawnCoords(): { x: number; y: number } {
-    const w = this.playWidth;
-    const h = this.playHeight;
-    const pad = this.spawnPad;
-    const r = ((this.board.rotation % 4) + 4) % 4;
-    switch (r) {
-      case 0:
-        return { x: pad + Math.floor(w / 2) - 2, y: pad - 2 };
-      case 1:
-        return { x: pad - 2, y: pad + Math.floor(h / 2) - 2 };
-      case 2:
-        return { x: pad + Math.floor(w / 2) - 2, y: pad + h - 2 };
-      case 3:
-        return { x: pad + w - 2, y: pad + Math.floor(h / 2) - 2 };
-      default:
-        return { x: pad + Math.floor(w / 2) - 2, y: pad - 2 };
-    }
+    return getSpawnCoords(this.playWidth, this.playHeight, this.spawnPad, this.board.rotation);
   }
 
   /** Visible playfield bounds inside the padded internal board. */
   private getVisibleBounds() {
-    const minX = this.spawnPad;
-    const maxX = this.spawnPad + this.playWidth - 1;
-    const minY = this.spawnPad;
-    const maxY = this.spawnPad + this.playHeight - 1;
-    return { minX, maxX, minY, maxY };
+    return getVisibleBounds(this.playWidth, this.playHeight, this.spawnPad);
   }
 
   /** Enforces spawn-buffer visibility rules by current gravity orientation. */
   private respectsViewBounds(piece: Piece, rotation: number, x: number, y: number): boolean {
-    const shape = piece.get_shape(rotation);
-    const { minX, maxX, minY, maxY } = this.getVisibleBounds();
-    const r = ((this.board.rotation % 4) + 4) % 4;
-
-    for (const [rowIdx, row] of shape.entries()) {
-      for (const [colIdx, cell] of row.entries()) {
-        if (cell === 0) continue;
-        const px = x + colIdx;
-        const py = y + rowIdx;
-        switch (r) {
-          case 0:
-            if (px < minX || px > maxX || py > maxY) return false;
-            break;
-          case 1:
-            if (py < minY || py > maxY || px > maxX) return false;
-            break;
-          case 2:
-            if (px < minX || px > maxX || py < minY) return false;
-            break;
-          case 3:
-            if (py < minY || py > maxY || px < minX) return false;
-            break;
-          default:
-            if (px < minX || px > maxX || py < minY || py > maxY) return false;
-            break;
-        }
-      }
-    }
-    return true;
+    return respectsViewBounds(
+      piece,
+      rotation,
+      x,
+      y,
+      this.getVisibleBounds(),
+      this.board.rotation,
+    );
   }
 
   /** Absolute placement check: collision + view-bounds constraint. */
@@ -392,33 +434,15 @@ class Game {
 
   /** Gravity-relative low-point of the current piece */
   private pieceLow(piece: Piece): number {
-    const shape = piece.get_shape(piece.rotation);
-    const [gx, gy] = this.board.gravityDelta();
-    let low = Number.NEGATIVE_INFINITY;
-    for (const [rowIdx, row] of shape.entries()) {
-      for (const [colIdx, cell] of row.entries()) {
-        if (cell === 0) continue;
-        const x = piece.x + colIdx;
-        const y = piece.y + rowIdx;
-        low = Math.max(low, x * gx + y * gy);
-      }
-    }
-    return low;
+    return pieceLow(piece, this.board.gravityDelta());
   }
 
   /** Updates lowest-progress tracker; true when a strict new low is reached. */
   private syncLowProgress(): boolean {
     if (!this.activePiece) return false;
-    const low = this.pieceLow(this.activePiece);
-    if (this.lowestProgress === Number.NEGATIVE_INFINITY) {
-      this.lowestProgress = low;
-      return false;
-    }
-    if (low > this.lowestProgress) {
-      this.lowestProgress = low;
-      return true;
-    }
-    return false;
+    const next = syncLowProgress(this.lowestProgress, this.pieceLow(this.activePiece));
+    this.lowestProgress = next.low;
+    return next.reachedNewLow;
   }
 }
 

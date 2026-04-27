@@ -221,6 +221,10 @@ class Piece {
         return PIECE_ROTATIONS[this.type][rotation]
     }
 
+    getShape( rotation: number ) {
+        return this.get_shape(rotation)
+    }
+
     move( dx: number, dy: number ) {
         this.x += dx;
         this.y += dy;

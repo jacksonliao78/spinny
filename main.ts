@@ -1,8 +1,15 @@
 import { Game } from "@game/game";
+import { DEFAULT_GAME_RULES } from "@game/game/rules";
 import { createRenderer } from "./render/renderer";
 
-const BOARD_SIZE = 20;
-const GRAVITY_MS = 700;
+const TIMED_DURATION_MS = 180_000;
+
+const GAME_CONFIG = {
+  mode: "timed" as const,
+  timed: {
+    durationMs: TIMED_DURATION_MS,
+  },
+};
 
 function main(): void {
   const canvas = document.getElementById("game") as HTMLCanvasElement | null;
@@ -10,11 +17,28 @@ function main(): void {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
-  let game = new Game(BOARD_SIZE, BOARD_SIZE, GRAVITY_MS);
+  let game = new Game(
+    DEFAULT_GAME_RULES.width,
+    DEFAULT_GAME_RULES.height,
+    DEFAULT_GAME_RULES.gravityIntervalMs,
+    undefined,
+    GAME_CONFIG,
+  );
   let paused = false;
   const renderer = createRenderer(canvas, ctx);
-  renderer.syncGameConfig(game);
-  renderer.reset(game.getSnapshot().boardRotation);
+  const resetGame = (): void => {
+    game = new Game(
+      DEFAULT_GAME_RULES.width,
+      DEFAULT_GAME_RULES.height,
+      DEFAULT_GAME_RULES.gravityIntervalMs,
+      undefined,
+      GAME_CONFIG,
+    );
+    paused = false;
+    renderer.syncGameConfig(game);
+    renderer.reset(game.getSnapshot().boardRotation);
+  };
+  resetGame();
   window.addEventListener("resize", () => renderer.syncGameConfig(game));
 
   let last = performance.now();
@@ -33,54 +57,60 @@ function main(): void {
   requestAnimationFrame(loop);
   canvas.addEventListener("click", () => canvas.focus());
 
-  canvas.addEventListener("keydown", (e) => {
-    if (e.repeat) return;
+  const handleGlobalKeys = (e: KeyboardEvent): boolean => {
     if (e.code === "KeyP") {
       paused = !paused;
       e.preventDefault();
-      return;
+      return true;
     }
     if (e.code === "KeyR") {
-      game = new Game(BOARD_SIZE, BOARD_SIZE, GRAVITY_MS);
-      paused = false;
-      renderer.syncGameConfig(game);
-      renderer.reset(game.getSnapshot().boardRotation);
+      resetGame();
       e.preventDefault();
-      return;
+      return true;
     }
+    return false;
+  };
+
+  const handleGameplayKeys = (e: KeyboardEvent): boolean => {
+    switch (e.code) {
+      case "ArrowLeft":
+        game.moveLeft();
+        return true;
+      case "ArrowRight":
+        game.moveRight();
+        return true;
+      case "ArrowDown":
+        game.softDrop();
+        return true;
+      case "ArrowUp":
+        game.rotateCw();
+        return true;
+      case "KeyZ":
+        game.rotateCcw();
+        return true;
+      case "KeyX":
+        game.rotateCw();
+        return true;
+      case "Space":
+        game.hardDrop();
+        return true;
+      case "KeyC":
+        game.hold();
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  canvas.addEventListener("keydown", (e) => {
+    if (e.repeat) return;
+    if (handleGlobalKeys(e)) return;
     if (paused || game.getSnapshot().gameOver || renderer.isSpinAnimating()) {
       e.preventDefault();
       return;
     }
-    switch (e.code) {
-      case "ArrowLeft":
-        game.moveLeft();
-        break;
-      case "ArrowRight":
-        game.moveRight();
-        break;
-      case "ArrowDown":
-        game.softDrop();
-        break;
-      case "ArrowUp":
-        game.rotateCw();
-        break;
-      case "KeyZ":
-        game.rotateCcw();
-        break;
-      case "KeyX":
-        game.rotateCw();
-        break;
-      case "Space":
-        e.preventDefault();
-        game.hardDrop();
-        break;
-      case "KeyC":
-        game.hold();
-        break;
-      default:
-        return;
-    }
+    const handled = handleGameplayKeys(e);
+    if (!handled) return;
     e.preventDefault();
   });
 }

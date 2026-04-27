@@ -70,51 +70,15 @@ class RingBoard implements BoardModel {
   }
 
   /**
-   * Returns whether you can place a piece at a given rotation, with offsets dx and dy.
+   * Returns whether you can place a piece at a given rotation, with offsets offsetX and offsetY.
    */
-  canPlace(piece: Piece, rotation: number, dx: number, dy: number): boolean {
+  canPlace(piece: Piece, rotation: number, offsetX: number, offsetY: number): boolean {
     const curPiece = piece.get_shape(rotation);
     for (const [rowIdx, row] of curPiece.entries()) {
       for (const [colIdx, cell] of row.entries()) {
         if (cell === 0) continue;
-        const x = piece.x + colIdx + dx;
-        const y = piece.y + rowIdx + dy;
-        if (x < 0 || x >= this.width || y < 0 || y >= this.height) return false;
-        if (this.board[y][x] !== null) return false;
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Returns whether you can move a piece by dx and dy.
-   */
-  canMove(piece: Piece, dx: number, dy: number): boolean {
-    const curPiece = piece.get_shape(piece.rotation);
-    for (const [rowIdx, row] of curPiece.entries()) {
-      for (const [colIdx, cell] of row.entries()) {
-        if (cell === 0) continue;
-        const x = piece.x + colIdx + dx;
-        const y = piece.y + rowIdx + dy;
-        if (x < 0 || x >= this.width || y < 0 || y >= this.height) return false;
-        if (this.board[y][x] !== null) return false;
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Returns whether you can rotate a piece by some amount
-   */
-  canRotate(piece: Piece, rotations: number): boolean {
-    const newRotation = (((piece.rotation + rotations) % 4) + 4) % 4;
-    const curPiece = piece.get_shape(newRotation);
-
-    for (const [rowIdx, row] of curPiece.entries()) {
-      for (const [colIdx, cell] of row.entries()) {
-        if (cell === 0) continue;
-        const x = piece.x + colIdx;
-        const y = piece.y + rowIdx;
+        const x = piece.x + colIdx + offsetX;
+        const y = piece.y + rowIdx + offsetY;
         if (x < 0 || x >= this.width || y < 0 || y >= this.height) return false;
         if (this.board[y][x] !== null) return false;
       }

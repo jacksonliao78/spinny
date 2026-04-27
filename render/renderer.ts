@@ -8,6 +8,27 @@ const PANEL_WIDTH = 178;
 const PADDING = 20;
 const PANEL_INNER_GAP = 10;
 const SPIN_DURATION_MS = 180;
+const HOLD_PANEL_HEIGHT = 170;
+const STATS_PANEL_Y = PADDING + 184;
+const STATS_PANEL_HEIGHT = 220;
+const NEXT_ITEM_SPACING = 88;
+
+type LayoutMetrics = {
+  boardX: number;
+  boardY: number;
+  fullWidth: number;
+  fullHeight: number;
+  playWidth: number;
+  playHeight: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  viewX: number;
+  viewY: number;
+  viewW: number;
+  viewH: number;
+  panelWidth: number;
+  rightPanelX: number;
+};
 
 type PieceStyle = {
   fill: string;
@@ -206,25 +227,60 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
 
   const draw = (game: Game, paused: boolean): void => {
     const snap = game.getSnapshot();
-    const boardX = PADDING + PANEL_WIDTH;
-    const boardY = PADDING;
+    const layout = buildLayoutMetrics(game, snap);
+    drawBackground(layout);
+    drawPlayfield(game, snap, layout);
+    drawSidePanels(game, snap, paused, layout);
+    drawOverlay(snap, paused, layout);
+  };
+
+  const formatTimer = (ms: number | null): string => {
+    if (ms === null) return "--:--";
+    const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  };
+
+  const buildLayoutMetrics = (game: Game, snap: ReturnType<Game["getSnapshot"]>): LayoutMetrics => {
     const fullWidth = game.board.width;
     const fullHeight = game.board.height;
     const playWidth = fullWidth * CELL;
     const playHeight = fullHeight * CELL;
-    const canvasWidth = playWidth + PANEL_WIDTH * 2 + PADDING * 2;
-    const canvasHeight = playHeight + PADDING * 2;
-    const viewX = snap.viewOffsetX * CELL;
-    const viewY = snap.viewOffsetY * CELL;
-    const viewW = snap.width * CELL;
-    const viewH = snap.height * CELL;
+    const boardX = PADDING + PANEL_WIDTH;
+    const boardY = PADDING;
+    const panelWidth = PANEL_WIDTH - PADDING;
+    return {
+      boardX,
+      boardY,
+      fullWidth,
+      fullHeight,
+      playWidth,
+      playHeight,
+      canvasWidth: playWidth + PANEL_WIDTH * 2 + PADDING * 2,
+      canvasHeight: playHeight + PADDING * 2,
+      viewX: snap.viewOffsetX * CELL,
+      viewY: snap.viewOffsetY * CELL,
+      viewW: snap.width * CELL,
+      viewH: snap.height * CELL,
+      panelWidth,
+      rightPanelX: boardX + playWidth + PADDING,
+    };
+  };
 
-    const bgGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+  const drawBackground = (layout: LayoutMetrics): void => {
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, layout.canvasHeight);
     bgGradient.addColorStop(0, "#0a101a");
     bgGradient.addColorStop(1, "#0f1726");
     ctx.fillStyle = bgGradient;
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    ctx.fillRect(0, 0, layout.canvasWidth, layout.canvasHeight);
+  };
 
+  const drawPlayfield = (
+    game: Game,
+    snap: ReturnType<Game["getSnapshot"]>,
+    layout: LayoutMetrics,
+  ): void => {
     const drawCell = (x: number, y: number, type: PieceType, alpha = 1, ghost = false) => {
       drawStyledCell(ctx, x, y, PIECE_STYLES[type], alpha);
       if (ghost) {
@@ -232,7 +288,6 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
         ctx.fillRect(x * CELL + 2, y * CELL + 2, CELL - 4, CELL - 4);
       }
     };
-
     const drawLockedCell = (x: number, y: number, cell: PieceType | null | 1, alpha = 1) => {
       if (cell === null) return;
       ctx.globalAlpha = alpha;
@@ -249,44 +304,39 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
 
     // Rotate only the playfield; HUD panels stay fixed.
     ctx.save();
-    ctx.translate(boardX + playWidth / 2, boardY + playHeight / 2);
+    ctx.translate(layout.boardX + layout.playWidth / 2, layout.boardY + layout.playHeight / 2);
     ctx.rotate((displayedTurns % 4) * (Math.PI / 2));
-    ctx.translate(-playWidth / 2, -playHeight / 2);
+    ctx.translate(-layout.playWidth / 2, -layout.playHeight / 2);
 
-    // Full board area includes spawn buffer.
     ctx.fillStyle = "#111a2a";
-    ctx.fillRect(0, 0, playWidth, playHeight);
-    // Main playfield gets the stronger frame.
+    ctx.fillRect(0, 0, layout.playWidth, layout.playHeight);
     ctx.fillStyle = "#0f1728";
-    ctx.fillRect(viewX, viewY, viewW, viewH);
+    ctx.fillRect(layout.viewX, layout.viewY, layout.viewW, layout.viewH);
     ctx.strokeStyle = "#3b4e6e";
-    ctx.strokeRect(viewX, viewY, viewW, viewH);
+    ctx.strokeRect(layout.viewX, layout.viewY, layout.viewW, layout.viewH);
 
-    // Draw grid only in the main visible playfield.
     for (let y = 0; y <= snap.height; y++) {
       ctx.strokeStyle = "#1c2738";
       ctx.beginPath();
-      ctx.moveTo(viewX, viewY + y * CELL);
-      ctx.lineTo(viewX + viewW, viewY + y * CELL);
+      ctx.moveTo(layout.viewX, layout.viewY + y * CELL);
+      ctx.lineTo(layout.viewX + layout.viewW, layout.viewY + y * CELL);
       ctx.stroke();
     }
     for (let x = 0; x <= snap.width; x++) {
       ctx.strokeStyle = "#1c2738";
       ctx.beginPath();
-      ctx.moveTo(viewX + x * CELL, viewY);
-      ctx.lineTo(viewX + x * CELL, viewY + viewH);
+      ctx.moveTo(layout.viewX + x * CELL, layout.viewY);
+      ctx.lineTo(layout.viewX + x * CELL, layout.viewY + layout.viewH);
       ctx.stroke();
     }
 
-    // Locked stack.
-    for (let y = 0; y < fullHeight; y++) {
-      for (let x = 0; x < fullWidth; x++) {
+    for (let y = 0; y < layout.fullHeight; y++) {
+      for (let x = 0; x < layout.fullWidth; x++) {
         const c = snap.locked[y][x];
         if (c !== null) drawLockedCell(x, y, c);
       }
     }
 
-    // Active piece + ghost preview.
     if (snap.active) {
       const p = snap.active;
       const [gx, gy] = game.board.gravityDelta();
@@ -295,7 +345,7 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
       while (game.canMovePiece(ghost, gx, gy)) {
         ghost.move(gx, gy);
       }
-      const shape = p.get_shape(p.rotation);
+      const shape = p.getShape(p.rotation);
       for (const [rowIdx, row] of shape.entries()) {
         for (const [colIdx, cell] of row.entries()) {
           if (cell === 0) continue;
@@ -303,9 +353,9 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
           const ghostCellY = ghost.y + rowIdx;
           if (
             ghostCellY >= 0 &&
-            ghostCellY < fullHeight &&
+            ghostCellY < layout.fullHeight &&
             ghostCellX >= 0 &&
-            ghostCellX < fullWidth
+            ghostCellX < layout.fullWidth
           ) {
             drawCell(ghostCellX, ghostCellY, p.type, 0.2, true);
           }
@@ -316,72 +366,90 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
           if (cell === 0) continue;
           const x = p.x + colIdx;
           const y = p.y + rowIdx;
-          if (y >= 0 && y < fullHeight && x >= 0 && x < fullWidth) {
+          if (y >= 0 && y < layout.fullHeight && x >= 0 && x < layout.fullWidth) {
             drawCell(x, y, p.type);
           }
         }
       }
     }
     ctx.restore();
+  };
 
-    // Side panels and status text.
-    const panelWidth = PANEL_WIDTH - PADDING;
-    drawPanel(ctx, PADDING, PADDING, panelWidth, 170, "Hold");
+  const drawSidePanels = (
+    game: Game,
+    snap: ReturnType<Game["getSnapshot"]>,
+    paused: boolean,
+    layout: LayoutMetrics,
+  ): void => {
+    drawPanel(ctx, PADDING, PADDING, layout.panelWidth, HOLD_PANEL_HEIGHT, "Hold");
     if (snap.hold) {
       drawMiniPiece(ctx, snap.hold, PADDING + 16, PADDING + 48, 18);
     }
-    drawPanel(ctx, PADDING, PADDING + 184, panelWidth, 220, "Stats");
+
+    drawPanel(ctx, PADDING, STATS_PANEL_Y, layout.panelWidth, STATS_PANEL_HEIGHT, "Stats");
     ctx.fillStyle = "#dbe7ff";
     ctx.font = "13px system-ui, sans-serif";
-    ctx.fillText(`Rotation: ${snap.boardRotation}`, PADDING + PANEL_INNER_GAP, PADDING + 218);
+    ctx.fillText(`Mode: ${snap.gameMode}`, PADDING + PANEL_INNER_GAP, PADDING + 218);
+    ctx.fillText(`Timer: ${formatTimer(snap.remainingMs)}`, PADDING + PANEL_INNER_GAP, PADDING + 244);
+    ctx.fillText(`Score: ${snap.score}`, PADDING + PANEL_INNER_GAP, PADDING + 270);
+    ctx.fillText(`Level: ${snap.level}`, PADDING + PANEL_INNER_GAP, PADDING + 296);
+    ctx.fillText(`Lines: ${snap.linesClearedTotal}`, PADDING + PANEL_INNER_GAP, PADDING + 322);
     ctx.fillText(
-      `Gravity: ${game.board.gravityDelta().join(", ")}`,
+      `Gravity: ${game.board.gravityDelta().join(", ")} (${snap.gravityIntervalMs}ms)`,
       PADDING + PANEL_INNER_GAP,
-      PADDING + 244,
-    );
-    ctx.fillText(`View: ${snap.width}x${snap.height}`, PADDING + PANEL_INNER_GAP, PADDING + 270);
-    ctx.fillText(`Full: ${fullWidth}x${fullHeight}`, PADDING + PANEL_INNER_GAP, PADDING + 296);
-    ctx.fillText(
-      `Offset: ${snap.viewOffsetX},${snap.viewOffsetY}`,
-      PADDING + PANEL_INNER_GAP,
-      PADDING + 322,
+      PADDING + 348,
     );
     ctx.fillText(
       `State: ${snap.gameOver ? "Game Over" : paused ? "Paused" : "Running"}`,
       PADDING + PANEL_INNER_GAP,
-      PADDING + 348,
+      PADDING + 374,
     );
     ctx.fillStyle = "#9aaed1";
-    ctx.fillText("P: Pause", PADDING + PANEL_INNER_GAP, PADDING + 376);
-    ctx.fillText("R: Restart", PADDING + PANEL_INNER_GAP, PADDING + 396);
+    ctx.fillText("P: Pause", PADDING + PANEL_INNER_GAP, PADDING + 396);
+    ctx.fillText("R: Restart", PADDING + PANEL_INNER_GAP, PADDING + 416);
 
-    const rightX = boardX + playWidth + PADDING;
-    drawPanel(ctx, rightX, PADDING, panelWidth, playHeight, "Next");
+    drawPanel(ctx, layout.rightPanelX, PADDING, layout.panelWidth, layout.playHeight, "Next");
     snap.next.slice(0, 5).forEach((type, idx) => {
-      drawMiniPiece(ctx, type, rightX + 16, PADDING + 42 + idx * 88, 15);
+      drawMiniPiece(ctx, type, layout.rightPanelX + 16, PADDING + 42 + idx * NEXT_ITEM_SPACING, 15);
     });
+  };
 
+  const drawOverlay = (
+    snap: ReturnType<Game["getSnapshot"]>,
+    paused: boolean,
+    layout: LayoutMetrics,
+  ): void => {
     if (paused && !snap.gameOver) {
       ctx.fillStyle = "rgba(0,0,0,0.6)";
-      ctx.fillRect(boardX, boardY, playWidth, playHeight);
+      ctx.fillRect(layout.boardX, layout.boardY, layout.playWidth, layout.playHeight);
       ctx.fillStyle = "#fff";
       ctx.font = "bold 26px system-ui, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("Paused", boardX + playWidth / 2, boardY + playHeight / 2);
+      ctx.fillText("Paused", layout.boardX + layout.playWidth / 2, layout.boardY + layout.playHeight / 2);
       ctx.font = "14px system-ui, sans-serif";
-      ctx.fillText("Press P to resume", boardX + playWidth / 2, boardY + playHeight / 2 + 26);
+      ctx.fillText(
+        "Press P to resume",
+        layout.boardX + layout.playWidth / 2,
+        layout.boardY + layout.playHeight / 2 + 26,
+      );
     }
 
     if (snap.gameOver) {
       ctx.fillStyle = "rgba(0,0,0,0.65)";
-      ctx.fillRect(boardX, boardY, playWidth, playHeight);
+      ctx.fillRect(layout.boardX, layout.boardY, layout.playWidth, layout.playHeight);
       ctx.fillStyle = "#fff";
       ctx.font = "bold 24px system-ui, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("Game over", boardX + playWidth / 2, boardY + playHeight / 2);
+      ctx.fillText("Game over", layout.boardX + layout.playWidth / 2, layout.boardY + layout.playHeight / 2);
       ctx.font = "14px system-ui, sans-serif";
-      ctx.fillText("Press R to restart", boardX + playWidth / 2, boardY + playHeight / 2 + 24);
+      ctx.fillText(
+        "Press R to restart",
+        layout.boardX + layout.playWidth / 2,
+        layout.boardY + layout.playHeight / 2 + 24,
+      );
     }
+
+    ctx.textAlign = "left";
   };
 
   const isSpinAnimating = (): boolean => spinAnimating;
