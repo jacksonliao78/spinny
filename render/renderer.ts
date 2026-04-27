@@ -9,14 +9,20 @@ const PADDING = 20;
 const PANEL_INNER_GAP = 10;
 const SPIN_DURATION_MS = 180;
 
-const COLORS: Record<PieceType, string> = {
-  O: "#f1c40f",
-  I: "#3498db",
-  Z: "#e74c3c",
-  S: "#2ecc71",
-  L: "#e67e22",
-  J: "#9b59b6",
-  T: "#1abc9c",
+type PieceStyle = {
+  fill: string;
+  edge: string;
+  glow: string;
+};
+
+const PIECE_STYLES: Record<PieceType, PieceStyle> = {
+  O: { fill: "#f7dc83", edge: "#c4ab56", glow: "#f7dc83" },
+  I: { fill: "#7ed7ef", edge: "#4f9dbf", glow: "#7ed7ef" },
+  Z: { fill: "#de7ea0", edge: "#a55674", glow: "#de7ea0" },
+  S: { fill: "#72d89d", edge: "#479368", glow: "#72d89d" },
+  L: { fill: "#bf8a69", edge: "#8e6347", glow: "#bf8a69" },
+  J: { fill: "#6f7ddb", edge: "#4b56a6", glow: "#6f7ddb" },
+  T: { fill: "#a276d9", edge: "#6f4ca4", glow: "#a276d9" },
 };
 
 const OBSTACLE_COLOR = "#6b7280";
@@ -75,13 +81,24 @@ function drawMiniPiece(
   const offsetX = x + (4 * size - pieceWidth) / 2;
   const offsetY = y + (4 * size - pieceHeight) / 2;
 
-  ctx.fillStyle = COLORS[type];
+  const style = PIECE_STYLES[type];
   for (let row = 0; row < shape.length; row++) {
     for (let col = 0; col < shape[row].length; col++) {
       if (shape[row][col] === 0) continue;
       const px = offsetX + (col - minX) * size;
       const py = offsetY + (row - minY) * size;
-      ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
+      const inset = 1;
+      const w = size - inset * 2;
+      const h = size - inset * 2;
+      const gradient = ctx.createLinearGradient(px, py, px, py + size);
+      gradient.addColorStop(0, "rgba(255,255,255,0.2)");
+      gradient.addColorStop(0.28, style.fill);
+      gradient.addColorStop(1, style.edge);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(px + inset, py + inset, w, h);
+      ctx.strokeStyle = "rgba(235, 243, 255, 0.45)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(px + inset + 0.5, py + inset + 0.5, w - 1, h - 1);
     }
   }
 }
@@ -114,6 +131,40 @@ function drawPanel(
 
 function easeOutCubic(t: number): number {
   return 1 - (1 - t) ** 3;
+}
+
+function drawStyledCell(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  style: PieceStyle,
+  alpha = 1,
+): void {
+  const px = x * CELL;
+  const py = y * CELL;
+  const inset = 1.5;
+  const w = CELL - inset * 2;
+  const h = CELL - inset * 2;
+  const gradient = ctx.createLinearGradient(px, py, px, py + CELL);
+  gradient.addColorStop(0, "rgba(255,255,255,0.22)");
+  gradient.addColorStop(0.3, style.fill);
+  gradient.addColorStop(1, style.edge);
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = gradient;
+  ctx.shadowColor = style.glow;
+  ctx.shadowBlur = 8;
+  ctx.fillRect(px + inset, py + inset, w, h);
+  ctx.shadowBlur = 0;
+
+  ctx.strokeStyle = "rgba(236, 244, 255, 0.48)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(px + inset + 0.5, py + inset + 0.5, w - 1, h - 1);
+
+  ctx.fillStyle = "rgba(255,255,255,0.11)";
+  ctx.fillRect(px + 4, py + 4, CELL - 8, 5);
+  ctx.restore();
 }
 
 function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): Renderer {
@@ -175,14 +226,11 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     const drawCell = (x: number, y: number, type: PieceType, alpha = 1, ghost = false) => {
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = COLORS[type];
-      ctx.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
-      if (!ghost) {
-        ctx.fillStyle = "rgba(255,255,255,0.08)";
-        ctx.fillRect(x * CELL + 3, y * CELL + 3, CELL - 6, 6);
+      drawStyledCell(ctx, x, y, PIECE_STYLES[type], alpha);
+      if (ghost) {
+        ctx.fillStyle = "rgba(7, 13, 22, 0.35)";
+        ctx.fillRect(x * CELL + 2, y * CELL + 2, CELL - 4, CELL - 4);
       }
-      ctx.globalAlpha = 1;
     };
 
     const drawLockedCell = (x: number, y: number, cell: PieceType | null | 1, alpha = 1) => {
@@ -194,10 +242,7 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
         ctx.fillStyle = "rgba(0,0,0,0.18)";
         ctx.fillRect(x * CELL + 3, y * CELL + 3, CELL - 6, 6);
       } else {
-        ctx.fillStyle = COLORS[cell];
-        ctx.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
-        ctx.fillStyle = "rgba(255,255,255,0.08)";
-        ctx.fillRect(x * CELL + 3, y * CELL + 3, CELL - 6, 6);
+        drawStyledCell(ctx, x, y, PIECE_STYLES[cell], alpha);
       }
       ctx.globalAlpha = 1;
     };
