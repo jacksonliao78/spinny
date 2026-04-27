@@ -57,3 +57,67 @@ test("Board clearLines shrink deletes outer-ring corners", () => {
   assert.equal(board.board[0][0], null);
   assert.equal(board.board[1][3], "T");
 });
+
+test("Board clearLines clears all rings full in initial pass", () => {
+  const board = new RingBoard(9, 9);
+
+  // Fill ring 1 and ring 2 so two clears must be processed in one lock.
+  for (let y = 0; y < board.height; y++) {
+    for (let x = 0; x < board.width; x++) {
+      const ring = Math.max(Math.abs(x - 4) - 1, Math.abs(y - 4) - 1);
+      if (ring === 1 || ring === 2) board.board[y][x] = "I";
+    }
+  }
+
+  const cleared = board.clearLines();
+  assert.equal(cleared, 2);
+});
+
+test("Board clearLines shifting inward deletes corners on promoted ring", () => {
+  const board = new RingBoard(9, 9);
+
+  // Fill ring 1 so it clears.
+  for (let y = 2; y <= 6; y++) {
+    for (let x = 2; x <= 6; x++) {
+      if (x === 2 || x === 6 || y === 2 || y === 6) board.board[y][x] = "I";
+    }
+  }
+
+  // Put only ring-2 corners plus one edge cell to track what survives shrink.
+  board.board[1][1] = "T";
+  board.board[1][7] = "T";
+  board.board[7][1] = "T";
+  board.board[7][7] = "T";
+  board.board[1][4] = "L";
+
+  const cleared = board.clearLines();
+  assert.equal(cleared, 1);
+
+  // Ring-2 corners should be deleted when they become ring 1.
+  assert.equal(board.board[2][2], null);
+  assert.equal(board.board[2][6], null);
+  assert.equal(board.board[6][2], null);
+  assert.equal(board.board[6][6], null);
+
+  // A non-corner ring-2 cell should move inward by one.
+  assert.equal(board.board[2][4], "L");
+});
+
+test("Board clearLines prune removes cells without inward support chain", () => {
+  const board = new RingBoard(9, 9);
+
+  // Fill ring 1 so one clear happens.
+  for (let y = 0; y < board.height; y++) {
+    for (let x = 0; x < board.width; x++) {
+      const ring = Math.max(Math.abs(x - 4) - 1, Math.abs(y - 4) - 1);
+      if (ring === 1) board.board[y][x] = "I";
+    }
+  }
+
+  // This shifts from ring 3 -> ring 2, but has no inward support and gets pruned.
+  board.board[0][4] = "T";
+
+  const cleared = board.clearLines();
+  assert.equal(cleared, 1);
+  assert.equal(board.board[1][4], null);
+});
