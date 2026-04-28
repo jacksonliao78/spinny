@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { DEFAULT_GAME_CONFIG, getGravityIntervalMs, getLineClearBasePoints } from "../../engine/game/rules";
+import {
+  DEFAULT_GAME_CONFIG,
+  getComboBonusPoints,
+  getGravityIntervalMs,
+  getLineClearBasePoints,
+} from "../../engine/game/rules";
 
 test("getLineClearBasePoints maps known clear counts and defaults to zero", () => {
   assert.equal(getLineClearBasePoints(1, DEFAULT_GAME_CONFIG), DEFAULT_GAME_CONFIG.lineClearPoints.single);
@@ -22,4 +27,11 @@ test("getGravityIntervalMs scales by level and clamps to min interval", () => {
 
   const clamped = getGravityIntervalMs(999, DEFAULT_GAME_CONFIG);
   assert.equal(clamped, DEFAULT_GAME_CONFIG.minGravityIntervalMs);
+});
+
+test("getComboBonusPoints scales with combo count and ignores negative counts", () => {
+  assert.equal(getComboBonusPoints(-1, DEFAULT_GAME_CONFIG), 0);
+  assert.equal(getComboBonusPoints(0, DEFAULT_GAME_CONFIG), 0);
+  assert.equal(getComboBonusPoints(1, DEFAULT_GAME_CONFIG), DEFAULT_GAME_CONFIG.comboPointPerChain);
+  assert.equal(getComboBonusPoints(3, DEFAULT_GAME_CONFIG), DEFAULT_GAME_CONFIG.comboPointPerChain * 3);
 });

@@ -1,7 +1,6 @@
 TODOs:
 
-fix ring board line clears
 add regular board type
-frontend and cooler piece skins
-scoring/gravity increase
+zen game mode
+survival game mode
 combos

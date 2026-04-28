@@ -19,6 +19,7 @@ type GameConfig = {
   };
   softDropPointPerCell: number;
   hardDropPointPerCell: number;
+  comboPointPerChain: number;
 };
 
 type GameDefaults = {
@@ -50,6 +51,7 @@ const DEFAULT_GAME_CONFIG: GameConfig = {
   },
   softDropPointPerCell: 1,
   hardDropPointPerCell: 2,
+  comboPointPerChain: 50,
 };
 
 const getLineClearBasePoints = (linesCleared: number, config: GameConfig): number => {
@@ -73,5 +75,9 @@ const getGravityIntervalMs = (level: number, config: GameConfig): number => {
   return Math.max(config.minGravityIntervalMs, Math.round(scaled));
 };
 
-export { DEFAULT_GAME_CONFIG, DEFAULT_GAME_RULES, getLineClearBasePoints, getGravityIntervalMs };
+const getComboBonusPoints = (combo: number, config: GameConfig): number => {
+  return Math.max(0, combo) * config.comboPointPerChain;
+};
+
+export { DEFAULT_GAME_CONFIG, DEFAULT_GAME_RULES, getLineClearBasePoints, getGravityIntervalMs, getComboBonusPoints };
 export type { GameMode, TimedModeConfig, GameConfig, GameDefaults };

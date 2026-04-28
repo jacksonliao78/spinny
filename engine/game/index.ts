@@ -1,6 +1,12 @@
 import type { BoardFactory, BoardModel } from "../board/types";
 import { createBoard } from "../board/factory";
-import { DEFAULT_GAME_CONFIG, DEFAULT_GAME_RULES, getGravityIntervalMs, getLineClearBasePoints } from "./rules";
+import {
+  DEFAULT_GAME_CONFIG,
+  DEFAULT_GAME_RULES,
+  getComboBonusPoints,
+  getGravityIntervalMs,
+  getLineClearBasePoints,
+} from "./rules";
 import { Hold } from "../hold";
 import type { PieceType } from "../piece";
 import { Piece } from "../piece";
@@ -28,6 +34,7 @@ export type GameSnapshot = {
   hold: PieceType | null;
   score: number;
   level: number;
+  combo: number;
   linesClearedTotal: number;
   gameMode: GameMode;
   remainingMs: number | null;
@@ -58,6 +65,7 @@ class Game {
   private baseGravityIntervalMs: number;
   private score = 0;
   private level = 1;
+  private combo = 0;
   private linesClearedTotal = 0;
   private remainingMs: number | null;
 
@@ -111,6 +119,7 @@ class Game {
       hold: this.holdSlot.getHoldType(),
       score: this.score,
       level: this.level,
+      combo: Math.max(0, this.combo - 1),
       linesClearedTotal: this.linesClearedTotal,
       gameMode: this.gameMode,
       remainingMs: this.remainingMs,
@@ -365,9 +374,14 @@ class Game {
   }
 
   private applyLineClearProgress(linesCleared: number): void {
-    if (linesCleared <= 0) return;
+    if (linesCleared <= 0) {
+      this.combo = 0;
+      return;
+    }
     const base = getLineClearBasePoints(linesCleared, this.config);
-    this.score += base * this.level;
+    const comboBonus = getComboBonusPoints(this.combo, this.config);
+    this.score += (base + comboBonus) * this.level;
+    this.combo += 1;
     this.linesClearedTotal += linesCleared;
     const nextLevel = Math.floor(this.linesClearedTotal / this.config.linesPerLevel) + 1;
     this.level = Math.max(1, nextLevel);

@@ -10,7 +10,7 @@ const PANEL_INNER_GAP = 10;
 const SPIN_DURATION_MS = 180;
 const HOLD_PANEL_HEIGHT = 170;
 const STATS_PANEL_Y = PADDING + 184;
-const STATS_PANEL_HEIGHT = 220;
+const STATS_PANEL_HEIGHT = 250;
 const NEXT_ITEM_SPACING = 88;
 
 type LayoutMetrics = {
@@ -393,20 +393,21 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     ctx.fillText(`Timer: ${formatTimer(snap.remainingMs)}`, PADDING + PANEL_INNER_GAP, PADDING + 244);
     ctx.fillText(`Score: ${snap.score}`, PADDING + PANEL_INNER_GAP, PADDING + 270);
     ctx.fillText(`Level: ${snap.level}`, PADDING + PANEL_INNER_GAP, PADDING + 296);
-    ctx.fillText(`Lines: ${snap.linesClearedTotal}`, PADDING + PANEL_INNER_GAP, PADDING + 322);
+    ctx.fillText(`Combo: ${snap.combo}`, PADDING + PANEL_INNER_GAP, PADDING + 322);
+    ctx.fillText(`Lines: ${snap.linesClearedTotal}`, PADDING + PANEL_INNER_GAP, PADDING + 348);
     ctx.fillText(
       `Gravity: ${game.board.gravityDelta().join(", ")} (${snap.gravityIntervalMs}ms)`,
       PADDING + PANEL_INNER_GAP,
-      PADDING + 348,
+      PADDING + 374,
     );
     ctx.fillText(
       `State: ${snap.gameOver ? "Game Over" : paused ? "Paused" : "Running"}`,
       PADDING + PANEL_INNER_GAP,
-      PADDING + 374,
+      PADDING + 400,
     );
     ctx.fillStyle = "#9aaed1";
-    ctx.fillText("P: Pause", PADDING + PANEL_INNER_GAP, PADDING + 396);
-    ctx.fillText("R: Restart", PADDING + PANEL_INNER_GAP, PADDING + 416);
+    ctx.fillText("P: Pause", PADDING + PANEL_INNER_GAP, PADDING + 422);
+    ctx.fillText("R: Restart", PADDING + PANEL_INNER_GAP, PADDING + 442);
 
     drawPanel(ctx, layout.rightPanelX, PADDING, layout.panelWidth, layout.playHeight, "Next");
     snap.next.slice(0, 5).forEach((type, idx) => {

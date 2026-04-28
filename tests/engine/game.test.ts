@@ -87,7 +87,48 @@ test("Game scores from clear count and updates snapshot stats", () => {
 
   assert.equal(snap.score, 300);
   assert.equal(snap.level, 1);
+  assert.equal(snap.combo, 0);
   assert.equal(snap.linesClearedTotal, 2);
+});
+
+test("Game awards combo bonuses after consecutive line clears", () => {
+  const game = new Game(10, 20, 700, createScoringBoardFactory(1));
+
+  game.hardDrop();
+  assert.equal(game.getSnapshot().score, 100);
+  assert.equal(game.getSnapshot().combo, 0);
+
+  game.hardDrop();
+  const secondClear = game.getSnapshot();
+  assert.equal(secondClear.score, 250);
+  assert.equal(secondClear.combo, 1);
+
+  game.hardDrop();
+  const thirdClear = game.getSnapshot();
+  assert.equal(thirdClear.score, 450);
+  assert.equal(thirdClear.combo, 2);
+});
+
+test("Game resets combo chain on a lock without line clears", () => {
+  let lockCount = 0;
+  const game = new Game(10, 20, 700, createScoringBoardFactory(() => {
+    lockCount += 1;
+    return lockCount === 3 ? 0 : 1;
+  }));
+
+  game.hardDrop();
+  game.hardDrop();
+  assert.equal(game.getSnapshot().combo, 1);
+
+  game.hardDrop();
+  const reset = game.getSnapshot();
+  assert.equal(reset.combo, 0);
+  assert.equal(reset.score, 250);
+
+  game.hardDrop();
+  const reopened = game.getSnapshot();
+  assert.equal(reopened.combo, 0);
+  assert.equal(reopened.score, 350);
 });
 
 test("Game increases level and gravity speed with progression", () => {
