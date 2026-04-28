@@ -7,6 +7,26 @@
   </head>
   <body>
     <style>
+      :root {
+        color-scheme: dark;
+        --page-text: #f0deea;
+        --muted-text: #cdb8c8;
+        --heading-text: #fff1f4;
+        --surface: rgba(63, 49, 73, 0.82);
+        --surface-strong: rgba(79, 58, 87, 0.94);
+        --border: rgba(255, 210, 226, 0.16);
+        --accent: #f09aa8;
+        --accent-strong: #ffb2a6;
+        --accent-soft: rgba(240, 154, 168, 0.2);
+        --lavender: #b99de8;
+        --blue-soft: #98c8d9;
+        --shadow: rgba(26, 18, 32, 0.34);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         margin: 0;
         min-height: 100vh;
@@ -15,39 +35,374 @@
         justify-content: center;
         font-family: system-ui, sans-serif;
         background:
-          radial-gradient(circle at 15% 20%, rgba(43, 81, 147, 0.35), transparent 42%),
-          radial-gradient(circle at 85% 15%, rgba(109, 61, 167, 0.3), transparent 38%),
-          linear-gradient(180deg, #070b13 0%, #0a1020 100%);
-        color: #dbe6ff;
+          radial-gradient(circle at 14% 18%, rgba(240, 154, 168, 0.38), transparent 34%),
+          radial-gradient(circle at 84% 14%, rgba(152, 200, 217, 0.34), transparent 36%),
+          radial-gradient(circle at 50% 88%, rgba(185, 157, 232, 0.3), transparent 42%),
+          linear-gradient(180deg, #2a2233 0%, #39293e 52%, #263546 100%);
+        color: var(--page-text);
       }
+
+      button,
+      select {
+        font: inherit;
+      }
+
       .app {
+        width: min(1080px, calc(100vw - 2rem));
         padding: 1.5rem 2rem;
-        border: 1px solid rgba(172, 198, 255, 0.2);
-        border-radius: 16px;
-        background: rgba(5, 9, 18, 0.45);
-        backdrop-filter: blur(2px);
-        box-shadow: 0 18px 42px rgba(0, 0, 0, 0.45);
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        background: rgba(43, 33, 51, 0.7);
+        backdrop-filter: blur(14px);
+        box-shadow: 0 24px 70px var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
       }
+
+      .screen {
+        display: none;
+      }
+
+      .screen--active {
+        display: block;
+        animation: screen-pop 360ms ease-out both;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+        gap: 2rem;
+        align-items: center;
+        min-height: 520px;
+      }
+
+      .eyebrow {
+        margin: 0 0 0.9rem;
+        color: var(--accent-strong);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .title {
+        margin: 0;
+        color: var(--heading-text);
+        font-size: clamp(3.2rem, 8vw, 6.8rem);
+        line-height: 0.88;
+        letter-spacing: -0.08em;
+        text-shadow: 0 5px 0 rgba(22, 15, 28, 0.18);
+      }
+
+      .subtitle {
+        margin: 1.25rem 0 0;
+        max-width: 37rem;
+        color: var(--muted-text);
+        font-size: 1.08rem;
+        line-height: 1.65;
+      }
+
+      .menu-card {
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        background:
+          linear-gradient(180deg, var(--surface-strong), var(--surface)),
+          rgba(63, 49, 73, 0.8);
+        box-shadow: 0 18px 45px var(--shadow);
+        padding: 1.25rem;
+        transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+      }
+
+      .menu-card:hover {
+        transform: translateY(-3px);
+        border-color: rgba(255, 178, 166, 0.32);
+        box-shadow: 0 22px 52px rgba(26, 18, 32, 0.42);
+      }
+
+      .menu-card h2,
+      .menu-card h3 {
+        margin: 0;
+        color: var(--heading-text);
+      }
+
+      .menu-card p {
+        color: var(--muted-text);
+        line-height: 1.55;
+      }
+
+      .primary-button,
+      .secondary-button,
+      .mode-button {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        color: var(--heading-text);
+        background: rgba(49, 38, 58, 0.8);
+        cursor: pointer;
+        transition:
+          transform 160ms ease,
+          border-color 160ms ease,
+          background 160ms ease,
+          box-shadow 160ms ease;
+      }
+
+      .primary-button:hover,
+      .secondary-button:hover,
+      .mode-button:not(:disabled):hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 178, 166, 0.42);
+        background: rgba(71, 52, 79, 0.92);
+        box-shadow: 0 12px 24px rgba(26, 18, 32, 0.28);
+      }
+
+      .primary-button:focus-visible,
+      .secondary-button:focus-visible,
+      .mode-button:focus-visible,
+      .select-row select:focus-visible {
+        outline: 3px solid rgba(199, 183, 230, 0.55);
+        outline-offset: 3px;
+      }
+
+      .primary-button {
+        width: 100%;
+        margin-top: 1rem;
+        padding: 0.95rem 1rem;
+        font-weight: 800;
+        color: #2b1f30;
+        background: linear-gradient(135deg, #ffb2a6, #ffc37a);
+        box-shadow: 0 14px 28px rgba(240, 154, 168, 0.24);
+      }
+
+      .secondary-button {
+        padding: 0.7rem 0.95rem;
+        color: var(--page-text);
+        background: rgba(49, 38, 58, 0.68);
+      }
+
+      .setup-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+      }
+
+      .setup-header h1 {
+        margin: 0;
+        color: var(--heading-text);
+        font-size: clamp(2.2rem, 5vw, 4.2rem);
+      }
+
+      .setup-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 1rem;
+      }
+
+      .mode-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin-top: 1rem;
+      }
+
+      .mode-button {
+        min-height: 118px;
+        padding: 1rem;
+        text-align: left;
+      }
+
+      .mode-button strong,
+      .mode-button span {
+        display: block;
+      }
+
+      .mode-button strong {
+        font-size: 1.05rem;
+      }
+
+      .mode-button span {
+        margin-top: 0.5rem;
+        color: var(--muted-text);
+        line-height: 1.45;
+      }
+
+      .mode-button--selected {
+        border-color: rgba(255, 178, 166, 0.56);
+        background: linear-gradient(180deg, rgba(84, 60, 87, 0.95), var(--accent-soft));
+      }
+
+      .mode-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.56;
+      }
+
+      .badge {
+        display: inline-block;
+        margin-top: 0.7rem;
+        padding: 0.22rem 0.48rem;
+        border-radius: 999px;
+        color: #ffe2e6;
+        background: rgba(185, 157, 232, 0.22);
+        font-size: 0.76rem;
+        font-weight: 700;
+      }
+
+      .select-row {
+        display: grid;
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+
+      .select-row label {
+        color: var(--page-text);
+        font-weight: 700;
+      }
+
+      .select-row select {
+        width: 100%;
+        padding: 0.75rem 0.8rem;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        color: var(--heading-text);
+        background: rgba(49, 38, 58, 0.88);
+      }
+
+      .game-topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 0.9rem;
+      }
+
+      .game-title {
+        color: var(--muted-text);
+        font-weight: 700;
+      }
+
       #game {
         display: block;
-        outline: 1px solid rgba(150, 185, 255, 0.45);
+        outline: 1px solid rgba(255, 210, 226, 0.22);
         background: #000;
         border-radius: 12px;
-        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 16px 34px rgba(14, 10, 18, 0.46);
       }
+
       .hint {
         margin: 0.95rem 0 0;
         font-size: 0.88rem;
         max-width: 52rem;
-        color: #9fb1d3;
+        color: var(--muted-text);
+      }
+
+      @keyframes screen-pop {
+        from {
+          opacity: 0;
+          transform: translateY(10px) scale(0.985);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @media (max-width: 820px) {
+        .hero,
+        .setup-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .mode-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 1ms !important;
+          scroll-behavior: auto !important;
+          transition-duration: 1ms !important;
+        }
       }
     </style>
     <div class="app">
-      <canvas id="game" width="320" height="640" tabindex="0"></canvas>
-      <p class="hint">
-        Click canvas for focus. Arrows: move / soft drop. Up / X: rotate CW. Z: rotate CCW. Space: hard drop.
-        C: hold. P: pause. R: restart.
-      </p>
+      <section id="landing-screen" class="screen screen--active">
+        <div class="hero">
+          <div>
+            <p class="eyebrow">A cozy spin game</p>
+            <h1 class="title">Spinny</h1>
+            <p class="subtitle">
+              Rotate the board, drop the pieces, and chase ring clears in a short solo run.
+            </p>
+          </div>
+          <div class="menu-card">
+            <h2>Press Start</h2>
+            <p>Jump into a quick run and see how long the board behaves.</p>
+            <button id="solo-button" class="primary-button" type="button">Play Solo</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="setup-screen" class="screen">
+        <div class="setup-header">
+          <div>
+            <p class="eyebrow">Solo setup</p>
+            <h1>Pick A Run</h1>
+          </div>
+          <button id="back-to-landing-button" class="secondary-button" type="button">Back</button>
+        </div>
+        <div class="setup-grid">
+          <div class="menu-card">
+            <h2>Gamemode</h2>
+            <p>Choose the rules before the pieces start falling.</p>
+            <div class="mode-grid">
+              <button class="mode-button mode-button--selected" type="button" data-mode="timed">
+                <strong>Timed</strong>
+                <span>Three minutes to stack, spin, and score.</span>
+              </button>
+              <button class="mode-button" type="button" disabled>
+                <strong>Marathon</strong>
+                <span>Keep playing while the pressure climbs.</span>
+                <em class="badge">Coming Soon</em>
+              </button>
+              <button class="mode-button" type="button" disabled>
+                <strong>Sprint</strong>
+                <span>Clear the target as fast as you can.</span>
+                <em class="badge">Coming Soon</em>
+              </button>
+              <button class="mode-button" type="button" disabled>
+                <strong>Zen</strong>
+                <span>Practice spins without a timer.</span>
+                <em class="badge">Coming Soon</em>
+              </button>
+            </div>
+          </div>
+          <aside class="menu-card">
+            <h3>Board</h3>
+            <p>Choose the shape of the board.</p>
+            <div class="select-row">
+              <label for="board-select">Board Type</label>
+              <select id="board-select">
+                <option value="ring" selected>Ring Board</option>
+              </select>
+            </div>
+            <button id="start-game-button" class="primary-button" type="button">Start Run</button>
+          </aside>
+        </div>
+      </section>
+
+      <section id="game-screen" class="screen">
+        <div class="game-topbar">
+          <span class="game-title">Solo / Timed</span>
+          <button id="back-to-setup-button" class="secondary-button" type="button">Back To Setup</button>
+        </div>
+        <canvas id="game" width="320" height="640" tabindex="0"></canvas>
+        <p class="hint">
+          Click canvas for focus. Arrows: move / soft drop. Up / X: rotate CW. Z: rotate CCW. Space: hard drop.
+          C: hold. P: pause. R: restart.
+        </p>
+      </section>
     </div>
     <script type="module" src="/main.ts"></script>
   </body>
