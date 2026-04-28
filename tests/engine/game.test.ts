@@ -145,6 +145,35 @@ test("Game increases level and gravity speed with progression", () => {
   assert.ok(after.gravityIntervalMs < before);
 });
 
+test("Zen mode has no timer and does not apply automatic gravity", () => {
+  const game = new Game(10, 20, 700, createAccumulatorBoardFactory(3), { mode: "zen" });
+  const before = game.getSnapshot();
+  const startY = before.active?.y;
+
+  game.tick(5_000);
+  const after = game.getSnapshot();
+
+  assert.equal(after.gameMode, "zen");
+  assert.equal(after.remainingMs, null);
+  assert.equal(after.gameOver, false);
+  assert.equal(after.active?.y, startY);
+});
+
+test("Zen mode keeps level and gravity fixed after clears", () => {
+  const game = new Game(10, 20, 700, createScoringBoardFactory(4), { mode: "zen" });
+  const before = game.getSnapshot().gravityIntervalMs;
+
+  game.hardDrop();
+  game.hardDrop();
+  game.hardDrop();
+
+  const after = game.getSnapshot();
+  assert.equal(after.level, 1);
+  assert.equal(after.linesClearedTotal, 12);
+  assert.equal(after.gravityIntervalMs, before);
+  assert.equal(after.score, 2550);
+});
+
 test("Timed mode expires and ends the game", () => {
   const config: Partial<GameConfig> = {
     mode: "timed",

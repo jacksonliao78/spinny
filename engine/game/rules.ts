@@ -1,4 +1,4 @@
-type GameMode = "timed" | "marathon";
+type GameMode = "timed" | "marathon" | "zen";
 
 type TimedModeConfig = {
   durationMs: number;

@@ -371,10 +371,9 @@
                 <span>Clear the target as fast as you can.</span>
                 <em class="badge">Coming Soon</em>
               </button>
-              <button class="mode-button" type="button" disabled>
+              <button class="mode-button" type="button" data-mode="zen">
                 <strong>Zen</strong>
                 <span>Practice spins without a timer.</span>
-                <em class="badge">Coming Soon</em>
               </button>
             </div>
           </div>
@@ -394,7 +393,7 @@
 
       <section id="game-screen" class="screen">
         <div class="game-topbar">
-          <span class="game-title">Solo / Timed</span>
+          <span id="game-title" class="game-title">Solo / Timed</span>
           <button id="back-to-setup-button" class="secondary-button" type="button">Back To Setup</button>
         </div>
         <canvas id="game" width="320" height="640" tabindex="0"></canvas>

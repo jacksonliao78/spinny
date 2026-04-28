@@ -138,10 +138,12 @@ class Game {
       }
     }
     if (this.gameOver || !this.activePiece) return;
-    this.gravityMs += dtMs;
-    while (this.gravityMs >= this.currentGravityIntervalMs()) {
-      this.gravityMs -= this.currentGravityIntervalMs();
-      if (!this.stepGravity()) break;
+    if (this.gameMode !== "zen") {
+      this.gravityMs += dtMs;
+      while (this.gravityMs >= this.currentGravityIntervalMs()) {
+        this.gravityMs -= this.currentGravityIntervalMs();
+        if (!this.stepGravity()) break;
+      }
     }
 
     if (!this.activePiece || this.gameOver) return;
@@ -383,6 +385,7 @@ class Game {
     this.score += (base + comboBonus) * this.level;
     this.combo += 1;
     this.linesClearedTotal += linesCleared;
+    if (this.gameMode === "zen") return;
     const nextLevel = Math.floor(this.linesClearedTotal / this.config.linesPerLevel) + 1;
     this.level = Math.max(1, nextLevel);
   }

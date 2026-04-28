@@ -9,6 +9,12 @@ const TIMED_DURATION_MS = 180_000;
 
 type AppScreen = "landing" | "setup" | "playing";
 
+const MODE_LABELS: Record<GameMode, string> = {
+  timed: "Timed",
+  marathon: "Marathon",
+  zen: "Zen",
+};
+
 const getElement = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
   if (!el) throw new Error(`Missing required element: ${id}`);
@@ -24,6 +30,8 @@ function main(): void {
   const backToSetupButton = getElement<HTMLButtonElement>("back-to-setup-button");
   const startGameButton = getElement<HTMLButtonElement>("start-game-button");
   const boardSelect = getElement<HTMLSelectElement>("board-select");
+  const gameTitle = getElement<HTMLElement>("game-title");
+  const modeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".mode-button[data-mode]"));
   const canvas = getElement<HTMLCanvasElement>("game");
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -59,6 +67,7 @@ function main(): void {
       makeGameConfig(),
     );
     paused = false;
+    gameTitle.textContent = `Solo / ${MODE_LABELS[selectedMode]}`;
     setScreen("playing");
     renderer.syncGameConfig(game);
     renderer.reset(game.getSnapshot().boardRotation);
@@ -95,6 +104,14 @@ function main(): void {
   backToLandingButton.addEventListener("click", () => setScreen("landing"));
   backToSetupButton.addEventListener("click", () => setScreen("setup"));
   startGameButton.addEventListener("click", () => startGame());
+  modeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedMode = button.dataset.mode as GameMode;
+      modeButtons.forEach((modeButton) => {
+        modeButton.classList.toggle("mode-button--selected", modeButton === button);
+      });
+    });
+  });
   boardSelect.addEventListener("change", () => {
     selectedBoard = boardSelect.value as BoardKind;
   });
