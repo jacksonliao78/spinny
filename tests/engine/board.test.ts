@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { SOLID_CELL } from "../../engine/board/types";
+import { RectangularBoard } from "../../engine/board/rectangular";
 import { RingBoard } from "../../engine/board/ring";
+import { Piece } from "../../engine/piece";
 
 test("Board gravity and lateral deltas follow rotation", () => {
   const board = new RingBoard(10, 20);
@@ -163,4 +165,58 @@ test("Board addGarbage returns zero when no cells can be added", () => {
   const applied = board.addGarbage(1, 4);
 
   assert.equal(applied, 0);
+});
+
+test("RectangularBoard uses fixed downward movement", () => {
+  const board = new RectangularBoard(14, 24);
+
+  board.rotate();
+
+  assert.equal(board.rotation, 0);
+  assert.deepEqual(board.gravityDelta(), [0, 1]);
+  assert.deepEqual(board.lateralLeftDelta(), [-1, 0]);
+  assert.deepEqual(board.lateralRightDelta(), [1, 0]);
+});
+
+test("RectangularBoard canPlace enforces bounds and occupied cells", () => {
+  const board = new RectangularBoard(14, 24);
+  const piece = new Piece("O", 5, 5);
+
+  assert.equal(board.canPlace(piece, piece.rotation, 0, 0), true);
+  board.board[6][6] = "T";
+  assert.equal(board.canPlace(piece, piece.rotation, 0, 0), false);
+  assert.equal(board.canPlace(piece, piece.rotation, -7, 0), false);
+});
+
+test("RectangularBoard clears full visible rows and compacts downward", () => {
+  const board = new RectangularBoard(8, 8);
+  for (let x = 2; x <= 5; x++) board.board[5][x] = "I";
+  board.board[4][3] = "T";
+
+  const cleared = board.clearLines();
+
+  assert.equal(cleared, 1);
+  assert.equal(board.board[5][3], "T");
+  assert.equal(board.board[4][3], null);
+});
+
+test("RectangularBoard floor contact is not a loss", () => {
+  const board = new RectangularBoard(14, 24);
+  const piece = new Piece("O", 5, 20);
+
+  assert.equal(board.isContactLoss(piece), false);
+});
+
+test("RectangularBoard addGarbage pushes cells up and adds a holed bottom line", () => {
+  const board = new RectangularBoard(8, 8);
+  board.board[4][3] = "T";
+
+  const applied = board.addGarbage(1, 2);
+
+  assert.equal(applied, 1);
+  assert.equal(board.board[3][3], "T");
+  assert.equal(board.board[5][2], null);
+  assert.equal(board.board[5][4], null);
+  assert.equal(board.board[5][3], SOLID_CELL);
+  assert.equal(board.board[5][5], SOLID_CELL);
 });

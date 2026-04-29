@@ -154,7 +154,7 @@ class Game {
         MAX_LOCK_RESETS,
       );
       if (shouldLock) {
-        if (this.board.isBottomBordered(this.activePiece)) {
+        if (this.board.isContactLoss(this.activePiece)) {
           this.gameOver = true;
           this.activePiece = null;
           this.clearLockDelayState();
@@ -204,8 +204,8 @@ class Game {
     }
     this.score += movedCells * this.config.scoring.hardDropPointPerCell;
 
-    const shouldGameOverFromBorder = this.board.isBottomBordered(this.activePiece);
-    if (shouldGameOverFromBorder) {
+    const isContactLoss = this.board.isContactLoss(this.activePiece);
+    if (isContactLoss) {
       this.gameOver = true;
       this.activePiece = null;
       this.clearLockDelayState();

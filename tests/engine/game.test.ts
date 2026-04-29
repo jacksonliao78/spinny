@@ -32,7 +32,7 @@ test("Game uses provided board factory", () => {
       lateralRightDelta: () => [1, 0],
       getLockedCopy: () => Array.from({ length: height }, () => Array(width).fill(null)),
       canPlace: () => true,
-      isBottomBordered: () => false,
+      isContactLoss: () => false,
       lockPiece: (_piece: Piece) => {},
       clearLines: () => 0,
       addGarbage: () => 0,
@@ -60,7 +60,7 @@ const createScoringBoardFactory = (linesToClear: number | (() => number)) => {
     lateralRightDelta: () => [1, 0],
     getLockedCopy: () => Array.from({ length: height }, () => Array(width).fill(null)),
     canPlace: (_piece, _rotation, _dx, dy) => dy !== 1,
-    isBottomBordered: () => false,
+    isContactLoss: () => false,
     lockPiece: (_piece: Piece) => {},
     clearLines: () => (typeof linesToClear === "function" ? linesToClear() : linesToClear),
     addGarbage: () => 0,
@@ -87,7 +87,7 @@ const createAccumulatorBoardFactory = (allowedDownwardMoves: number) => {
         }
         return false;
       },
-      isBottomBordered: () => false,
+      isContactLoss: () => false,
       lockPiece: (_piece: Piece) => {},
       clearLines: () => 0,
       addGarbage: () => 0,
@@ -109,7 +109,7 @@ const createGarbageBoardFactory = () => {
       lateralRightDelta: () => [1, 0],
       getLockedCopy: () => Array.from({ length: height }, () => Array(width).fill(null)),
       canPlace: (_piece, _rotation, _dx, dy) => dy !== 1,
-      isBottomBordered: () => false,
+      isContactLoss: () => false,
       lockPiece: (_piece: Piece) => {},
       clearLines: () => 0,
       addGarbage: (amount) => {

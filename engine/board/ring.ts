@@ -87,7 +87,7 @@ class RingBoard implements BoardModel {
     return true;
   }
 
-  isBottomBordered(piece: Piece): boolean {
+  isContactLoss(piece: Piece): boolean {
     const curPiece = piece.get_shape(piece.rotation);
     const [gx, gy] = this.gravityDelta();
 

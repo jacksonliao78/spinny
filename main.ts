@@ -11,6 +11,7 @@ const MODE_LABELS: Record<GameMode, string> = {
   marathon: "Marathon",
   zen: "Zen",
 };
+const RECTANGULAR_BOARD_CONFIG = { width: 10, height: 20 };
 
 const getElement = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -50,6 +51,7 @@ function main(): void {
   };
 
   const makeGameConfig = () => ({
+    ...(selectedBoard === "rectangular" ? { board: RECTANGULAR_BOARD_CONFIG } : {}),
     mode: {
       kind: selectedMode,
     },

@@ -25,8 +25,8 @@ type BoardModel = {
   getLockedCopy: () => BoardCell[][];
   /** True if the piece can occupy its current position plus the given offset and rotation without collisions or bounds violations. */
   canPlace: (piece: Piece, rotation: number, offsetX: number, offsetY: number) => boolean;
-  /** True when the piece is grounded by the board border rather than by locked cells. */
-  isBottomBordered: (piece: Piece) => boolean;
+  /** True when the piece's current contact is a loss condition for this board type. */
+  isContactLoss: (piece: Piece) => boolean;
   /** Permanently copy the piece's occupied cells into the locked board state. */
   lockPiece: (piece: Piece) => void;
   /** Clear completed lines/rings according to board rules and return how many were cleared. */
