@@ -43,6 +43,7 @@ test("resolveGameConfig deeply merges grouped overrides", () => {
     mode: { kind: "zen" },
     scoring: { lineClearPoints: { single: 150 } },
     garbage: { enabled: true },
+    modifiers: { allSpins: true },
   });
 
   assert.equal(resolved.board.width, 12);
@@ -53,4 +54,5 @@ test("resolveGameConfig deeply merges grouped overrides", () => {
   assert.equal(resolved.scoring.lineClearPoints.double, DEFAULT_GAME_CONFIG.scoring.lineClearPoints.double);
   assert.equal(resolved.garbage.enabled, true);
   assert.equal(resolved.garbage.holesPerRing, DEFAULT_GAME_CONFIG.garbage.holesPerRing);
+  assert.equal(resolved.modifiers.allSpins, true);
 });

@@ -20,6 +20,19 @@ import {
 } from "./lock_delay";
 import { getSpawnCoords, getVisibleBounds, respectsViewBounds } from "./spawn_bounds";
 
+type SpinResult = {
+  pieceType: PieceType;
+  kind: "t-spin" | "all-spin";
+};
+
+type LastRotation = {
+  pieceType: PieceType;
+  x: number;
+  y: number;
+  rotation: number;
+  usedKick: boolean;
+};
+
 /** Read-only frame data consumed by the renderer and UI; active remains mutable game state. */
 export type GameSnapshot = {
   width: number;
@@ -41,6 +54,7 @@ export type GameSnapshot = {
   gameMode: GameMode;
   remainingMs: number | null;
   gravityIntervalMs: number;
+  lastSpin: SpinResult | null;
   gameOver: boolean;
 };
 
@@ -77,6 +91,8 @@ class Game {
   private linesClearedTotal = 0;
   private incomingGarbage = 0;
   private remainingMs: number | null;
+  private lastRotation: LastRotation | null = null;
+  private lastSpin: SpinResult | null = null;
 
   private lockTimerMs = 0;
   private lockDelayResetsUsed = 0;
@@ -118,6 +134,7 @@ class Game {
       gameMode: this.gameMode,
       remainingMs: this.remainingMs,
       gravityIntervalMs: this.currentGravityIntervalMs(),
+      lastSpin: this.lastSpin,
       gameOver: this.gameOver,
     };
   }
@@ -189,6 +206,7 @@ class Game {
     const [gx, gy] = this.board.gravityDelta();
     if (this.canMovePiece(this.activePiece, gx, gy)) {
       this.activePiece.move(gx, gy);
+      this.clearLastRotation();
       this.score += this.config.scoring.softDropPointPerCell;
       this.onDownwardAdvance();
     }
@@ -202,6 +220,7 @@ class Game {
       this.activePiece.move(gx, gy);
       movedCells += 1;
     }
+    if (movedCells > 0) this.clearLastRotation();
     this.score += movedCells * this.config.scoring.hardDropPointPerCell;
 
     const isContactLoss = this.board.isContactLoss(this.activePiece);
@@ -225,6 +244,7 @@ class Game {
 
   hold(): void {
     if (!this.activePiece || this.gameOver || this.holdLocked) return;
+    this.clearLastRotation();
     const cur = this.activePiece;
     const swapped = this.holdSlot.hold(cur);
     if (swapped) {
@@ -266,6 +286,7 @@ class Game {
     const [gx, gy] = this.board.gravityDelta();
     if (this.canMovePiece(this.activePiece, gx, gy)) {
       this.activePiece.move(gx, gy);
+      this.clearLastRotation();
       this.onDownwardAdvance();
       return true;
     }
@@ -277,6 +298,7 @@ class Game {
     if (!this.activePiece || this.gameOver) return;
     if (this.canMovePiece(this.activePiece, dx, dy)) {
       this.activePiece.move(dx, dy);
+      this.clearLastRotation();
       this.onGroundedAction();
     }
   }
@@ -286,6 +308,7 @@ class Game {
     if (!this.activePiece || this.gameOver) return;
     if (this.canRotatePiece(this.activePiece, rotations)) {
       this.activePiece.rotate(rotations);
+      this.recordLastRotation(this.activePiece, false);
       this.onGroundedAction();
     }
     else {
@@ -307,7 +330,10 @@ class Game {
         this.activePiece.y = placement.y;
 
         this.activePiece.rotate(rotations);
-        //usedKick isn't necessary at this time
+        this.recordLastRotation(
+          this.activePiece,
+          placement.usedKick[0] !== 0 || placement.usedKick[1] !== 0,
+        );
         this.onGroundedAction();
       }
 
@@ -325,6 +351,20 @@ class Game {
     this.lockTimerMs = 0;
     this.lockDelayResetsUsed = 0;
     this.hasTouchedGround = false;
+  }
+
+  private clearLastRotation(): void {
+    this.lastRotation = null;
+  }
+
+  private recordLastRotation(piece: Piece, usedKick: boolean): void {
+    this.lastRotation = {
+      pieceType: piece.type,
+      x: piece.x,
+      y: piece.y,
+      rotation: piece.rotation,
+      usedKick,
+    };
   }
 
   private onDownwardAdvance(): void {
@@ -363,6 +403,7 @@ class Game {
   /** Lock current piece, resolve clear/scoring/garbage, rotate the board, then spawn next. */
   private lockAndSpawn(): void {
     if (!this.activePiece) return;
+    this.lastSpin = this.detectSpin(this.activePiece);
     this.board.lockPiece(this.activePiece);
     const linesCleared = this.board.clearLines();
     this.applyLineClearProgress(linesCleared);
@@ -403,9 +444,67 @@ class Game {
     return getGravityIntervalMs(this.level, this.config);
   }
 
+  private detectSpin(piece: Piece): SpinResult | null {
+    if (!this.matchesLastRotation(piece)) return null;
+    if (piece.type === "T" && this.hasThreeBlockedTCorners(piece)) {
+      return { pieceType: piece.type, kind: "t-spin" };
+    }
+    if (
+      this.config.modifiers.allSpins &&
+      piece.type !== "T" &&
+      this.lastRotation?.usedKick &&
+      this.isImmobile(piece)
+    ) {
+      return { pieceType: piece.type, kind: "all-spin" };
+    }
+    return null;
+  }
+
+  private matchesLastRotation(piece: Piece): boolean {
+    return (
+      this.lastRotation !== null &&
+      this.lastRotation.pieceType === piece.type &&
+      this.lastRotation.x === piece.x &&
+      this.lastRotation.y === piece.y &&
+      this.lastRotation.rotation === piece.rotation
+    );
+  }
+
+  private hasThreeBlockedTCorners(piece: Piece): boolean {
+    const centerX = piece.x + 1;
+    const centerY = piece.y + 2;
+    const locked = this.board.getLockedCopy();
+    const corners = [
+      [centerX - 1, centerY - 1],
+      [centerX + 1, centerY - 1],
+      [centerX - 1, centerY + 1],
+      [centerX + 1, centerY + 1],
+    ] as const;
+    return corners.filter(([x, y]) => this.isSpinCornerBlocked(x, y, locked)).length >= 3;
+  }
+
+  private isSpinCornerBlocked(x: number, y: number, locked: BoardCell[][]): boolean {
+    const bounds = this.getVisibleBounds();
+    if (x < bounds.minX || x > bounds.maxX || y < bounds.minY || y > bounds.maxY) return true;
+    if (x < 0 || x >= this.board.width || y < 0 || y >= this.board.height) return true;
+    return locked[y][x] !== null;
+  }
+
+  private isImmobile(piece: Piece): boolean {
+    const [gx, gy] = this.board.gravityDelta();
+    const [leftX, leftY] = this.board.lateralLeftDelta();
+    const [rightX, rightY] = this.board.lateralRightDelta();
+    return (
+      !this.canMovePiece(piece, gx, gy) &&
+      !this.canMovePiece(piece, leftX, leftY) &&
+      !this.canMovePiece(piece, rightX, rightY)
+    );
+  }
+
   /** Spawn next queue piece at the current entry side, including the hidden spawn pad. */
   private spawn(): void {
     if (this.gameOver) return;
+    this.clearLastRotation();
     this.clearLockDelayState();
     const s = getSpawnCoords(this.playWidth, this.playHeight, this.spawnPad, this.board.rotation);
     const piece = this.queue.consumeNext(s.x, s.y);

@@ -28,6 +28,9 @@ function main(): void {
   const backToLandingButton = getElement<HTMLButtonElement>("back-to-landing-button");
   const backToSetupButton = getElement<HTMLButtonElement>("back-to-setup-button");
   const startGameButton = getElement<HTMLButtonElement>("start-game-button");
+  const tipsButton = getElement<HTMLButtonElement>("tips-button");
+  const tipsPopover = getElement<HTMLElement>("tips-popover");
+  const gameActions = getElement<HTMLElement>("game-actions");
   const boardSelect = getElement<HTMLSelectElement>("board-select");
   const gameTitle = getElement<HTMLElement>("game-title");
   const modeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".mode-button[data-mode]"));
@@ -42,12 +45,20 @@ function main(): void {
   let paused = false;
   const renderer = createRenderer(canvas, ctx);
 
+  const setTipsOpen = (open: boolean): void => {
+    tipsPopover.hidden = !open;
+    tipsButton.setAttribute("aria-expanded", String(open));
+  };
+
   const setScreen = (nextScreen: AppScreen): void => {
     appScreen = nextScreen;
     landingScreen.classList.toggle("screen--active", nextScreen === "landing");
     setupScreen.classList.toggle("screen--active", nextScreen === "setup");
     gameScreen.classList.toggle("screen--active", nextScreen === "playing");
-    if (nextScreen !== "playing") paused = true;
+    if (nextScreen !== "playing") {
+      paused = true;
+      setTipsOpen(false);
+    }
   };
 
   const makeGameConfig = () => ({
@@ -100,6 +111,11 @@ function main(): void {
   backToLandingButton.addEventListener("click", () => setScreen("landing"));
   backToSetupButton.addEventListener("click", () => setScreen("setup"));
   startGameButton.addEventListener("click", () => startGame());
+  tipsButton.addEventListener("click", () => setTipsOpen(tipsPopover.hidden));
+  document.addEventListener("click", (e) => {
+    if (tipsPopover.hidden || gameActions.contains(e.target as Node)) return;
+    setTipsOpen(false);
+  });
   modeButtons.forEach((button) => {
     button.addEventListener("click", () => {
       selectedMode = button.dataset.mode as GameMode;
@@ -114,6 +130,11 @@ function main(): void {
 
   const handleGlobalKeys = (e: KeyboardEvent): boolean => {
     if (appScreen !== "playing") return false;
+    if (e.code === "Escape" && !tipsPopover.hidden) {
+      setTipsOpen(false);
+      e.preventDefault();
+      return true;
+    }
     if (e.code === "KeyP") {
       paused = !paused;
       e.preventDefault();

@@ -5,15 +5,16 @@ import { Piece } from "@game/piece";
 import type { PieceType } from "@game/piece";
 import type { BoardCell } from "@game/board/types";
 
-const CELL = 24;
+const CELL = 26;
 const PANEL_WIDTH = 178;
 const PADDING = 20;
 const PANEL_INNER_GAP = 10;
 const SPIN_DURATION_MS = 180;
 const HOLD_PANEL_HEIGHT = 170;
 const STATS_PANEL_Y = PADDING + 184;
-const STATS_PANEL_HEIGHT = 280;
+const STATS_PANEL_HEIGHT = 220;
 const NEXT_ITEM_SPACING = 88;
+const MIN_DISPLAY_SCALE = 0.55;
 
 type LayoutMetrics = {
   boardX: number;
@@ -66,16 +67,32 @@ type Renderer = {
 function setCanvasSize(
   canvas: HTMLCanvasElement,
   ctx: CanvasRenderingContext2D,
-  cssWidth: number,
-  cssHeight: number,
+  logicalWidth: number,
+  logicalHeight: number,
+  displayScale = 1,
 ): void {
   const dpr = window.devicePixelRatio || 1;
-  canvas.style.width = `${cssWidth}px`;
-  canvas.style.height = `${cssHeight}px`;
-  canvas.width = Math.floor(cssWidth * dpr);
-  canvas.height = Math.floor(cssHeight * dpr);
+  canvas.style.width = `${Math.round(logicalWidth * displayScale)}px`;
+  canvas.style.height = `${Math.round(logicalHeight * displayScale)}px`;
+  canvas.width = Math.floor(logicalWidth * dpr);
+  canvas.height = Math.floor(logicalHeight * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.imageSmoothingEnabled = false;
+}
+
+function getAvailableCanvasSize(canvas: HTMLCanvasElement): { width: number; height: number } {
+  const parent = canvas.parentElement;
+  const parentWidth = parent?.clientWidth ?? window.innerWidth;
+  return {
+    width: Math.max(1, parentWidth),
+    height: Math.max(1, window.innerHeight - 180),
+  };
+}
+
+function getDisplayScale(canvas: HTMLCanvasElement, logicalWidth: number, logicalHeight: number): number {
+  const available = getAvailableCanvasSize(canvas);
+  const scale = Math.min(1, available.width / logicalWidth, available.height / logicalHeight);
+  return Math.max(MIN_DISPLAY_SCALE, scale);
 }
 
 function drawMiniPiece(
@@ -131,21 +148,14 @@ function drawPanel(
   x: number,
   y: number,
   width: number,
-  height: number,
+  _height: number,
   title: string,
 ): void {
-  const gradient = ctx.createLinearGradient(x, y, x, y + height);
-  gradient.addColorStop(0, "#1a2232");
-  gradient.addColorStop(1, "#101725");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(x, y, width, height);
-  ctx.strokeStyle = "#2e3f5b";
-  ctx.strokeRect(x, y, width, height);
-  ctx.fillStyle = "#d6e4ff";
+  ctx.fillStyle = "rgba(214, 228, 255, 0.82)";
   ctx.font = "bold 14px system-ui, sans-serif";
   ctx.textAlign = "left";
   ctx.fillText(title, x + PANEL_INNER_GAP, y + 22);
-  ctx.strokeStyle = "rgba(214, 228, 255, 0.2)";
+  ctx.strokeStyle = "rgba(214, 228, 255, 0.12)";
   ctx.beginPath();
   ctx.moveTo(x + PANEL_INNER_GAP, y + 30);
   ctx.lineTo(x + width - PANEL_INNER_GAP, y + 30);
@@ -203,7 +213,7 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
   const syncGameConfig = (game: Game): void => {
     const width = game.board.width * CELL + PANEL_WIDTH * 2 + PADDING * 2;
     const height = game.board.height * CELL + PADDING * 2;
-    setCanvasSize(canvas, ctx, width, height);
+    setCanvasSize(canvas, ctx, width, height, getDisplayScale(canvas, width, height));
   };
 
   const updateRotation = (boardRotation: number, dtMs: number): void => {
@@ -233,7 +243,7 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     const layout = buildLayoutMetrics(game, snap);
     drawBackground(layout);
     drawPlayfield(game, snap, layout);
-    drawSidePanels(game, snap, paused, layout);
+    drawSidePanels(snap, layout);
     drawOverlay(snap, paused, layout);
   };
 
@@ -273,9 +283,23 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
 
   const drawBackground = (layout: LayoutMetrics): void => {
     const bgGradient = ctx.createLinearGradient(0, 0, 0, layout.canvasHeight);
-    bgGradient.addColorStop(0, "#0a101a");
-    bgGradient.addColorStop(1, "#0f1726");
+    bgGradient.addColorStop(0, "#2a2233");
+    bgGradient.addColorStop(0.55, "#39293e");
+    bgGradient.addColorStop(1, "#263546");
     ctx.fillStyle = bgGradient;
+    ctx.fillRect(0, 0, layout.canvasWidth, layout.canvasHeight);
+
+    const accentGlow = ctx.createRadialGradient(
+      layout.canvasWidth * 0.48,
+      layout.canvasHeight * 0.78,
+      0,
+      layout.canvasWidth * 0.48,
+      layout.canvasHeight * 0.78,
+      layout.canvasHeight * 0.62,
+    );
+    accentGlow.addColorStop(0, "rgba(185, 157, 232, 0.2)");
+    accentGlow.addColorStop(1, "rgba(185, 157, 232, 0)");
+    ctx.fillStyle = accentGlow;
     ctx.fillRect(0, 0, layout.canvasWidth, layout.canvasHeight);
   };
 
@@ -311,22 +335,20 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     ctx.rotate((displayedTurns % 4) * (Math.PI / 2));
     ctx.translate(-layout.playWidth / 2, -layout.playHeight / 2);
 
-    ctx.fillStyle = "#111a2a";
+    ctx.fillStyle = "rgba(17, 26, 42, 0.58)";
     ctx.fillRect(0, 0, layout.playWidth, layout.playHeight);
-    ctx.fillStyle = "#0f1728";
+    ctx.fillStyle = "rgba(15, 23, 40, 0.78)";
     ctx.fillRect(layout.viewX, layout.viewY, layout.viewW, layout.viewH);
-    ctx.strokeStyle = "#3b4e6e";
-    ctx.strokeRect(layout.viewX, layout.viewY, layout.viewW, layout.viewH);
 
     for (let y = 0; y <= snap.height; y++) {
-      ctx.strokeStyle = "#1c2738";
+      ctx.strokeStyle = "rgba(214, 228, 255, 0.08)";
       ctx.beginPath();
       ctx.moveTo(layout.viewX, layout.viewY + y * CELL);
       ctx.lineTo(layout.viewX + layout.viewW, layout.viewY + y * CELL);
       ctx.stroke();
     }
     for (let x = 0; x <= snap.width; x++) {
-      ctx.strokeStyle = "#1c2738";
+      ctx.strokeStyle = "rgba(214, 228, 255, 0.08)";
       ctx.beginPath();
       ctx.moveTo(layout.viewX + x * CELL, layout.viewY);
       ctx.lineTo(layout.viewX + x * CELL, layout.viewY + layout.viewH);
@@ -378,12 +400,7 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     ctx.restore();
   };
 
-  const drawSidePanels = (
-    game: Game,
-    snap: ReturnType<Game["getSnapshot"]>,
-    paused: boolean,
-    layout: LayoutMetrics,
-  ): void => {
+  const drawSidePanels = (snap: ReturnType<Game["getSnapshot"]>, layout: LayoutMetrics): void => {
     drawPanel(ctx, PADDING, PADDING, layout.panelWidth, HOLD_PANEL_HEIGHT, "Hold");
     if (snap.hold) {
       drawMiniPiece(ctx, snap.hold, PADDING + 16, PADDING + 48, 18);
@@ -392,29 +409,14 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     drawPanel(ctx, PADDING, STATS_PANEL_Y, layout.panelWidth, STATS_PANEL_HEIGHT, "Stats");
     ctx.fillStyle = "#dbe7ff";
     ctx.font = "13px system-ui, sans-serif";
-    ctx.fillText(`Mode: ${snap.gameMode}`, PADDING + PANEL_INNER_GAP, PADDING + 218);
-    ctx.fillText(`Timer: ${formatTimer(snap.remainingMs)}`, PADDING + PANEL_INNER_GAP, PADDING + 244);
-    ctx.fillText(`Score: ${snap.score}`, PADDING + PANEL_INNER_GAP, PADDING + 270);
-    ctx.fillText(`Level: ${snap.level}`, PADDING + PANEL_INNER_GAP, PADDING + 296);
-    ctx.fillText(`Combo: ${snap.combo}`, PADDING + PANEL_INNER_GAP, PADDING + 322);
-    ctx.fillText(`Lines: ${snap.linesClearedTotal}`, PADDING + PANEL_INNER_GAP, PADDING + 348);
-    ctx.fillText(
-      `Gravity: ${game.board.gravityDelta().join(", ")} (${snap.gravityIntervalMs}ms)`,
-      PADDING + PANEL_INNER_GAP,
-      PADDING + 374,
-    );
-    const stateY = snap.garbageEnabled ? PADDING + 426 : PADDING + 400;
+    ctx.fillText(`Timer: ${formatTimer(snap.remainingMs)}`, PADDING + PANEL_INNER_GAP, PADDING + 218);
+    ctx.fillText(`Score: ${snap.score}`, PADDING + PANEL_INNER_GAP, PADDING + 244);
+    ctx.fillText(`Level: ${snap.level}`, PADDING + PANEL_INNER_GAP, PADDING + 270);
+    ctx.fillText(`Combo: ${snap.combo}`, PADDING + PANEL_INNER_GAP, PADDING + 296);
+    ctx.fillText(`Lines: ${snap.linesClearedTotal}`, PADDING + PANEL_INNER_GAP, PADDING + 322);
     if (snap.garbageEnabled) {
-      ctx.fillText(`Incoming: ${snap.incomingGarbage}`, PADDING + PANEL_INNER_GAP, PADDING + 400);
+      ctx.fillText(`Incoming: ${snap.incomingGarbage}`, PADDING + PANEL_INNER_GAP, PADDING + 348);
     }
-    ctx.fillText(
-      `State: ${snap.gameOver ? "Game Over" : paused ? "Paused" : "Running"}`,
-      PADDING + PANEL_INNER_GAP,
-      stateY,
-    );
-    ctx.fillStyle = "#9aaed1";
-    ctx.fillText("P: Pause", PADDING + PANEL_INNER_GAP, stateY + 22);
-    ctx.fillText("R: Restart", PADDING + PANEL_INNER_GAP, stateY + 42);
 
     drawPanel(ctx, layout.rightPanelX, PADDING, layout.panelWidth, layout.playHeight, "Next");
     snap.next.slice(0, 5).forEach((type, idx) => {

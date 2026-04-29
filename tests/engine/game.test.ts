@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { Game } from "../../engine/game";
-import type { BoardModel } from "../../engine/board/types";
-import type { Piece } from "../../engine/piece";
+import type { BoardCell, BoardModel } from "../../engine/board/types";
+import { Piece } from "../../engine/piece";
 import type { GameConfigOverrides } from "../../engine/game/rules";
 
 const testConfig = (overrides: GameConfigOverrides = {}): GameConfigOverrides => ({
@@ -120,6 +120,61 @@ const createGarbageBoardFactory = () => {
   };
 };
 
+const createLockedBoard = (
+  lockedCells: [number, number][] = [],
+  canPlace: BoardModel["canPlace"] = (_piece, _rotation, _dx, dy) => dy !== 1,
+) => {
+  return (width: number, height: number): BoardModel => {
+    const locked = Array.from({ length: height }, () => Array<BoardCell>(width).fill(null));
+    for (const [x, y] of lockedCells) locked[y][x] = "I";
+    return {
+      width,
+      height,
+      rotation: 0,
+      rotate: () => {},
+      gravityDelta: () => [0, 1],
+      lateralLeftDelta: () => [-1, 0],
+      lateralRightDelta: () => [1, 0],
+      getLockedCopy: () => locked.map((row) => [...row]),
+      canPlace,
+      isContactLoss: () => false,
+      lockPiece: (_piece: Piece) => {},
+      clearLines: () => 0,
+      addGarbage: () => 0,
+    };
+  };
+};
+
+const createKickedSpinBoard = (options: { allowRightMove?: boolean } = {}) => {
+  return (width: number, height: number): BoardModel => {
+    let kickAvailable = true;
+    return {
+      width,
+      height,
+      rotation: 0,
+      rotate: () => {},
+      gravityDelta: () => [0, 1],
+      lateralLeftDelta: () => [-1, 0],
+      lateralRightDelta: () => [1, 0],
+      getLockedCopy: () => Array.from({ length: height }, () => Array<BoardCell>(width).fill(null)),
+      canPlace: (_piece, rotation, dx, dy) => {
+        if (rotation === 1 && dx === -1 && dy === 0 && kickAvailable) {
+          kickAvailable = false;
+          return true;
+        }
+        if (dy === 1 || dx === -1 || (dx === 1 && !options.allowRightMove)) return false;
+        if (dx === 1 && options.allowRightMove) return true;
+        if (rotation === 1 && dx === 0 && dy === 0) return false;
+        return dx === 0 && dy === 0;
+      },
+      isContactLoss: () => false,
+      lockPiece: (_piece: Piece) => {},
+      clearLines: () => 0,
+      addGarbage: () => 0,
+    };
+  };
+};
+
 test("Game scores from clear count and updates snapshot stats", () => {
   const game = new Game({ boardFactory: createScoringBoardFactory(2), config: testConfig() });
   game.hardDrop();
@@ -172,6 +227,77 @@ test("Game resets combo chain on a lock without line clears", () => {
   const reopened = game.getSnapshot();
   assert.equal(reopened.combo, 0);
   assert.equal(reopened.score, 350);
+});
+
+test("Game exposes T-spin after locking a rotated T with three blocked corners", () => {
+  const game = new Game({
+    boardFactory: createLockedBoard([
+      [5, 6],
+      [7, 6],
+      [5, 8],
+    ]),
+    config: testConfig(),
+  });
+  game.activePiece = new Piece("T", 5, 5);
+
+  game.rotateCw();
+  game.hardDrop();
+
+  assert.deepEqual(game.getSnapshot().lastSpin, { pieceType: "T", kind: "t-spin" });
+});
+
+test("Game clears rotation metadata when the piece moves before locking", () => {
+  const game = new Game({
+    boardFactory: createLockedBoard([
+      [5, 6],
+      [7, 6],
+      [5, 8],
+    ]),
+    config: testConfig(),
+  });
+  game.activePiece = new Piece("T", 5, 5);
+
+  game.rotateCw();
+  game.moveRight();
+  game.hardDrop();
+
+  assert.equal(game.getSnapshot().lastSpin, null);
+});
+
+test("Game ignores non-T all-spins when the modifier is disabled", () => {
+  const game = new Game({ boardFactory: createKickedSpinBoard(), config: testConfig() });
+  game.activePiece = new Piece("L", 5, 5);
+
+  game.rotateCw();
+  game.hardDrop();
+
+  assert.equal(game.getSnapshot().lastSpin, null);
+});
+
+test("Game exposes non-T all-spins when modifier is enabled and kicked piece is immobile", () => {
+  const game = new Game({
+    boardFactory: createKickedSpinBoard(),
+    config: testConfig({ modifiers: { allSpins: true } }),
+  });
+  game.activePiece = new Piece("L", 5, 5);
+
+  game.rotateCw();
+  game.hardDrop();
+
+  assert.deepEqual(game.getSnapshot().lastSpin, { pieceType: "L", kind: "all-spin" });
+});
+
+test("Game does not expose all-spin when kicked piece can still move", () => {
+  const game = new Game({
+    boardFactory: createKickedSpinBoard({ allowRightMove: true }),
+    config: testConfig({ modifiers: { allSpins: true } }),
+  });
+  game.activePiece = new Piece("L", 5, 5);
+
+  game.rotateCw();
+  game.hardDrop();
+
+  assert.equal(game.getSnapshot().lastSpin, null);
 });
 
 test("Game increases level and gravity speed with progression", () => {

@@ -32,6 +32,9 @@ type GameConfig = {
     holesPerRing: number;
     maxPerApply: number;
   };
+  modifiers: {
+    allSpins: boolean;
+  };
 };
 
 type GameConfigOverrides = {
@@ -42,6 +45,7 @@ type GameConfigOverrides = {
     lineClearPoints?: Partial<GameConfig["scoring"]["lineClearPoints"]>;
   };
   garbage?: Partial<GameConfig["garbage"]>;
+  modifiers?: Partial<GameConfig["modifiers"]>;
 };
 
 /** Baseline solo config; modes should override this through `resolveGameConfig`. */
@@ -76,6 +80,9 @@ const DEFAULT_GAME_CONFIG: GameConfig = {
     holesPerRing: 2,
     maxPerApply: 1,
   },
+  modifiers: {
+    allSpins: false,
+  },
 };
 
 /** Deep-merge partial config overrides without dropping nested defaults like line-clear points. */
@@ -103,6 +110,10 @@ const resolveGameConfig = (overrides: GameConfigOverrides = {}): GameConfig => (
   garbage: {
     ...DEFAULT_GAME_CONFIG.garbage,
     ...overrides.garbage,
+  },
+  modifiers: {
+    ...DEFAULT_GAME_CONFIG.modifiers,
+    ...overrides.modifiers,
   },
 });
 
