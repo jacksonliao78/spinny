@@ -121,3 +121,45 @@ test("Board clearLines prune removes cells without inward support chain", () => 
   assert.equal(cleared, 1);
   assert.equal(board.board[1][4], null);
 });
+
+test("Board addGarbage fills outer ring with holes only", () => {
+  const board = new RingBoard(7, 7);
+
+  const applied = board.addGarbage(1, 4);
+
+  assert.equal(applied, 1);
+  assert.equal(board.board[0][0], null);
+  assert.equal(board.board[0][6], null);
+  assert.equal(board.board[3][6], null);
+  assert.equal(board.board[6][1], null);
+  assert.equal(board.board[0][1], 1);
+  assert.equal(board.board[1][0], 1);
+  assert.equal(board.board[6][6], 1);
+  assert.equal(board.board[1][1], null);
+  assert.equal(board.board[3][3], 1);
+});
+
+test("Board addGarbage does not overwrite existing locked cells", () => {
+  const board = new RingBoard(7, 7);
+  board.board[0][1] = "T";
+
+  const applied = board.addGarbage(1, 4);
+
+  assert.equal(applied, 1);
+  assert.equal(board.board[0][1], "T");
+});
+
+test("Board addGarbage returns zero when no cells can be added", () => {
+  const board = new RingBoard(7, 7);
+  for (let y = 0; y < board.height; y++) {
+    for (let x = 0; x < board.width; x++) {
+      if (x === 0 || x === board.width - 1 || y === 0 || y === board.height - 1) {
+        board.board[y][x] = "I";
+      }
+    }
+  }
+
+  const applied = board.addGarbage(1, 4);
+
+  assert.equal(applied, 0);
+});

@@ -10,7 +10,7 @@ const PANEL_INNER_GAP = 10;
 const SPIN_DURATION_MS = 180;
 const HOLD_PANEL_HEIGHT = 170;
 const STATS_PANEL_Y = PADDING + 184;
-const STATS_PANEL_HEIGHT = 250;
+const STATS_PANEL_HEIGHT = 280;
 const NEXT_ITEM_SPACING = 88;
 
 type LayoutMetrics = {
@@ -400,14 +400,18 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
       PADDING + PANEL_INNER_GAP,
       PADDING + 374,
     );
+    const stateY = snap.garbageEnabled ? PADDING + 426 : PADDING + 400;
+    if (snap.garbageEnabled) {
+      ctx.fillText(`Incoming: ${snap.incomingGarbage}`, PADDING + PANEL_INNER_GAP, PADDING + 400);
+    }
     ctx.fillText(
       `State: ${snap.gameOver ? "Game Over" : paused ? "Paused" : "Running"}`,
       PADDING + PANEL_INNER_GAP,
-      PADDING + 400,
+      stateY,
     );
     ctx.fillStyle = "#9aaed1";
-    ctx.fillText("P: Pause", PADDING + PANEL_INNER_GAP, PADDING + 422);
-    ctx.fillText("R: Restart", PADDING + PANEL_INNER_GAP, PADDING + 442);
+    ctx.fillText("P: Pause", PADDING + PANEL_INNER_GAP, stateY + 22);
+    ctx.fillText("R: Restart", PADDING + PANEL_INNER_GAP, stateY + 42);
 
     drawPanel(ctx, layout.rightPanelX, PADDING, layout.panelWidth, layout.playHeight, "Next");
     snap.next.slice(0, 5).forEach((type, idx) => {

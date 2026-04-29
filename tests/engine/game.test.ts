@@ -26,6 +26,7 @@ test("Game uses provided board factory", () => {
       isBottomBordered: () => false,
       lockPiece: (_piece: Piece) => {},
       clearLines: () => 0,
+      addGarbage: () => 0,
     };
   };
 
@@ -50,6 +51,7 @@ const createScoringBoardFactory = (linesToClear: number | (() => number)) => {
     isBottomBordered: () => false,
     lockPiece: (_piece: Piece) => {},
     clearLines: () => (typeof linesToClear === "function" ? linesToClear() : linesToClear),
+    addGarbage: () => 0,
   });
 };
 
@@ -76,7 +78,33 @@ const createAccumulatorBoardFactory = (allowedDownwardMoves: number) => {
       isBottomBordered: () => false,
       lockPiece: (_piece: Piece) => {},
       clearLines: () => 0,
+      addGarbage: () => 0,
     };
+  };
+};
+
+const createGarbageBoardFactory = () => {
+  let appliedGarbage = 0;
+  return {
+    getAppliedGarbage: () => appliedGarbage,
+    factory: (width: number, height: number): BoardModel => ({
+      width,
+      height,
+      rotation: 0,
+      rotate: () => {},
+      gravityDelta: () => [0, 1],
+      lateralLeftDelta: () => [-1, 0],
+      lateralRightDelta: () => [1, 0],
+      getLockedCopy: () => Array.from({ length: height }, () => Array(width).fill(null)),
+      canPlace: (_piece, _rotation, _dx, dy) => dy !== 1,
+      isBottomBordered: () => false,
+      lockPiece: (_piece: Piece) => {},
+      clearLines: () => 0,
+      addGarbage: (amount) => {
+        appliedGarbage += amount;
+        return amount;
+      },
+    }),
   };
 };
 
@@ -145,18 +173,19 @@ test("Game increases level and gravity speed with progression", () => {
   assert.ok(after.gravityIntervalMs < before);
 });
 
-test("Zen mode has no timer and does not apply automatic gravity", () => {
+test("Zen mode has no timer and uses level-one gravity", () => {
   const game = new Game(10, 20, 700, createAccumulatorBoardFactory(3), { mode: "zen" });
   const before = game.getSnapshot();
   const startY = before.active?.y;
 
-  game.tick(5_000);
+  game.tick(before.gravityIntervalMs);
   const after = game.getSnapshot();
 
   assert.equal(after.gameMode, "zen");
   assert.equal(after.remainingMs, null);
   assert.equal(after.gameOver, false);
-  assert.equal(after.active?.y, startY);
+  assert.equal(after.gravityIntervalMs, before.gravityIntervalMs);
+  assert.equal(after.active?.y, startY === undefined ? undefined : startY + 1);
 });
 
 test("Zen mode keeps level and gravity fixed after clears", () => {
@@ -172,6 +201,38 @@ test("Zen mode keeps level and gravity fixed after clears", () => {
   assert.equal(after.linesClearedTotal, 12);
   assert.equal(after.gravityIntervalMs, before);
   assert.equal(after.score, 2550);
+});
+
+test("Game ignores enqueued garbage unless garbage is enabled", () => {
+  const game = new Game(10, 20, 700, createScoringBoardFactory(0));
+
+  game.enqueueGarbage(3);
+
+  const snap = game.getSnapshot();
+  assert.equal(snap.garbageEnabled, false);
+  assert.equal(snap.incomingGarbage, 0);
+});
+
+test("Game enqueueGarbage updates incoming garbage snapshot when enabled", () => {
+  const game = new Game(10, 20, 700, createScoringBoardFactory(0), { garbageEnabled: true });
+
+  game.enqueueGarbage(3);
+
+  const snap = game.getSnapshot();
+  assert.equal(snap.garbageEnabled, true);
+  assert.equal(snap.incomingGarbage, 3);
+});
+
+test("Game applies capped queued garbage after a lock", () => {
+  const garbageBoard = createGarbageBoardFactory();
+  const game = new Game(10, 20, 700, garbageBoard.factory, { garbageEnabled: true, maxGarbagePerApply: 1 });
+
+  game.enqueueGarbage(3);
+  game.hardDrop();
+  const snap = game.getSnapshot();
+
+  assert.equal(garbageBoard.getAppliedGarbage(), 1);
+  assert.equal(snap.incomingGarbage, 2);
 });
 
 test("Timed mode expires and ends the game", () => {

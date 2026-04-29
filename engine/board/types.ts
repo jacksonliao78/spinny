@@ -15,6 +15,7 @@ type BoardModel = {
   isBottomBordered: (piece: Piece) => boolean;
   lockPiece: (piece: Piece) => void;
   clearLines: () => number;
+  addGarbage: (rings: number, holesPerRing: number) => number;
 };
 
 type BoardFactory = (width: number, height: number) => BoardModel;

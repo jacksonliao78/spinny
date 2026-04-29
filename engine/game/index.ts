@@ -36,6 +36,8 @@ export type GameSnapshot = {
   level: number;
   combo: number;
   linesClearedTotal: number;
+  garbageEnabled: boolean;
+  incomingGarbage: number;
   gameMode: GameMode;
   remainingMs: number | null;
   gravityIntervalMs: number;
@@ -67,6 +69,7 @@ class Game {
   private level = 1;
   private combo = 0;
   private linesClearedTotal = 0;
+  private incomingGarbage = 0;
   private remainingMs: number | null;
 
   private lockTimerMs = 0;
@@ -121,6 +124,8 @@ class Game {
       level: this.level,
       combo: Math.max(0, this.combo - 1),
       linesClearedTotal: this.linesClearedTotal,
+      garbageEnabled: this.config.garbageEnabled,
+      incomingGarbage: this.incomingGarbage,
       gameMode: this.gameMode,
       remainingMs: this.remainingMs,
       gravityIntervalMs: this.currentGravityIntervalMs(),
@@ -138,12 +143,10 @@ class Game {
       }
     }
     if (this.gameOver || !this.activePiece) return;
-    if (this.gameMode !== "zen") {
-      this.gravityMs += dtMs;
-      while (this.gravityMs >= this.currentGravityIntervalMs()) {
-        this.gravityMs -= this.currentGravityIntervalMs();
-        if (!this.stepGravity()) break;
-      }
+    this.gravityMs += dtMs;
+    while (this.gravityMs >= this.currentGravityIntervalMs()) {
+      this.gravityMs -= this.currentGravityIntervalMs();
+      if (!this.stepGravity()) break;
     }
 
     if (!this.activePiece || this.gameOver) return;
@@ -262,6 +265,11 @@ class Game {
     this.clearLockDelayState();
   }
 
+  enqueueGarbage(amount: number): void {
+    if (!this.config.garbageEnabled) return;
+    this.incomingGarbage += Math.max(0, Math.floor(amount));
+  }
+
   /** One gravity step; returns true if piece moved along gravity. */
   private stepGravity(): boolean {
     if (!this.activePiece) return false;
@@ -369,6 +377,7 @@ class Game {
     const linesCleared = this.board.clearLines();
     this.applyLineClearProgress(linesCleared);
     this.board.rotate();
+    this.applyQueuedGarbage();
     this.clearLockDelayState();
     this.holdLocked = false;
     this.activePiece = null;
@@ -388,6 +397,14 @@ class Game {
     if (this.gameMode === "zen") return;
     const nextLevel = Math.floor(this.linesClearedTotal / this.config.linesPerLevel) + 1;
     this.level = Math.max(1, nextLevel);
+  }
+
+  private applyQueuedGarbage(): void {
+    if (!this.config.garbageEnabled) return;
+    if (this.incomingGarbage <= 0) return;
+    const amount = Math.min(this.incomingGarbage, this.config.maxGarbagePerApply);
+    const applied = this.board.addGarbage(amount, this.config.garbageHolesPerRing);
+    this.incomingGarbage -= applied;
   }
 
   private currentGravityIntervalMs(): number {

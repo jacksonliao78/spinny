@@ -8,6 +8,7 @@ class RingBoard implements BoardModel {
 
   center: number;
   rotation: number;
+  private garbageHoleCursor = 0;
 
   constructor(width: number, height: number) {
     this.width = width;
@@ -133,15 +134,37 @@ class RingBoard implements BoardModel {
     }
   }
 
+  addGarbage(rings: number, holesPerRing: number): number {
+    const amount = Math.max(0, Math.floor(rings));
+    if (amount === 0) return 0;
+
+    const outerRing = this.getMaxRing();
+    const cells = this.getRingCells(outerRing);
+    if (cells.length === 0) return 0;
+
+    let applied = 0;
+    for (let i = 0; i < amount; i++) {
+      const holes = this.pickGarbageHoles(cells.length, holesPerRing);
+      let placedCells = 0;
+      for (let cellIndex = 0; cellIndex < cells.length; cellIndex++) {
+        if (holes.has(cellIndex)) continue;
+        const [x, y] = cells[cellIndex];
+        if (this.board[y][x] !== null) continue;
+        this.board[y][x] = 1;
+        placedCells += 1;
+      }
+      if (placedCells === 0) break;
+      applied += 1;
+    }
+    return applied;
+  }
+
   /**
    * line clears
    */
   clearLines(): number {
-    const minCenterX = Math.floor((this.width - 3) / 2);
-    const minCenterY = Math.floor((this.height - 3) / 2);
-    const maxCenterX = minCenterX + 2;
-    const maxCenterY = minCenterY + 2;
-    const maxRing = Math.max(minCenterX, minCenterY, this.width - 1 - maxCenterX, this.height - 1 - maxCenterY);
+    const { minCenterX, minCenterY, maxCenterX, maxCenterY } = this.getCenterBounds();
+    const maxRing = this.getMaxRing();
     const ringCells: [number, number][][] = Array.from({ length: maxRing + 1 }, () => []);
     const ringDistance = (x: number, y: number) => {
       const dx = x < minCenterX ? minCenterX - x : x > maxCenterX ? x - maxCenterX : 0;
@@ -210,6 +233,49 @@ class RingBoard implements BoardModel {
 
     this.board = pruned;
     return clearedRings.size;
+  }
+
+  private getCenterBounds() {
+    const minCenterX = Math.floor((this.width - 3) / 2);
+    const minCenterY = Math.floor((this.height - 3) / 2);
+    return {
+      minCenterX,
+      minCenterY,
+      maxCenterX: minCenterX + 2,
+      maxCenterY: minCenterY + 2,
+    };
+  }
+
+  private getMaxRing(): number {
+    const { minCenterX, minCenterY, maxCenterX, maxCenterY } = this.getCenterBounds();
+    return Math.max(minCenterX, minCenterY, this.width - 1 - maxCenterX, this.height - 1 - maxCenterY);
+  }
+
+  private getRingCells(targetRing: number): [number, number][] {
+    const { minCenterX, minCenterY, maxCenterX, maxCenterY } = this.getCenterBounds();
+    const ringDistance = (x: number, y: number) => {
+      const dx = x < minCenterX ? minCenterX - x : x > maxCenterX ? x - maxCenterX : 0;
+      const dy = y < minCenterY ? minCenterY - y : y > maxCenterY ? y - maxCenterY : 0;
+      return Math.max(dx, dy);
+    };
+    const cells: [number, number][] = [];
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        if (ringDistance(x, y) === targetRing) cells.push([x, y]);
+      }
+    }
+    return cells;
+  }
+
+  private pickGarbageHoles(cellCount: number, holesPerRing: number): Set<number> {
+    const holeCount = Math.min(Math.max(1, Math.floor(holesPerRing)), cellCount);
+    const holes = new Set<number>();
+    const step = Math.max(1, Math.floor(cellCount / holeCount));
+    for (let i = 0; holes.size < holeCount; i++) {
+      holes.add((this.garbageHoleCursor + i * step) % cellCount);
+    }
+    this.garbageHoleCursor = (this.garbageHoleCursor + 1) % cellCount;
+    return holes;
   }
 }
 

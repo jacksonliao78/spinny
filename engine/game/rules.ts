@@ -20,6 +20,9 @@ type GameConfig = {
   softDropPointPerCell: number;
   hardDropPointPerCell: number;
   comboPointPerChain: number;
+  garbageEnabled: boolean;
+  garbageHolesPerRing: number;
+  maxGarbagePerApply: number;
 };
 
 type GameDefaults = {
@@ -52,6 +55,9 @@ const DEFAULT_GAME_CONFIG: GameConfig = {
   softDropPointPerCell: 1,
   hardDropPointPerCell: 2,
   comboPointPerChain: 50,
+  garbageEnabled: false,
+  garbageHolesPerRing: 2,
+  maxGarbagePerApply: 1,
 };
 
 const getLineClearBasePoints = (linesCleared: number, config: GameConfig): number => {
