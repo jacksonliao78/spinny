@@ -1,7 +1,9 @@
 import { Game } from "@game/game";
+import { SOLID_CELL } from "@game/board/types";
 import { PIECE_ROTATIONS } from "@game/piece";
 import { Piece } from "@game/piece";
 import type { PieceType } from "@game/piece";
+import type { BoardCell } from "@game/board/types";
 
 const CELL = 24;
 const PANEL_WIDTH = 178;
@@ -188,6 +190,7 @@ function drawStyledCell(
   ctx.restore();
 }
 
+/** Canvas renderer owns sizing, board spin animation, and HUD drawing; gameplay stays in Game. */
 function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): Renderer {
   // Rotation animation state in quarter-turn units.
   let displayedTurns = 0;
@@ -288,10 +291,10 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
         ctx.fillRect(x * CELL + 2, y * CELL + 2, CELL - 4, CELL - 4);
       }
     };
-    const drawLockedCell = (x: number, y: number, cell: PieceType | null | 1, alpha = 1) => {
+    const drawLockedCell = (x: number, y: number, cell: BoardCell, alpha = 1) => {
       if (cell === null) return;
       ctx.globalAlpha = alpha;
-      if (cell === 1) {
+      if (cell === SOLID_CELL) {
         ctx.fillStyle = OBSTACLE_COLOR;
         ctx.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
         ctx.fillStyle = "rgba(0,0,0,0.18)";

@@ -4,7 +4,16 @@ import assert from "node:assert/strict";
 import { Game } from "../../engine/game";
 import type { BoardModel } from "../../engine/board/types";
 import type { Piece } from "../../engine/piece";
-import type { GameConfig } from "../../engine/game/rules";
+import type { GameConfigOverrides } from "../../engine/game/rules";
+
+const testConfig = (overrides: GameConfigOverrides = {}): GameConfigOverrides => ({
+  ...overrides,
+  board: {
+    width: 10,
+    height: 20,
+    ...overrides.board,
+  },
+});
 
 test("Game uses provided board factory", () => {
   let createdWidth = -1;
@@ -30,7 +39,10 @@ test("Game uses provided board factory", () => {
     };
   };
 
-  const game = new Game(10, 20, 800, makeBoard);
+  const game = new Game({
+    boardFactory: makeBoard,
+    config: testConfig({ gravity: { baseIntervalMs: 800 } }),
+  });
   assert.equal(createdWidth, 14);
   assert.equal(createdHeight, 24);
   assert.equal(game.board.width, 14);
@@ -109,7 +121,7 @@ const createGarbageBoardFactory = () => {
 };
 
 test("Game scores from clear count and updates snapshot stats", () => {
-  const game = new Game(10, 20, 700, createScoringBoardFactory(2));
+  const game = new Game({ boardFactory: createScoringBoardFactory(2), config: testConfig() });
   game.hardDrop();
   const snap = game.getSnapshot();
 
@@ -120,7 +132,7 @@ test("Game scores from clear count and updates snapshot stats", () => {
 });
 
 test("Game awards combo bonuses after consecutive line clears", () => {
-  const game = new Game(10, 20, 700, createScoringBoardFactory(1));
+  const game = new Game({ boardFactory: createScoringBoardFactory(1), config: testConfig() });
 
   game.hardDrop();
   assert.equal(game.getSnapshot().score, 100);
@@ -139,10 +151,13 @@ test("Game awards combo bonuses after consecutive line clears", () => {
 
 test("Game resets combo chain on a lock without line clears", () => {
   let lockCount = 0;
-  const game = new Game(10, 20, 700, createScoringBoardFactory(() => {
-    lockCount += 1;
-    return lockCount === 3 ? 0 : 1;
-  }));
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(() => {
+      lockCount += 1;
+      return lockCount === 3 ? 0 : 1;
+    }),
+    config: testConfig(),
+  });
 
   game.hardDrop();
   game.hardDrop();
@@ -160,7 +175,7 @@ test("Game resets combo chain on a lock without line clears", () => {
 });
 
 test("Game increases level and gravity speed with progression", () => {
-  const game = new Game(10, 20, 700, createScoringBoardFactory(4));
+  const game = new Game({ boardFactory: createScoringBoardFactory(4), config: testConfig() });
   const before = game.getSnapshot().gravityIntervalMs;
 
   game.hardDrop();
@@ -174,7 +189,10 @@ test("Game increases level and gravity speed with progression", () => {
 });
 
 test("Zen mode has no timer and uses level-one gravity", () => {
-  const game = new Game(10, 20, 700, createAccumulatorBoardFactory(3), { mode: "zen" });
+  const game = new Game({
+    boardFactory: createAccumulatorBoardFactory(3),
+    config: testConfig({ mode: { kind: "zen" } }),
+  });
   const before = game.getSnapshot();
   const startY = before.active?.y;
 
@@ -189,7 +207,10 @@ test("Zen mode has no timer and uses level-one gravity", () => {
 });
 
 test("Zen mode keeps level and gravity fixed after clears", () => {
-  const game = new Game(10, 20, 700, createScoringBoardFactory(4), { mode: "zen" });
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(4),
+    config: testConfig({ mode: { kind: "zen" } }),
+  });
   const before = game.getSnapshot().gravityIntervalMs;
 
   game.hardDrop();
@@ -204,7 +225,7 @@ test("Zen mode keeps level and gravity fixed after clears", () => {
 });
 
 test("Game ignores enqueued garbage unless garbage is enabled", () => {
-  const game = new Game(10, 20, 700, createScoringBoardFactory(0));
+  const game = new Game({ boardFactory: createScoringBoardFactory(0), config: testConfig() });
 
   game.enqueueGarbage(3);
 
@@ -214,7 +235,10 @@ test("Game ignores enqueued garbage unless garbage is enabled", () => {
 });
 
 test("Game enqueueGarbage updates incoming garbage snapshot when enabled", () => {
-  const game = new Game(10, 20, 700, createScoringBoardFactory(0), { garbageEnabled: true });
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(0),
+    config: testConfig({ garbage: { enabled: true } }),
+  });
 
   game.enqueueGarbage(3);
 
@@ -225,7 +249,10 @@ test("Game enqueueGarbage updates incoming garbage snapshot when enabled", () =>
 
 test("Game applies capped queued garbage after a lock", () => {
   const garbageBoard = createGarbageBoardFactory();
-  const game = new Game(10, 20, 700, garbageBoard.factory, { garbageEnabled: true, maxGarbagePerApply: 1 });
+  const game = new Game({
+    boardFactory: garbageBoard.factory,
+    config: testConfig({ garbage: { enabled: true, maxPerApply: 1 } }),
+  });
 
   game.enqueueGarbage(3);
   game.hardDrop();
@@ -236,11 +263,10 @@ test("Game applies capped queued garbage after a lock", () => {
 });
 
 test("Timed mode expires and ends the game", () => {
-  const config: Partial<GameConfig> = {
-    mode: "timed",
-    timed: { durationMs: 200 },
-  };
-  const game = new Game(10, 20, 700, createScoringBoardFactory(0), config);
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(0),
+    config: testConfig({ mode: { kind: "timed", timedDurationMs: 200 } }),
+  });
   game.tick(100);
   let snap = game.getSnapshot();
   assert.equal(snap.gameOver, false);
@@ -253,11 +279,10 @@ test("Timed mode expires and ends the game", () => {
 });
 
 test("Timed mode clamps overshoot and is idempotent after expiry", () => {
-  const config: Partial<GameConfig> = {
-    mode: "timed",
-    timed: { durationMs: 120 },
-  };
-  const game = new Game(10, 20, 700, createScoringBoardFactory(0), config);
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(0),
+    config: testConfig({ mode: { kind: "timed", timedDurationMs: 120 } }),
+  });
   game.tick(500);
   const expired = game.getSnapshot();
   assert.equal(expired.gameOver, true);
@@ -274,7 +299,10 @@ test("Timed mode clamps overshoot and is idempotent after expiry", () => {
 });
 
 test("Gravity accumulator carries remainder across ticks", () => {
-  const game = new Game(10, 20, 100, createAccumulatorBoardFactory(3));
+  const game = new Game({
+    boardFactory: createAccumulatorBoardFactory(3),
+    config: testConfig({ gravity: { baseIntervalMs: 100 } }),
+  });
   const before = game.getSnapshot().score;
 
   game.tick(50);
@@ -288,11 +316,10 @@ test("Gravity accumulator carries remainder across ticks", () => {
 });
 
 test("Snapshot includes mode and timer fields", () => {
-  const config: Partial<GameConfig> = {
-    mode: "timed",
-    timed: { durationMs: 300 },
-  };
-  const game = new Game(10, 20, 700, createScoringBoardFactory(0), config);
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(0),
+    config: testConfig({ mode: { kind: "timed", timedDurationMs: 300 } }),
+  });
   const snap = game.getSnapshot();
 
   assert.equal(snap.gameMode, "timed");

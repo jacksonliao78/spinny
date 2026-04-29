@@ -2,6 +2,7 @@ import type { PieceType } from "./piece";
 
 type KickOffset = readonly [dx: number, dy: number];
 type Spin = "cw" | "ccw";
+/** Normalized rotation transition key used by the Super Rotation System kick tables. */
 type RotationTransition =
   | "0>1"
   | "1>2"
@@ -31,6 +32,7 @@ type SrsPlacement = {
 
 const NO_KICKS: readonly KickOffset[] = [[0, 0]] as const;
 
+/** SRS kick tests for J/L/S/T/Z pieces; coordinates are board-space offsets. */
 const JLSTZ_CW: Readonly<Record<RotationTransition, readonly KickOffset[]>> = {
   "0>1": [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
   "1>2": [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],
@@ -53,6 +55,7 @@ const JLSTZ_CCW: Readonly<Record<RotationTransition, readonly KickOffset[]>> = {
   "0>1": [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
 } as const;
 
+/** SRS kick tests for the I piece, which has a distinct rotation center. */
 const I_CW: Readonly<Record<RotationTransition, readonly KickOffset[]>> = {
   "0>1": [[0, 0], [-2, 0], [1, 0], [-2, -1], [1, 2]],
   "1>2": [[0, 0], [-1, 0], [2, 0], [-1, 2], [2, -1]],
@@ -104,6 +107,7 @@ const getKicks = (
   return getKickTests(piece, fromRot, toRot, spin);
 };
 
+/** Return the first SRS kick placement accepted by the caller's collision check. */
 const tryKicks = (args: TryKickArgs): SrsPlacement | null => {
   const kicks = getKicks(
     args.pieceType,

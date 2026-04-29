@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { SOLID_CELL } from "../../engine/board/types";
 import { RingBoard } from "../../engine/board/ring";
 
 test("Board gravity and lateral deltas follow rotation", () => {
@@ -34,9 +35,9 @@ test("Board clearLines clears a full ring and keeps center obstacle intact", () 
 
   const cleared = board.clearLines();
   assert.equal(cleared, 1);
-  assert.equal(board.board[3][2], 1);
-  assert.equal(board.board[3][3], 1);
-  assert.equal(board.board[3][4], 1);
+  assert.equal(board.board[3][2], SOLID_CELL);
+  assert.equal(board.board[3][3], SOLID_CELL);
+  assert.equal(board.board[3][4], SOLID_CELL);
 });
 
 test("Board clearLines shrink deletes outer-ring corners", () => {
@@ -132,11 +133,11 @@ test("Board addGarbage fills outer ring with holes only", () => {
   assert.equal(board.board[0][6], null);
   assert.equal(board.board[3][6], null);
   assert.equal(board.board[6][1], null);
-  assert.equal(board.board[0][1], 1);
-  assert.equal(board.board[1][0], 1);
-  assert.equal(board.board[6][6], 1);
+  assert.equal(board.board[0][1], SOLID_CELL);
+  assert.equal(board.board[1][0], SOLID_CELL);
+  assert.equal(board.board[6][6], SOLID_CELL);
   assert.equal(board.board[1][1], null);
-  assert.equal(board.board[3][3], 1);
+  assert.equal(board.board[3][3], SOLID_CELL);
 });
 
 test("Board addGarbage does not overwrite existing locked cells", () => {

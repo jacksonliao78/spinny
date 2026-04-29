@@ -2,6 +2,7 @@ import { Piece, PieceType } from "./piece";
 
 const ALL_TYPES: PieceType[] = ["O", "I", "Z", "S", "L", "J", "T"];
 
+/** Seven-bag piece queue with a stable preview window for the next panel. */
 class Queue {
   private preview: PieceType[] = [];
   private bag: Piece[] = [];

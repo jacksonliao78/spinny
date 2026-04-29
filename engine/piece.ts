@@ -1,5 +1,6 @@
 type PieceType = 'O' | 'I' | 'Z' | 'S' | 'L' | 'J' | 'T'
 
+/** 4x4 rotation grid where 1 means occupied and 0 means empty. */
 type ShapeGrid = readonly ( readonly number[] )[]
 
 const SHAPE_O: readonly ShapeGrid[] = [

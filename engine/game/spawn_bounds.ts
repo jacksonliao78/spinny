@@ -7,6 +7,7 @@ type VisibleBounds = {
   maxY: number;
 };
 
+/** Spawn from the side opposite gravity so the rotating board always has an entry buffer. */
 const getSpawnCoords = (
   playWidth: number,
   playHeight: number,
@@ -35,6 +36,7 @@ const getVisibleBounds = (playWidth: number, playHeight: number, spawnPad: numbe
   maxY: spawnPad + playHeight - 1,
 });
 
+/** Allow the spawn-buffer side to be out of view, but keep the other three sides inside play bounds. */
 const respectsViewBounds = (
   piece: Piece,
   rotation: number,

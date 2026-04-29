@@ -1,18 +1,17 @@
-import type { BoardFactory, BoardModel } from "../board/types";
+import type { BoardCell, BoardFactory, BoardModel } from "../board/types";
 import { createBoard } from "../board/factory";
 import {
-  DEFAULT_GAME_CONFIG,
-  DEFAULT_GAME_RULES,
   getComboBonusPoints,
   getGravityIntervalMs,
   getLineClearBasePoints,
+  resolveGameConfig,
 } from "./rules";
 import { Hold } from "../hold";
 import type { PieceType } from "../piece";
 import { Piece } from "../piece";
 import { Queue } from "../queue";
 import { tryKicks } from "../srs";
-import type { GameConfig, GameMode } from "./rules";
+import type { GameConfig, GameConfigOverrides, GameMode } from "./rules";
 import { pieceLow, syncLowProgress } from "./progression";
 import {
   applyDownwardAdvanceLockDelayTransition,
@@ -21,6 +20,7 @@ import {
 } from "./lock_delay";
 import { getSpawnCoords, getVisibleBounds, respectsViewBounds } from "./spawn_bounds";
 
+/** Read-only frame data consumed by the renderer and UI; active remains mutable game state. */
 export type GameSnapshot = {
   width: number;
   height: number;
@@ -28,7 +28,7 @@ export type GameSnapshot = {
   viewOffsetY: number;
   /** 0–3: how many quarter-turns the playfield has taken (gravity cycles with this). */
   boardRotation: number;
-  locked: (PieceType | null | 1)[][];
+  locked: BoardCell[][];
   active: Piece | null;
   next: PieceType[];
   hold: PieceType | null;
@@ -42,6 +42,13 @@ export type GameSnapshot = {
   remainingMs: number | null;
   gravityIntervalMs: number;
   gameOver: boolean;
+};
+
+type GameOptions = {
+  /** Optional board implementation, mainly for alternate board types and tests. */
+  boardFactory?: BoardFactory;
+  /** Partial gameplay tuning merged with DEFAULT_GAME_CONFIG. */
+  config?: GameConfigOverrides;
 };
 
 const LOCK_DELAY_MS = 500;
@@ -64,7 +71,6 @@ class Game {
   private readonly config: GameConfig;
   private readonly gameMode: GameMode;
   private readonly timedDurationMs: number;
-  private baseGravityIntervalMs: number;
   private score = 0;
   private level = 1;
   private combo = 0;
@@ -77,34 +83,17 @@ class Game {
   private lowestProgress = Number.NEGATIVE_INFINITY;
   private hasTouchedGround = false;
 
-  constructor(
-    width = DEFAULT_GAME_RULES.width,
-    height = DEFAULT_GAME_RULES.height,
-    gravityIntervalMs = DEFAULT_GAME_RULES.gravityIntervalMs,
-    boardFactory: BoardFactory = (boardWidth, boardHeight) => createBoard("ring", boardWidth, boardHeight),
-    config: Partial<GameConfig> = {},
-  ) {
-    this.playWidth = width;
-    this.playHeight = height;
+  constructor(options: GameOptions = {}) {
+    this.config = resolveGameConfig(options.config);
+    const boardFactory = options.boardFactory ?? ((boardWidth, boardHeight) => createBoard("ring", boardWidth, boardHeight));
+    this.playWidth = this.config.board.width;
+    this.playHeight = this.config.board.height;
     this.spawnPad = SPAWN_PAD;
-    this.board = boardFactory(width + SPAWN_PAD * 2, height + SPAWN_PAD * 2);
+    this.board = boardFactory(this.playWidth + SPAWN_PAD * 2, this.playHeight + SPAWN_PAD * 2);
     this.queue = new Queue();
     this.holdSlot = new Hold();
-    this.config = {
-      ...DEFAULT_GAME_CONFIG,
-      ...config,
-      timed: {
-        ...DEFAULT_GAME_CONFIG.timed,
-        ...config.timed,
-      },
-      lineClearPoints: {
-        ...DEFAULT_GAME_CONFIG.lineClearPoints,
-        ...config.lineClearPoints,
-      },
-    };
-    this.gameMode = this.config.mode;
-    this.timedDurationMs = this.config.timed.durationMs;
-    this.baseGravityIntervalMs = gravityIntervalMs;
+    this.gameMode = this.config.mode.kind;
+    this.timedDurationMs = this.config.mode.timedDurationMs;
     this.remainingMs = this.gameMode === "timed" ? this.timedDurationMs : null;
     this.spawn();
   }
@@ -124,7 +113,7 @@ class Game {
       level: this.level,
       combo: Math.max(0, this.combo - 1),
       linesClearedTotal: this.linesClearedTotal,
-      garbageEnabled: this.config.garbageEnabled,
+      garbageEnabled: this.config.garbage.enabled,
       incomingGarbage: this.incomingGarbage,
       gameMode: this.gameMode,
       remainingMs: this.remainingMs,
@@ -200,7 +189,7 @@ class Game {
     const [gx, gy] = this.board.gravityDelta();
     if (this.canMovePiece(this.activePiece, gx, gy)) {
       this.activePiece.move(gx, gy);
-      this.score += this.config.softDropPointPerCell;
+      this.score += this.config.scoring.softDropPointPerCell;
       this.onDownwardAdvance();
     }
   }
@@ -213,7 +202,7 @@ class Game {
       this.activePiece.move(gx, gy);
       movedCells += 1;
     }
-    this.score += movedCells * this.config.hardDropPointPerCell;
+    this.score += movedCells * this.config.scoring.hardDropPointPerCell;
 
     const shouldGameOverFromBorder = this.board.isBottomBordered(this.activePiece);
     if (shouldGameOverFromBorder) {
@@ -265,8 +254,9 @@ class Game {
     this.clearLockDelayState();
   }
 
+  /** Queue incoming garbage for modes that enable it; ignored by Timed/Zen defaults. */
   enqueueGarbage(amount: number): void {
-    if (!this.config.garbageEnabled) return;
+    if (!this.config.garbage.enabled) return;
     this.incomingGarbage += Math.max(0, Math.floor(amount));
   }
 
@@ -370,7 +360,7 @@ class Game {
     this.hasTouchedGround = next.hasTouchedGround;
   }
 
-  /** Locks current piece, rotates board, and spawns the next piece. */
+  /** Lock current piece, resolve clear/scoring/garbage, rotate the board, then spawn next. */
   private lockAndSpawn(): void {
     if (!this.activePiece) return;
     this.board.lockPiece(this.activePiece);
@@ -384,6 +374,7 @@ class Game {
     this.spawn();
   }
 
+  /** Apply scoring, combo, line total, and level progression for a completed lock. */
   private applyLineClearProgress(linesCleared: number): void {
     if (linesCleared <= 0) {
       this.combo = 0;
@@ -395,27 +386,24 @@ class Game {
     this.combo += 1;
     this.linesClearedTotal += linesCleared;
     if (this.gameMode === "zen") return;
-    const nextLevel = Math.floor(this.linesClearedTotal / this.config.linesPerLevel) + 1;
+    const nextLevel = Math.floor(this.linesClearedTotal / this.config.gravity.linesPerLevel) + 1;
     this.level = Math.max(1, nextLevel);
   }
 
+  /** Apply a capped amount of queued garbage after clears so garbage never blocks a clear first. */
   private applyQueuedGarbage(): void {
-    if (!this.config.garbageEnabled) return;
+    if (!this.config.garbage.enabled) return;
     if (this.incomingGarbage <= 0) return;
-    const amount = Math.min(this.incomingGarbage, this.config.maxGarbagePerApply);
-    const applied = this.board.addGarbage(amount, this.config.garbageHolesPerRing);
+    const amount = Math.min(this.incomingGarbage, this.config.garbage.maxPerApply);
+    const applied = this.board.addGarbage(amount, this.config.garbage.holesPerRing);
     this.incomingGarbage -= applied;
   }
 
   private currentGravityIntervalMs(): number {
-    const derived = getGravityIntervalMs(this.level, {
-      ...this.config,
-      baseGravityIntervalMs: this.baseGravityIntervalMs,
-    });
-    return derived;
+    return getGravityIntervalMs(this.level, this.config);
   }
 
-  /** Spawns next queue piece at current entry side. */
+  /** Spawn next queue piece at the current entry side, including the hidden spawn pad. */
   private spawn(): void {
     if (this.gameOver) return;
     this.clearLockDelayState();

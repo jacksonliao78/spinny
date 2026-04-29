@@ -1,11 +1,8 @@
 import { Game } from "@game/game";
 import { createBoard } from "@game/board/factory";
 import type { BoardKind } from "@game/board/factory";
-import { DEFAULT_GAME_RULES } from "@game/game/rules";
 import type { GameMode } from "@game/game/rules";
 import { createRenderer } from "./render/renderer";
-
-const TIMED_DURATION_MS = 180_000;
 
 type AppScreen = "landing" | "setup" | "playing";
 
@@ -21,6 +18,7 @@ const getElement = <T extends HTMLElement>(id: string): T => {
   return el as T;
 };
 
+/** Browser entry point: owns DOM screens/input wiring, while Game and renderer own simulation/drawing. */
 function main(): void {
   const landingScreen = getElement<HTMLElement>("landing-screen");
   const setupScreen = getElement<HTMLElement>("setup-screen");
@@ -52,20 +50,16 @@ function main(): void {
   };
 
   const makeGameConfig = () => ({
-    mode: selectedMode,
-    timed: {
-      durationMs: TIMED_DURATION_MS,
+    mode: {
+      kind: selectedMode,
     },
   });
 
   const startGame = (): void => {
-    game = new Game(
-      DEFAULT_GAME_RULES.width,
-      DEFAULT_GAME_RULES.height,
-      DEFAULT_GAME_RULES.gravityIntervalMs,
-      (width, height) => createBoard(selectedBoard, width, height),
-      makeGameConfig(),
-    );
+    game = new Game({
+      boardFactory: (width, height) => createBoard(selectedBoard, width, height),
+      config: makeGameConfig(),
+    });
     paused = false;
     gameTitle.textContent = `Solo / ${MODE_LABELS[selectedMode]}`;
     setScreen("playing");

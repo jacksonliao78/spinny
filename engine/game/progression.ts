@@ -1,5 +1,6 @@
 import type { Piece } from "../piece";
 
+/** Project piece cells onto the gravity vector; larger values are farther along gravity. */
 const pieceLow = (piece: Piece, gravity: [number, number]): number => {
   const shape = piece.getShape(piece.rotation);
   const [gx, gy] = gravity;
@@ -15,6 +16,7 @@ const pieceLow = (piece: Piece, gravity: [number, number]): number => {
   return low;
 };
 
+/** Track whether a piece reached a new gravity-relative low point for lock-delay resets. */
 const syncLowProgress = (previousLow: number, nextLow: number): { low: number; reachedNewLow: boolean } => {
   if (previousLow === Number.NEGATIVE_INFINITY) return { low: nextLow, reachedNewLow: false };
   if (nextLow > previousLow) return { low: nextLow, reachedNewLow: true };

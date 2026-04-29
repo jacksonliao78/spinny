@@ -1,26 +1,29 @@
 import { PieceType, Piece } from "../piece";
-import type { BoardModel } from "./types";
+import { SOLID_CELL } from "./types";
+import type { BoardCell, BoardModel } from "./types";
 
+/** Ring board with an immobile 3x3 center and line clears based on complete square rings. */
 class RingBoard implements BoardModel {
   width: number;
   height: number;
-  board: (PieceType | null | 1)[][];
+  board: BoardCell[][];
 
   center: number;
   rotation: number;
+  /** Rotates garbage holes around the outer ring so repeated garbage is not identical. */
   private garbageHoleCursor = 0;
 
   constructor(width: number, height: number) {
     this.width = width;
     this.height = height;
 
-    this.board = Array.from({ length: height }, () => Array<PieceType | null | 1>(width).fill(null));
+    this.board = Array.from({ length: height }, () => Array<BoardCell>(width).fill(null));
     const centerStartX = Math.floor((width - 3) / 2);
     const centerStartY = Math.floor((height - 3) / 2);
     for (let y = centerStartY; y < centerStartY + 3; y++) {
       for (let x = centerStartX; x < centerStartX + 3; x++) {
         if (y >= 0 && y < height && x >= 0 && x < width) {
-          this.board[y][x] = 1;
+          this.board[y][x] = SOLID_CELL;
         }
       }
     }
@@ -66,13 +69,10 @@ class RingBoard implements BoardModel {
   }
 
   /** Copy of locked cells only (no active piece). */
-  getLockedCopy(): (PieceType | null | 1)[][] {
+  getLockedCopy(): BoardCell[][] {
     return this.board.map((row) => [...row]);
   }
 
-  /**
-   * Returns whether you can place a piece at a given rotation, with offsets offsetX and offsetY.
-   */
   canPlace(piece: Piece, rotation: number, offsetX: number, offsetY: number): boolean {
     const curPiece = piece.get_shape(rotation);
     for (const [rowIdx, row] of curPiece.entries()) {
@@ -87,9 +87,6 @@ class RingBoard implements BoardModel {
     return true;
   }
 
-  /**
-   * Returns true when every gravity-facing bottom cell of the piece is border / empty cell supported.
-   */
   isBottomBordered(piece: Piece): boolean {
     const curPiece = piece.get_shape(piece.rotation);
     const [gx, gy] = this.gravityDelta();
@@ -134,6 +131,7 @@ class RingBoard implements BoardModel {
     }
   }
 
+  /** Fill the outer ring with solid garbage, leaving evenly spaced holes and preserving existing cells. */
   addGarbage(rings: number, holesPerRing: number): number {
     const amount = Math.max(0, Math.floor(rings));
     if (amount === 0) return 0;
@@ -150,7 +148,7 @@ class RingBoard implements BoardModel {
         if (holes.has(cellIndex)) continue;
         const [x, y] = cells[cellIndex];
         if (this.board[y][x] !== null) continue;
-        this.board[y][x] = 1;
+        this.board[y][x] = SOLID_CELL;
         placedCells += 1;
       }
       if (placedCells === 0) break;
@@ -160,7 +158,8 @@ class RingBoard implements BoardModel {
   }
 
   /**
-   * line clears
+   * Clear full square rings, then compact surviving cells inward.
+   * Corners deleted during compaction keep the shrunken ring shape from overfilling.
    */
   clearLines(): number {
     const { minCenterX, minCenterY, maxCenterX, maxCenterY } = this.getCenterBounds();
@@ -176,9 +175,9 @@ class RingBoard implements BoardModel {
       y < minCenterY ? y + 1 : y > maxCenterY ? y - 1 : y,
     ];
     const makeBaseBoard = () => {
-      const out = Array.from({ length: this.height }, () => Array<PieceType | null | 1>(this.width).fill(null));
+      const out = Array.from({ length: this.height }, () => Array<BoardCell>(this.width).fill(null));
       for (let y = minCenterY; y <= maxCenterY; y++) {
-        for (let x = minCenterX; x <= maxCenterX; x++) out[y][x] = 1;
+        for (let x = minCenterX; x <= maxCenterX; x++) out[y][x] = SOLID_CELL;
       }
       return out;
     };
@@ -211,7 +210,7 @@ class RingBoard implements BoardModel {
       if (clearedRings.has(ring)) continue;
       for (const [x, y] of ringCells[ring]) {
         const cell = source[y][x];
-        if (cell === null || cell === 1) continue;
+        if (cell === null || cell === SOLID_CELL) continue;
         const shift = shifts[ring];
         if (shift > 0 && isCorner(x, y, ring)) continue;
         let nx = x;
@@ -225,7 +224,7 @@ class RingBoard implements BoardModel {
     for (let ring = 1; ring <= maxRing; ring++) {
       for (const [x, y] of ringCells[ring]) {
         const cell = shifted[y][x];
-        if (cell === null || cell === 1) continue;
+        if (cell === null || cell === SOLID_CELL) continue;
         const [ix, iy] = stepTowardCenter(x, y);
         if (pruned[iy][ix] !== null) pruned[y][x] = cell;
       }
