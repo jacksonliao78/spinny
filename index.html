@@ -18,6 +18,8 @@
         --accent: #f09aa8;
         --accent-strong: #ffb2a6;
         --accent-soft: rgba(240, 154, 168, 0.2);
+        --button-main: #fff2e0;
+        --button-text: #111111;
         --lavender: #b99de8;
         --blue-soft: #98c8d9;
         --shadow: rgba(26, 18, 32, 0.34);
@@ -37,9 +39,7 @@
         position: relative;
         font-family: "Trebuchet MS", "Arial Rounded MT Bold", Verdana, system-ui, sans-serif;
         background:
-          radial-gradient(circle at 12% 16%, rgba(255, 181, 170, 0.2), transparent 30%),
-          radial-gradient(circle at 86% 18%, rgba(119, 208, 232, 0.18), transparent 34%),
-          radial-gradient(circle at 52% 88%, rgba(185, 157, 232, 0.2), transparent 42%),
+          url("/spinny_background.png") center / cover no-repeat,
           linear-gradient(180deg, #2a2233 0%, #39293e 52%, #263546 100%);
         color: var(--page-text);
         overflow: hidden;
@@ -76,87 +76,9 @@
         isolation: isolate;
       }
 
-      .hero > :not(.paint-doodles) {
-        position: relative;
-        z-index: 1;
-      }
-
-      .paint-doodles {
-        position: fixed;
-        inset: 0;
-        z-index: 0;
-        pointer-events: none;
-      }
-
-      .paint-doodle {
-        position: absolute;
-        border: 5px solid rgba(255, 241, 244, 0.16);
-        box-shadow: 0 5px 0 rgba(22, 15, 28, 0.1);
-      }
-
-      .paint-doodle--blob-one {
-        top: 8vh;
-        left: 5vw;
-        width: 18rem;
-        height: 12rem;
-        border-radius: 46% 54% 42% 58% / 58% 42% 54% 46%;
-        background: rgba(255, 178, 166, 0.22);
-        transform: rotate(-8deg);
-      }
-
-      .paint-doodle--blob-two {
-        right: 7vw;
-        bottom: 8vh;
-        width: 15rem;
-        height: 13rem;
-        border-radius: 58% 42% 60% 40% / 43% 58% 42% 57%;
-        background: rgba(126, 215, 239, 0.18);
-        transform: rotate(7deg);
-      }
-
-      .paint-doodle--blob-three {
-        left: 42vw;
-        bottom: 6vh;
-        width: 11rem;
-        height: 7rem;
-        border-radius: 61% 39% 48% 52% / 51% 48% 52% 49%;
-        background: rgba(185, 157, 232, 0.18);
-        transform: rotate(-3deg);
-      }
-
-      .paint-blocks {
-        position: absolute;
-        width: 2rem;
-        height: 2rem;
-        border: 4px solid rgba(255, 241, 244, 0.2);
-        background: rgba(126, 215, 239, 0.38);
-        box-shadow:
-          2rem 0 0 rgba(126, 215, 239, 0.38),
-          4rem 0 0 rgba(126, 215, 239, 0.38),
-          6rem 0 0 rgba(126, 215, 239, 0.38);
-        opacity: 0.72;
-      }
-
-      .paint-blocks--one {
-        top: 12vh;
-        right: 30vw;
-        transform: rotate(5deg);
-      }
-
-      .paint-blocks--two {
-        left: 14vw;
-        bottom: 12vh;
-        background: rgba(255, 195, 122, 0.36);
-        box-shadow:
-          2rem 0 0 rgba(255, 195, 122, 0.36),
-          2rem -2rem 0 rgba(255, 195, 122, 0.36),
-          4rem -2rem 0 rgba(255, 195, 122, 0.36);
-        transform: rotate(-6deg);
-      }
-
       .eyebrow {
         margin: 0 0 0.9rem;
-        color: var(--accent-strong);
+        color: var(--button-text);
         font-size: 0.78rem;
         font-weight: 800;
         letter-spacing: 0.16em;
@@ -222,10 +144,10 @@
       .secondary-button,
       .mode-button,
       .menu-button {
-        border: 1px solid var(--border);
+        border: 1px solid rgba(17, 17, 17, 0.16);
         border-radius: 16px;
-        color: var(--heading-text);
-        background: rgba(49, 38, 58, 0.8);
+        color: var(--button-text);
+        background: linear-gradient(135deg, #ffffff 0%, var(--button-main) 52%, #ffd7a8 100%);
         cursor: pointer;
         transition:
           transform 160ms ease,
@@ -239,9 +161,9 @@
       .mode-button:not(:disabled):hover,
       .menu-button:not(:disabled):hover {
         transform: translateY(-2px);
-        border-color: rgba(255, 178, 166, 0.42);
-        background: rgba(71, 52, 79, 0.92);
-        box-shadow: 0 12px 24px rgba(26, 18, 32, 0.28);
+        border-color: rgba(17, 17, 17, 0.24);
+        background: linear-gradient(135deg, #ffffff 0%, #fff7ec 45%, #ffc985 100%);
+        box-shadow: 0 12px 24px rgba(26, 18, 32, 0.22);
       }
 
       .primary-button:focus-visible,
@@ -258,9 +180,8 @@
         margin-top: 1rem;
         padding: 0.95rem 1rem;
         font-weight: 800;
-        color: #2b1f30;
-        background: linear-gradient(135deg, #ffb2a6, #ffc37a);
-        box-shadow: 0 14px 28px rgba(240, 154, 168, 0.24);
+        color: var(--button-text);
+        box-shadow: 0 14px 28px rgba(255, 242, 224, 0.18);
         font-size: 1.05rem;
         letter-spacing: 0.12em;
         text-transform: uppercase;
@@ -268,8 +189,7 @@
 
       .secondary-button {
         padding: 0.7rem 0.95rem;
-        color: var(--page-text);
-        background: rgba(49, 38, 58, 0.68);
+        color: var(--button-text);
         font-weight: 900;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -286,9 +206,8 @@
       }
 
       .menu-button--primary {
-        color: #2b1f30;
-        background: linear-gradient(135deg, #ffb2a6, #ffc37a);
-        box-shadow: 0 14px 28px rgba(240, 154, 168, 0.24);
+        color: var(--button-text);
+        box-shadow: 0 14px 28px rgba(255, 242, 224, 0.18);
       }
 
       .menu-button:disabled {
@@ -348,13 +267,13 @@
 
       .mode-button span {
         margin-top: 0.5rem;
-        color: var(--muted-text);
+        color: rgba(17, 17, 17, 0.68);
         line-height: 1.45;
       }
 
       .mode-button--selected {
-        border-color: rgba(255, 178, 166, 0.56);
-        background: linear-gradient(180deg, rgba(84, 60, 87, 0.95), var(--accent-soft));
+        border-color: rgba(17, 17, 17, 0.32);
+        background: linear-gradient(135deg, #ffffff 0%, var(--button-main) 46%, #ffc985 100%);
       }
 
       .mode-button:disabled {
@@ -367,8 +286,8 @@
         margin-top: 0.7rem;
         padding: 0.22rem 0.48rem;
         border-radius: 999px;
-        color: #ffe2e6;
-        background: rgba(185, 157, 232, 0.22);
+        color: var(--button-text);
+        background: rgba(17, 17, 17, 0.08);
         font-size: 0.76rem;
         font-weight: 700;
       }
@@ -415,10 +334,10 @@
         width: 100%;
         min-height: 72px;
         padding: 0.85rem 0.95rem;
-        border: 1px solid var(--border);
+        border: 1px solid rgba(17, 17, 17, 0.16);
         border-radius: 16px;
-        color: var(--heading-text);
-        background: rgba(49, 38, 58, 0.72);
+        color: var(--button-text);
+        background: linear-gradient(135deg, #ffffff 0%, var(--button-main) 52%, #ffd7a8 100%);
         cursor: pointer;
         text-align: left;
         transition:
@@ -430,14 +349,14 @@
 
       .board-option:hover {
         transform: translateY(-2px);
-        border-color: rgba(255, 178, 166, 0.42);
-        background: rgba(71, 52, 79, 0.9);
+        border-color: rgba(17, 17, 17, 0.24);
+        background: linear-gradient(135deg, #ffffff 0%, #fff7ec 45%, #ffc985 100%);
       }
 
       .board-option[aria-pressed="true"] {
-        border-color: rgba(255, 178, 166, 0.6);
-        background: linear-gradient(180deg, rgba(84, 60, 87, 0.95), var(--accent-soft));
-        box-shadow: inset 0 0 0 1px rgba(255, 241, 244, 0.08);
+        border-color: rgba(17, 17, 17, 0.32);
+        background: linear-gradient(135deg, #ffffff 0%, var(--button-main) 46%, #ffc985 100%);
+        box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.08);
       }
 
       .board-option strong,
@@ -454,7 +373,7 @@
 
       .board-option span {
         margin-top: 0.28rem;
-        color: var(--muted-text);
+        color: rgba(17, 17, 17, 0.68);
         line-height: 1.35;
       }
 
@@ -554,14 +473,6 @@
           grid-template-columns: 1fr;
         }
 
-        .paint-doodles {
-          opacity: 0.7;
-        }
-
-        .paint-blocks--one {
-          right: 2rem;
-        }
-
         .home-menu {
           justify-self: stretch;
         }
@@ -588,17 +499,10 @@
     <div class="app">
       <section id="landing-screen" class="screen screen--active">
         <div class="hero">
-          <div class="paint-doodles" aria-hidden="true">
-            <span class="paint-doodle paint-doodle--blob-one"></span>
-            <span class="paint-doodle paint-doodle--blob-two"></span>
-            <span class="paint-doodle paint-doodle--blob-three"></span>
-            <span class="paint-blocks paint-blocks--one"></span>
-            <span class="paint-blocks paint-blocks--two"></span>
-          </div>
           <div>
             <p class="eyebrow">A chill spin game</p>
             <h1 class="title">
-              <img class="logo" src="/spinny.png" alt="Spinny" />
+              <img class="logo" src="/spinny_logob.png" alt="Spinny" />
             </h1>
           </div>
           <div class="home-menu" aria-label="Main menu">
