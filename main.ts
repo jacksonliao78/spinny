@@ -31,9 +31,9 @@ function main(): void {
   const tipsButton = getElement<HTMLButtonElement>("tips-button");
   const tipsPopover = getElement<HTMLElement>("tips-popover");
   const gameActions = getElement<HTMLElement>("game-actions");
-  const boardSelect = getElement<HTMLSelectElement>("board-select");
   const gameTitle = getElement<HTMLElement>("game-title");
   const modeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".mode-button[data-mode]"));
+  const boardButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".board-option[data-board]"));
   const canvas = getElement<HTMLCanvasElement>("game");
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -124,8 +124,15 @@ function main(): void {
       });
     });
   });
-  boardSelect.addEventListener("change", () => {
-    selectedBoard = boardSelect.value as BoardKind;
+  boardButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedBoard = button.dataset.board as BoardKind;
+      boardButtons.forEach((boardButton) => {
+        const selected = boardButton === button;
+        boardButton.classList.toggle("board-option--selected", selected);
+        boardButton.setAttribute("aria-pressed", String(selected));
+      });
+    });
   });
 
   const handleGlobalKeys = (e: KeyboardEvent): boolean => {

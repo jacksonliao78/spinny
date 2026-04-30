@@ -446,7 +446,7 @@ class Game {
 
   private detectSpin(piece: Piece): SpinResult | null {
     if (!this.matchesLastRotation(piece)) return null;
-    if (piece.type === "T" && this.hasThreeBlockedTCorners(piece)) {
+    if (piece.type === "T" && this.validTSpin(piece)) {
       return { pieceType: piece.type, kind: "t-spin" };
     }
     if (
@@ -470,7 +470,7 @@ class Game {
     );
   }
 
-  private hasThreeBlockedTCorners(piece: Piece): boolean {
+  private validTSpin(piece: Piece): boolean {
     const centerX = piece.x + 1;
     const centerY = piece.y + 2;
     const locked = this.board.getLockedCopy();

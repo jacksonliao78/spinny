@@ -34,13 +34,15 @@
         align-items: center;
         justify-content: center;
         padding: 1.5rem;
-        font-family: system-ui, sans-serif;
+        position: relative;
+        font-family: "Trebuchet MS", "Arial Rounded MT Bold", Verdana, system-ui, sans-serif;
         background:
-          radial-gradient(circle at 14% 18%, rgba(240, 154, 168, 0.38), transparent 34%),
-          radial-gradient(circle at 84% 14%, rgba(152, 200, 217, 0.34), transparent 36%),
-          radial-gradient(circle at 50% 88%, rgba(185, 157, 232, 0.3), transparent 42%),
+          radial-gradient(circle at 12% 16%, rgba(255, 181, 170, 0.2), transparent 30%),
+          radial-gradient(circle at 86% 18%, rgba(119, 208, 232, 0.18), transparent 34%),
+          radial-gradient(circle at 52% 88%, rgba(185, 157, 232, 0.2), transparent 42%),
           linear-gradient(180deg, #2a2233 0%, #39293e 52%, #263546 100%);
         color: var(--page-text);
+        overflow: hidden;
       }
 
       button,
@@ -49,9 +51,10 @@
       }
 
       .app {
+        position: relative;
+        z-index: 1;
         width: min(1080px, 100%);
-        max-height: calc(100vh - 3rem);
-        overflow: auto;
+        overflow: visible;
       }
 
       .screen {
@@ -65,10 +68,90 @@
 
       .hero {
         display: grid;
-        grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+        grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
         gap: 2rem;
         align-items: center;
-        min-height: 520px;
+        min-height: calc(100vh - 3rem);
+        position: relative;
+        isolation: isolate;
+      }
+
+      .hero > :not(.paint-doodles) {
+        position: relative;
+        z-index: 1;
+      }
+
+      .paint-doodles {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+      }
+
+      .paint-doodle {
+        position: absolute;
+        border: 5px solid rgba(255, 241, 244, 0.16);
+        box-shadow: 0 5px 0 rgba(22, 15, 28, 0.1);
+      }
+
+      .paint-doodle--blob-one {
+        top: 8vh;
+        left: 5vw;
+        width: 18rem;
+        height: 12rem;
+        border-radius: 46% 54% 42% 58% / 58% 42% 54% 46%;
+        background: rgba(255, 178, 166, 0.22);
+        transform: rotate(-8deg);
+      }
+
+      .paint-doodle--blob-two {
+        right: 7vw;
+        bottom: 8vh;
+        width: 15rem;
+        height: 13rem;
+        border-radius: 58% 42% 60% 40% / 43% 58% 42% 57%;
+        background: rgba(126, 215, 239, 0.18);
+        transform: rotate(7deg);
+      }
+
+      .paint-doodle--blob-three {
+        left: 42vw;
+        bottom: 6vh;
+        width: 11rem;
+        height: 7rem;
+        border-radius: 61% 39% 48% 52% / 51% 48% 52% 49%;
+        background: rgba(185, 157, 232, 0.18);
+        transform: rotate(-3deg);
+      }
+
+      .paint-blocks {
+        position: absolute;
+        width: 2rem;
+        height: 2rem;
+        border: 4px solid rgba(255, 241, 244, 0.2);
+        background: rgba(126, 215, 239, 0.38);
+        box-shadow:
+          2rem 0 0 rgba(126, 215, 239, 0.38),
+          4rem 0 0 rgba(126, 215, 239, 0.38),
+          6rem 0 0 rgba(126, 215, 239, 0.38);
+        opacity: 0.72;
+      }
+
+      .paint-blocks--one {
+        top: 12vh;
+        right: 30vw;
+        transform: rotate(5deg);
+      }
+
+      .paint-blocks--two {
+        left: 14vw;
+        bottom: 12vh;
+        background: rgba(255, 195, 122, 0.36);
+        box-shadow:
+          2rem 0 0 rgba(255, 195, 122, 0.36),
+          2rem -2rem 0 rgba(255, 195, 122, 0.36),
+          4rem -2rem 0 rgba(255, 195, 122, 0.36);
+        transform: rotate(-6deg);
       }
 
       .eyebrow {
@@ -89,12 +172,26 @@
         text-shadow: 0 5px 0 rgba(22, 15, 28, 0.18);
       }
 
+      .logo {
+        display: block;
+        width: min(420px, 82vw);
+        height: auto;
+        filter: drop-shadow(0 8px 0 rgba(22, 15, 28, 0.16));
+      }
+
       .subtitle {
         margin: 1.25rem 0 0;
         max-width: 37rem;
         color: var(--muted-text);
         font-size: 1.08rem;
         line-height: 1.65;
+      }
+
+      .home-menu {
+        display: grid;
+        gap: 0.8rem;
+        justify-self: end;
+        width: min(320px, 100%);
       }
 
       .menu-card {
@@ -123,7 +220,8 @@
 
       .primary-button,
       .secondary-button,
-      .mode-button {
+      .mode-button,
+      .menu-button {
         border: 1px solid var(--border);
         border-radius: 16px;
         color: var(--heading-text);
@@ -138,7 +236,8 @@
 
       .primary-button:hover,
       .secondary-button:hover,
-      .mode-button:not(:disabled):hover {
+      .mode-button:not(:disabled):hover,
+      .menu-button:not(:disabled):hover {
         transform: translateY(-2px);
         border-color: rgba(255, 178, 166, 0.42);
         background: rgba(71, 52, 79, 0.92);
@@ -148,7 +247,8 @@
       .primary-button:focus-visible,
       .secondary-button:focus-visible,
       .mode-button:focus-visible,
-      .select-row select:focus-visible {
+      .menu-button:focus-visible,
+      .board-option:focus-visible {
         outline: 3px solid rgba(199, 183, 230, 0.55);
         outline-offset: 3px;
       }
@@ -161,12 +261,39 @@
         color: #2b1f30;
         background: linear-gradient(135deg, #ffb2a6, #ffc37a);
         box-shadow: 0 14px 28px rgba(240, 154, 168, 0.24);
+        font-size: 1.05rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
       }
 
       .secondary-button {
         padding: 0.7rem 0.95rem;
         color: var(--page-text);
         background: rgba(49, 38, 58, 0.68);
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .menu-button {
+        min-height: 74px;
+        padding: 0.95rem 1.15rem;
+        font-size: clamp(1.25rem, 3vw, 1.75rem);
+        font-weight: 1000;
+        letter-spacing: 0.16em;
+        text-align: left;
+        text-transform: uppercase;
+      }
+
+      .menu-button--primary {
+        color: #2b1f30;
+        background: linear-gradient(135deg, #ffb2a6, #ffc37a);
+        box-shadow: 0 14px 28px rgba(240, 154, 168, 0.24);
+      }
+
+      .menu-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.48;
       }
 
       .setup-header {
@@ -183,23 +310,29 @@
         font-size: clamp(2.2rem, 5vw, 4.2rem);
       }
 
+      .setup-back-button {
+        padding: 0.9rem 1.2rem;
+        font-size: 1rem;
+      }
+
       .setup-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 320px;
-        gap: 1rem;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 1.1rem;
+        align-items: start;
       }
 
       .mode-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.85rem;
-        margin-top: 1rem;
       }
 
       .mode-button {
         min-height: 118px;
         padding: 1rem;
         text-align: left;
+        text-transform: uppercase;
       }
 
       .mode-button strong,
@@ -208,7 +341,9 @@
       }
 
       .mode-button strong {
-        font-size: 1.05rem;
+        font-size: 1.2rem;
+        letter-spacing: 0.12em;
+        font-weight: 1000;
       }
 
       .mode-button span {
@@ -238,24 +373,89 @@
         font-weight: 700;
       }
 
-      .select-row {
+      .board-choice {
         display: grid;
-        gap: 0.5rem;
+        gap: 0.65rem;
         margin-top: 1rem;
       }
 
-      .select-row label {
+      .board-choice-label {
         color: var(--page-text);
-        font-weight: 700;
+        font-weight: 1000;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
       }
 
-      .select-row select {
-        width: 100%;
-        padding: 0.75rem 0.8rem;
-        border: 1px solid var(--border);
-        border-radius: 12px;
+      .board-panel {
+        border: 1px solid rgba(255, 210, 226, 0.12);
+        border-radius: 22px;
+        background: rgba(49, 38, 58, 0.34);
+        padding: 1.15rem;
+      }
+
+      .board-panel h3 {
+        margin: 0;
         color: var(--heading-text);
-        background: rgba(49, 38, 58, 0.88);
+        font-size: 1.25rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .board-panel p {
+        color: var(--muted-text);
+        line-height: 1.45;
+      }
+
+      .board-options {
+        display: grid;
+        gap: 0.65rem;
+      }
+
+      .board-option {
+        width: 100%;
+        min-height: 72px;
+        padding: 0.85rem 0.95rem;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        color: var(--heading-text);
+        background: rgba(49, 38, 58, 0.72);
+        cursor: pointer;
+        text-align: left;
+        transition:
+          transform 160ms ease,
+          border-color 160ms ease,
+          background 160ms ease,
+          box-shadow 160ms ease;
+      }
+
+      .board-option:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 178, 166, 0.42);
+        background: rgba(71, 52, 79, 0.9);
+      }
+
+      .board-option[aria-pressed="true"] {
+        border-color: rgba(255, 178, 166, 0.6);
+        background: linear-gradient(180deg, rgba(84, 60, 87, 0.95), var(--accent-soft));
+        box-shadow: inset 0 0 0 1px rgba(255, 241, 244, 0.08);
+      }
+
+      .board-option strong,
+      .board-option span {
+        display: block;
+      }
+
+      .board-option strong {
+        font-size: 1rem;
+        font-weight: 1000;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .board-option span {
+        margin-top: 0.28rem;
+        color: var(--muted-text);
+        line-height: 1.35;
       }
 
       .game-topbar {
@@ -354,6 +554,18 @@
           grid-template-columns: 1fr;
         }
 
+        .paint-doodles {
+          opacity: 0.7;
+        }
+
+        .paint-blocks--one {
+          right: 2rem;
+        }
+
+        .home-menu {
+          justify-self: stretch;
+        }
+
         .mode-grid {
           grid-template-columns: 1fr;
         }
@@ -376,17 +588,23 @@
     <div class="app">
       <section id="landing-screen" class="screen screen--active">
         <div class="hero">
-          <div>
-            <p class="eyebrow">A cozy spin game</p>
-            <h1 class="title">Spinny</h1>
-            <p class="subtitle">
-              Rotate the board, drop the pieces, and chase ring clears in a short solo run.
-            </p>
+          <div class="paint-doodles" aria-hidden="true">
+            <span class="paint-doodle paint-doodle--blob-one"></span>
+            <span class="paint-doodle paint-doodle--blob-two"></span>
+            <span class="paint-doodle paint-doodle--blob-three"></span>
+            <span class="paint-blocks paint-blocks--one"></span>
+            <span class="paint-blocks paint-blocks--two"></span>
           </div>
-          <div class="menu-card">
-            <h2>Press Start</h2>
-            <p>Jump into a quick run and see how long the board behaves.</p>
-            <button id="solo-button" class="primary-button" type="button">Play Solo</button>
+          <div>
+            <p class="eyebrow">A chill spin game</p>
+            <h1 class="title">
+              <img class="logo" src="/spinny.png" alt="Spinny" />
+            </h1>
+          </div>
+          <div class="home-menu" aria-label="Main menu">
+            <button id="solo-button" class="menu-button menu-button--primary" type="button">Solo</button>
+            <button class="menu-button" type="button" disabled>Multiplayer</button>
+            <button class="menu-button" type="button" disabled>Settings</button>
           </div>
         </div>
       </section>
@@ -397,12 +615,10 @@
             <p class="eyebrow">Solo setup</p>
             <h1>Pick A Run</h1>
           </div>
-          <button id="back-to-landing-button" class="secondary-button" type="button">Back</button>
+          <button id="back-to-landing-button" class="secondary-button setup-back-button" type="button">Back</button>
         </div>
         <div class="setup-grid">
-          <div class="menu-card">
-            <h2>Gamemode</h2>
-            <p>Choose the rules before the pieces start falling.</p>
+          <div>
             <div class="mode-grid">
               <button class="mode-button mode-button--selected" type="button" data-mode="timed">
                 <strong>Timed</strong>
@@ -424,15 +640,21 @@
               </button>
             </div>
           </div>
-          <aside class="menu-card">
+          <aside class="board-panel">
             <h3>Board</h3>
-            <p>Choose the shape of the board.</p>
-            <div class="select-row">
-              <label for="board-select">Board Type</label>
-              <select id="board-select">
-                <option value="ring" selected>Ring Board</option>
-                <option value="rectangular">Rectangular Board</option>
-              </select>
+            <p>Pick the arena style for this run.</p>
+            <div class="board-choice">
+              <span class="board-choice-label" id="board-choice-label">Board Type</span>
+              <div class="board-options" role="group" aria-labelledby="board-choice-label">
+                <button class="board-option board-option--selected" type="button" data-board="ring" aria-pressed="true">
+                  <strong>Ring Board</strong>
+                  <span>Rotating arena</span>
+                </button>
+                <button class="board-option" type="button" data-board="rectangular" aria-pressed="false">
+                  <strong>Rectangular Board</strong>
+                  <span>Classic grid</span>
+                </button>
+              </div>
             </div>
             <button id="start-game-button" class="primary-button" type="button">Start Run</button>
           </aside>
