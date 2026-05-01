@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createInputController } from "../../input/controller";
+import { Game } from "@game/game";
+import { createBoard } from "@game/board/factory";
+import { createInputController, softDropToContact } from "../../input/controller";
 import { DEFAULT_INPUT_SETTINGS } from "../../input/settings";
 
 type Listener = (event: Event) => void;
@@ -119,4 +121,23 @@ test("controller clears held state on blur", () => {
   assert.equal(moveRightCalls, 1);
 
   ctrl.detach();
+});
+
+test("softDropToContact reaches contact on boards taller than the old fixed cap", () => {
+  const game = new Game({
+    boardFactory: (width, height) => createBoard("rectangular", width, height),
+    config: {
+      board: { width: 10, height: 100 },
+      mode: { kind: "zen" },
+    },
+  });
+  const startY = game.activePiece!.y;
+
+  softDropToContact(game);
+
+  const active = game.activePiece;
+  assert.ok(active);
+  assert.ok(active.y - startY > 64);
+  const [gx, gy] = game.board.gravityDelta();
+  assert.equal(game.canMovePiece(active, gx, gy), false);
 });

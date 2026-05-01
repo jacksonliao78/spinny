@@ -27,7 +27,8 @@ export function softDropToContact(game: Game): void {
   if (!snap.active || snap.gameOver) return;
   const [gx, gy] = game.board.gravityDelta();
   if (!game.canMovePiece(snap.active, gx, gy)) return;
-  for (let i = 0; i < 64; i++) {
+  const maxSteps = game.board.width + game.board.height;
+  for (let i = 0; i < maxSteps; i++) {
     const before = game.activePiece;
     if (!before) return;
     game.softDrop();

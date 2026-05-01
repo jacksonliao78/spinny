@@ -20,6 +20,7 @@ export type SoftDropFactor = { kind: "multiplier"; value: number } | { kind: "in
 export const SDF_MIN_MULTIPLIER = 1;
 /** Matches default rectangular playfield height from solo setup. */
 export const SDF_MAX_MULTIPLIER = 20;
+export const SDF_DEFAULT_MULTIPLIER = 6;
 
 export type InputSettings = {
   dasMs: number;
@@ -32,7 +33,7 @@ export const DEFAULT_INPUT_SETTINGS: InputSettings = {
   dasMs: DAS_DEFAULT_MS,
   arrMs: ARR_DEFAULT_MS,
   dcdMs: DCD_DEFAULT_MS,
-  sdf: { kind: "multiplier", value: 6 },
+  sdf: { kind: "multiplier", value: SDF_DEFAULT_MULTIPLIER },
 };
 
 type StoredSdf = number | "instant";
@@ -46,19 +47,23 @@ type StoredSettingsV1 = {
 };
 
 export function clampDasMs(value: number): number {
-  return Math.min(DAS_MAX_MS, Math.max(DAS_MIN_MS, Math.round(value)));
+  const v = Number.isFinite(value) ? value : DAS_DEFAULT_MS;
+  return Math.min(DAS_MAX_MS, Math.max(DAS_MIN_MS, Math.round(v)));
 }
 
 export function clampArrMs(value: number): number {
-  return Math.min(ARR_MAX_MS, Math.max(ARR_MIN_MS, Math.round(value)));
+  const v = Number.isFinite(value) ? value : ARR_DEFAULT_MS;
+  return Math.min(ARR_MAX_MS, Math.max(ARR_MIN_MS, Math.round(v)));
 }
 
 export function clampDcdMs(value: number): number {
-  return Math.min(DCD_MAX_MS, Math.max(DCD_MIN_MS, Math.round(value)));
+  const v = Number.isFinite(value) ? value : DCD_DEFAULT_MS;
+  return Math.min(DCD_MAX_MS, Math.max(DCD_MIN_MS, Math.round(v)));
 }
 
 export function normalizeSdfMultiplier(value: number): number {
-  const rounded = Math.round(value);
+  const v = Number.isFinite(value) ? value : SDF_DEFAULT_MULTIPLIER;
+  const rounded = Math.round(v);
   if (rounded >= SDF_MAX_MULTIPLIER) return SDF_MAX_MULTIPLIER;
   return Math.min(SDF_MAX_MULTIPLIER, Math.max(SDF_MIN_MULTIPLIER, rounded));
 }

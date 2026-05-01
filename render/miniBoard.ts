@@ -8,6 +8,7 @@ import { getBoardBoundsFromLocked, isWithinBoard } from "./playfieldCoords";
 const CELL = 22;
 const PADDING = 14;
 const MIN_SCALE = 0.45;
+const MAX_SCALE = 1.3;
 
 type PieceStyle = {
   fill: string;
@@ -92,8 +93,8 @@ export function createMiniBoardRenderer(
     const playHeight = game.board.height * CELL + PADDING * 2;
     const parent = canvas.parentElement;
     const maxW = Math.max(1, (parent?.clientWidth ?? window.innerWidth) - 32);
-    const maxH = Math.max(1, window.innerHeight * 0.42);
-    const scale = Math.max(MIN_SCALE, Math.min(1, maxW / playWidth, maxH / playHeight));
+    const maxH = Math.max(1, window.innerHeight * 0.55);
+    const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, maxW / playWidth, maxH / playHeight));
     setCanvasSize(canvas, ctx, playWidth, playHeight, scale);
   };
 

@@ -162,8 +162,7 @@ function main(): void {
     if (nextScreen === "settings") {
       if (!testGame) restartTestGame();
       miniRenderer.syncSize(testGame!);
-      settingsTestFocused = true;
-      settingsCanvas.focus();
+      settingsTestFocused = false;
     } else {
       settingsTestFocused = false;
     }
@@ -254,7 +253,7 @@ function main(): void {
   backToLandingButton.addEventListener("click", () => setScreen("landing"));
   backToSetupButton.addEventListener("click", () => setScreen("setup"));
   startGameButton.addEventListener("click", () => startGame());
-  tipsButton.addEventListener("click", () => setTipsOpen(tipsPopover.hidden));
+  tipsButton.addEventListener("click", () => setTipsOpen(!!tipsPopover.hidden));
   document.addEventListener("click", (e) => {
     if (tipsPopover.hidden || gameActions.contains(e.target as Node)) return;
     setTipsOpen(false);
@@ -373,6 +372,11 @@ function main(): void {
   settingsCanvas.addEventListener("keydown", (e) => {
     if (e.repeat) return;
     if (appScreen !== "settings") {
+      e.preventDefault();
+      return;
+    }
+    if (e.code === "KeyR") {
+      restartTestGame();
       e.preventDefault();
       return;
     }
