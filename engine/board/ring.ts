@@ -1,4 +1,4 @@
-import { PieceType, Piece } from "../piece";
+import { Piece } from "../piece";
 import { SOLID_CELL } from "./types";
 import type { BoardCell, BoardModel } from "./types";
 

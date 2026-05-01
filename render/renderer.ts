@@ -4,6 +4,7 @@ import { PIECE_ROTATIONS } from "@game/piece";
 import { Piece } from "@game/piece";
 import type { PieceType } from "@game/piece";
 import type { BoardCell } from "@game/board/types";
+import { getBoardBoundsFromLocked, isWithinBoard } from "./playfieldCoords";
 
 const CELL = 26;
 const PANEL_WIDTH = 178;
@@ -240,7 +241,7 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
 
   const draw = (game: Game, paused: boolean): void => {
     const snap = game.getSnapshot();
-    const layout = buildLayoutMetrics(game, snap);
+    const layout = buildLayoutMetrics(snap);
     drawBackground(layout);
     drawPlayfield(game, snap, layout);
     drawSidePanels(snap, layout);
@@ -255,9 +256,10 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     return `${minutes}:${String(seconds).padStart(2, "0")}`;
   };
 
-  const buildLayoutMetrics = (game: Game, snap: ReturnType<Game["getSnapshot"]>): LayoutMetrics => {
-    const fullWidth = game.board.width;
-    const fullHeight = game.board.height;
+  const buildLayoutMetrics = (snap: ReturnType<Game["getSnapshot"]>): LayoutMetrics => {
+    const bounds = getBoardBoundsFromLocked(snap.locked);
+    const fullWidth = bounds.width;
+    const fullHeight = bounds.height;
     const playWidth = fullWidth * CELL;
     const playHeight = fullHeight * CELL;
     const boardX = PADDING + PANEL_WIDTH;
@@ -308,6 +310,7 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     snap: ReturnType<Game["getSnapshot"]>,
     layout: LayoutMetrics,
   ): void => {
+    const layoutBounds = { width: layout.fullWidth, height: layout.fullHeight };
     const drawCell = (x: number, y: number, type: PieceType, alpha = 1, ghost = false) => {
       drawStyledCell(ctx, x, y, PIECE_STYLES[type], alpha);
       if (ghost) {
@@ -376,12 +379,7 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
           if (cell === 0) continue;
           const ghostCellX = ghost.x + colIdx;
           const ghostCellY = ghost.y + rowIdx;
-          if (
-            ghostCellY >= 0 &&
-            ghostCellY < layout.fullHeight &&
-            ghostCellX >= 0 &&
-            ghostCellX < layout.fullWidth
-          ) {
+          if (isWithinBoard(layoutBounds, ghostCellX, ghostCellY)) {
             drawCell(ghostCellX, ghostCellY, p.type, 0.2, true);
           }
         }
@@ -391,7 +389,7 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
           if (cell === 0) continue;
           const x = p.x + colIdx;
           const y = p.y + rowIdx;
-          if (y >= 0 && y < layout.fullHeight && x >= 0 && x < layout.fullWidth) {
+          if (isWithinBoard(layoutBounds, x, y)) {
             drawCell(x, y, p.type);
           }
         }

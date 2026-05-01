@@ -455,6 +455,120 @@
         background: transparent;
       }
 
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--lavender);
+      }
+
+      .settings-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+        gap: 1.25rem;
+        align-items: start;
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+
+      .settings-panel {
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: var(--surface);
+        padding: 1.25rem;
+        box-shadow: 0 18px 36px var(--shadow);
+      }
+
+      .settings-panel h1 {
+        margin: 0;
+        color: var(--heading-text);
+        font-size: clamp(2rem, 4vw, 3rem);
+      }
+
+      .settings-panel .lede {
+        margin: 0.65rem 0 0;
+        color: var(--muted-text);
+        line-height: 1.55;
+      }
+
+      .setting-row {
+        margin-top: 1.15rem;
+        padding-top: 1.1rem;
+        border-top: 1px solid rgba(255, 210, 226, 0.12);
+      }
+
+      .setting-row:first-of-type {
+        border-top: none;
+        padding-top: 0;
+        margin-top: 1.35rem;
+      }
+
+      .setting-label {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        align-items: baseline;
+        flex-wrap: wrap;
+      }
+
+      .setting-label strong {
+        color: var(--heading-text);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        font-size: 0.82rem;
+      }
+
+      .setting-value {
+        color: var(--blue-soft);
+        font-weight: 800;
+        font-size: 0.95rem;
+      }
+
+      .setting-help {
+        margin: 0.45rem 0 0.65rem;
+        color: var(--muted-text);
+        line-height: 1.45;
+        font-size: 0.95rem;
+      }
+
+      .settings-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        margin-top: 1.35rem;
+      }
+
+      .preview-panel {
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: rgba(49, 38, 58, 0.42);
+        padding: 1rem;
+      }
+
+      .preview-panel h2 {
+        margin: 0;
+        color: var(--heading-text);
+        font-size: 1.05rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .preview-panel p {
+        margin: 0.55rem 0 0.85rem;
+        color: var(--muted-text);
+        line-height: 1.45;
+      }
+
+      .preview-canvas-wrap {
+        display: flex;
+        justify-content: center;
+        overflow: auto;
+        padding: 0.35rem 0 0.15rem;
+      }
+
+      #settings-test-board {
+        display: block;
+        background: transparent;
+      }
+
       @keyframes screen-pop {
         from {
           opacity: 0;
@@ -481,8 +595,8 @@
           grid-template-columns: 1fr;
         }
 
-        .app {
-          max-height: calc(100vh - 2rem);
+        .settings-layout {
+          grid-template-columns: 1fr;
         }
       }
 
@@ -508,7 +622,7 @@
           <div class="home-menu" aria-label="Main menu">
             <button id="solo-button" class="menu-button menu-button--primary" type="button">Solo</button>
             <button class="menu-button" type="button" disabled>Multiplayer</button>
-            <button class="menu-button" type="button" disabled>Settings</button>
+            <button id="settings-button" class="menu-button" type="button">Settings</button>
           </div>
         </div>
       </section>
@@ -595,6 +709,70 @@
         </div>
         <div class="game-play-area">
           <canvas id="game" width="320" height="640" tabindex="0"></canvas>
+        </div>
+      </section>
+
+      <section id="settings-screen" class="screen">
+        <div class="setup-header">
+          <div>
+            <p class="eyebrow">Handling</p>
+            <h1>Movement Settings</h1>
+          </div>
+          <button id="settings-back-button" class="secondary-button setup-back-button" type="button">Back</button>
+        </div>
+        <div class="settings-layout">
+          <div class="settings-panel">
+            <p class="lede">Tune delayed shift, repeat, direction changes, and soft drop. Values save automatically.</p>
+
+            <div class="setting-row">
+              <div class="setting-label">
+                <strong>DAS</strong>
+                <span id="das-value" class="setting-value">150ms</span>
+              </div>
+              <p class="setting-help">Delayed Auto Shift — pause before auto-shift starts while you hold a side key.</p>
+              <input id="das-slider" type="range" min="50" max="300" step="1" value="150" />
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-label">
+                <strong>ARR</strong>
+                <span id="arr-value" class="setting-value">33ms</span>
+              </div>
+              <p class="setting-help">
+                Auto Repeat Rate — how fast pieces slide after DAS. 0ms repeats as fast as the frame loop allows.
+              </p>
+              <input id="arr-slider" type="range" min="0" max="100" step="1" value="33" />
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-label">
+                <strong>DCD</strong>
+                <span id="dcd-value" class="setting-value">0ms</span>
+              </div>
+              <p class="setting-help">Direction Change Delay — extra pause when reversing horizontal inputs.</p>
+              <input id="dcd-slider" type="range" min="0" max="120" step="1" value="0" />
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-label">
+                <strong>SDF</strong>
+                <span id="sdf-value" class="setting-value">6×</span>
+              </div>
+              <p class="setting-help">Soft Drop Factor — multiplier vs natural gravity while down is held; the last stop is Instant.</p>
+              <input id="sdf-slider" type="range" min="1" max="21" step="1" value="6" />
+            </div>
+
+            <div class="settings-actions">
+              <button id="settings-reset-button" class="secondary-button" type="button">Reset Defaults</button>
+            </div>
+          </div>
+          <aside class="preview-panel">
+            <h2>Control test</h2>
+            <p>Focus the mini board and use the same controls as a solo run.</p>
+            <div class="preview-canvas-wrap">
+              <canvas id="settings-test-board" width="280" height="520" tabindex="0"></canvas>
+            </div>
+          </aside>
         </div>
       </section>
     </div>

@@ -16,5 +16,12 @@
       "@game/*": ["./engine/*"]
     }
   },
-  "include": ["main.ts", "engine/**/*.ts", "vite.config.ts", "tests/**/*.ts"]
+  "include": [
+    "main.ts",
+    "engine/**/*.ts",
+    "input/**/*.ts",
+    "render/**/*.ts",
+    "vite.config.ts",
+    "tests/**/*.ts"
+  ]
 }
