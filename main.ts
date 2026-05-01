@@ -81,6 +81,7 @@ function main(): void {
   let selectedBoard: BoardKind = "ring";
   let game: Game | null = null;
   let testGame: Game | null = null;
+  let settingsTestFocused = false;
   let paused = false;
   const renderer = createRenderer(canvas, ctx);
   const miniRenderer = createMiniBoardRenderer(settingsCanvas, settingsCtx);
@@ -135,7 +136,7 @@ function main(): void {
 
     gameplayController.setEnabled(playing && !paused && !!game && !game.getSnapshot().gameOver && !spinBlocksInput());
 
-    testController.setEnabled(settings && !!testGame && !testGame.getSnapshot().gameOver);
+    testController.setEnabled(settings && settingsTestFocused && !!testGame && !testGame.getSnapshot().gameOver);
   };
 
   const restartTestGame = (): void => {
@@ -161,7 +162,10 @@ function main(): void {
     if (nextScreen === "settings") {
       if (!testGame) restartTestGame();
       miniRenderer.syncSize(testGame!);
+      settingsTestFocused = true;
       settingsCanvas.focus();
+    } else {
+      settingsTestFocused = false;
     }
 
     syncInputControllerState();
@@ -206,10 +210,12 @@ function main(): void {
       renderer.updateRotation(game.getSnapshot().boardRotation, dt);
     }
     if (appScreen === "settings" && testGame) {
-      if (testGame.getSnapshot().gameOver) {
-        restartTestGame();
-      } else {
-        testGame.tick(dt);
+      if (settingsTestFocused) {
+        if (testGame.getSnapshot().gameOver) {
+          restartTestGame();
+        } else {
+          testGame.tick(dt);
+        }
       }
     }
     syncInputControllerState();
@@ -228,7 +234,19 @@ function main(): void {
 
   requestAnimationFrame(loop);
   canvas.addEventListener("click", () => canvas.focus());
-  settingsCanvas.addEventListener("click", () => settingsCanvas.focus());
+  settingsCanvas.addEventListener("click", () => {
+    settingsTestFocused = true;
+    settingsCanvas.focus();
+    syncInputControllerState();
+  });
+  settingsCanvas.addEventListener("focus", () => {
+    settingsTestFocused = true;
+    syncInputControllerState();
+  });
+  settingsCanvas.addEventListener("blur", () => {
+    settingsTestFocused = false;
+    syncInputControllerState();
+  });
 
   soloButton.addEventListener("click", () => setScreen("setup"));
   settingsButton.addEventListener("click", () => setScreen("settings"));

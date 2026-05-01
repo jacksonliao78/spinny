@@ -204,7 +204,6 @@ export function createMiniBoardRenderer(
     ctx.fillStyle = "rgba(248, 232, 255, 0.72)";
     ctx.font = "12px system-ui, sans-serif";
     ctx.textAlign = "left";
-    ctx.fillText("Control test — same keys as a run", snap.viewOffsetX * CELL, -6);
     ctx.restore();
   };
 
