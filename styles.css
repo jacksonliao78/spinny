@@ -36,6 +36,156 @@ body {
   overflow: hidden;
 }
 
+/** Hand-drawn tetromino decorations: above bg image, below UI (.app). */
+.bg-scatter {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bg-scatter img {
+  position: absolute;
+  width: clamp(38px, 8.5vmin, 96px);
+  height: auto;
+  opacity: 0.38;
+  filter: drop-shadow(0 3px 10px rgba(18, 12, 28, 0.35));
+  user-select: none;
+}
+
+.bg-scatter img:nth-child(1) {
+  top: 6%;
+  left: 4%;
+  transform: rotate(-22deg);
+}
+
+.bg-scatter img:nth-child(2) {
+  top: 14%;
+  right: 8%;
+  transform: rotate(17deg);
+}
+
+.bg-scatter img:nth-child(3) {
+  top: 42%;
+  left: 2%;
+  transform: rotate(9deg);
+}
+
+.bg-scatter img:nth-child(4) {
+  bottom: 18%;
+  left: 10%;
+  transform: rotate(-14deg);
+}
+
+.bg-scatter img:nth-child(5) {
+  top: 28%;
+  left: 38%;
+  transform: rotate(31deg);
+}
+
+.bg-scatter img:nth-child(6) {
+  bottom: 8%;
+  right: 6%;
+  transform: rotate(-8deg);
+}
+
+.bg-scatter img:nth-child(7) {
+  top: 52%;
+  right: 4%;
+  transform: rotate(-26deg);
+}
+
+.bg-scatter img:nth-child(8) {
+  bottom: 36%;
+  right: 22%;
+  transform: rotate(12deg);
+}
+
+.bg-scatter img:nth-child(9) {
+  top: 8%;
+  left: 52%;
+  transform: rotate(24deg);
+}
+
+.bg-scatter img:nth-child(10) {
+  bottom: 42%;
+  left: 22%;
+  transform: rotate(-19deg);
+}
+
+.bg-scatter img:nth-child(11) {
+  top: 68%;
+  left: 48%;
+  transform: rotate(-11deg);
+}
+
+.bg-scatter img:nth-child(12) {
+  top: 2%;
+  right: 28%;
+  transform: rotate(8deg);
+}
+
+.bg-scatter img:nth-child(13) {
+  bottom: 12%;
+  left: 36%;
+  transform: rotate(21deg);
+}
+
+.bg-scatter img:nth-child(14) {
+  top: 36%;
+  right: 14%;
+  transform: rotate(-33deg);
+}
+
+.bg-scatter img:nth-child(15) {
+  bottom: 28%;
+  right: 40%;
+  transform: rotate(16deg);
+}
+
+.bg-scatter img:nth-child(16) {
+  top: 76%;
+  left: 14%;
+  transform: rotate(-7deg);
+}
+
+.bg-scatter img:nth-child(17) {
+  top: 58%;
+  right: 36%;
+  transform: rotate(-18deg);
+}
+
+.bg-scatter img:nth-child(18) {
+  bottom: 4%;
+  left: 58%;
+  transform: rotate(27deg);
+}
+
+.bg-scatter img:nth-child(19) {
+  top: 16%;
+  left: 16%;
+  transform: rotate(-14deg);
+}
+
+.bg-scatter img:nth-child(20) {
+  bottom: 48%;
+  right: 10%;
+  transform: rotate(19deg);
+}
+
+.bg-scatter img:nth-child(21) {
+  top: 64%;
+  left: 26%;
+  transform: rotate(-24deg);
+}
+
+.bg-scatter img:nth-child(22) {
+  top: 44%;
+  right: 46%;
+  transform: rotate(11deg);
+}
+
 button,
 select {
   font: inherit;
@@ -604,5 +754,9 @@ input[type="range"] {
     animation-duration: 1ms !important;
     scroll-behavior: auto !important;
     transition-duration: 1ms !important;
+  }
+
+  .bg-scatter img {
+    opacity: 0.3;
   }
 }
