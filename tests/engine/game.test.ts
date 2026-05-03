@@ -186,6 +186,21 @@ test("Game scores from clear count and updates snapshot stats", () => {
   assert.equal(snap.linesClearedTotal, 2);
 });
 
+test("Game run summary tracks lock and clear distribution counters", () => {
+  const game = new Game({ boardFactory: createScoringBoardFactory(2), config: testConfig() });
+  game.activePiece = new Piece("T", 5, 5);
+
+  game.hardDrop();
+  const summary = game.getRunSummary();
+
+  assert.equal(summary.score, 300);
+  assert.equal(summary.linesClearedTotal, 2);
+  assert.equal(summary.stats.locksPlaced, 1);
+  assert.equal(summary.stats.piecesByType.T, 1);
+  assert.equal(summary.stats.lineClearsByCount.double, 1);
+  assert.equal(summary.stats.lineClearsByCount.zero, 0);
+});
+
 test("Game awards combo bonuses after consecutive line clears", () => {
   const game = new Game({ boardFactory: createScoringBoardFactory(1), config: testConfig() });
 
@@ -202,6 +217,21 @@ test("Game awards combo bonuses after consecutive line clears", () => {
   const thirdClear = game.getSnapshot();
   assert.equal(thirdClear.score, 450);
   assert.equal(thirdClear.combo, 2);
+  assert.equal(game.getRunSummary().stats.maxCombo, 2);
+});
+
+test("Game run summary tracks drop cells and hold usage", () => {
+  const game = new Game({ boardFactory: createAccumulatorBoardFactory(3), config: testConfig() });
+
+  game.softDrop();
+  game.hold();
+  game.hardDrop();
+  const stats = game.getRunSummary().stats;
+
+  assert.equal(stats.softDropCellsTotal, 1);
+  assert.equal(stats.holdUses, 1);
+  assert.equal(stats.hardDropCellsTotal, 1);
+  assert.equal(stats.locksPlaced, 1);
 });
 
 test("Game resets combo chain on a lock without line clears", () => {
@@ -244,6 +274,7 @@ test("Game exposes T-spin after locking a rotated T with three blocked corners",
   game.hardDrop();
 
   assert.deepEqual(game.getSnapshot().lastSpin, { pieceType: "T", kind: "t-spin" });
+  assert.equal(game.getRunSummary().stats.tSpinCount, 1);
 });
 
 test("Game clears rotation metadata when the piece moves before locking", () => {
@@ -285,6 +316,7 @@ test("Game exposes non-T all-spins when modifier is enabled and kicked piece is 
   game.hardDrop();
 
   assert.deepEqual(game.getSnapshot().lastSpin, { pieceType: "L", kind: "all-spin" });
+  assert.equal(game.getRunSummary().stats.allSpinCount, 1);
 });
 
 test("Game does not expose all-spin when kicked piece can still move", () => {
@@ -386,6 +418,10 @@ test("Game applies capped queued garbage after a lock", () => {
 
   assert.equal(garbageBoard.getAppliedGarbage(), 1);
   assert.equal(snap.incomingGarbage, 2);
+  const stats = game.getRunSummary().stats;
+  assert.equal(stats.garbageReceivedEvents, 1);
+  assert.equal(stats.garbageReceivedTotal, 3);
+  assert.equal(stats.garbageAppliedTotal, 1);
 });
 
 test("Timed mode expires and ends the game", () => {
@@ -402,6 +438,10 @@ test("Timed mode expires and ends the game", () => {
   snap = game.getSnapshot();
   assert.equal(snap.gameOver, true);
   assert.equal(snap.remainingMs, 0);
+  const summary = game.getRunSummary();
+  assert.equal(summary.gameOver, true);
+  assert.equal(summary.gameMode, "timed");
+  assert.equal(summary.remainingMs, 0);
 });
 
 test("Timed mode clamps overshoot and is idempotent after expiry", () => {

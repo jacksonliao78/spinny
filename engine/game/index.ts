@@ -33,6 +33,43 @@ type LastRotation = {
   usedKick: boolean;
 };
 
+type PieceCounts = Record<PieceType, number>;
+
+type LineClearCounts = {
+  zero: number;
+  single: number;
+  double: number;
+  triple: number;
+  quadPlus: number;
+};
+
+export type RunStats = {
+  locksPlaced: number;
+  piecesByType: PieceCounts;
+  lineClearsByCount: LineClearCounts;
+  maxCombo: number;
+  hardDropCellsTotal: number;
+  softDropCellsTotal: number;
+  holdUses: number;
+  tSpinCount: number;
+  allSpinCount: number;
+  garbageReceivedEvents: number;
+  garbageReceivedTotal: number;
+  garbageAppliedTotal: number;
+};
+
+export type RunSummary = {
+  width: number;
+  height: number;
+  gameMode: GameMode;
+  score: number;
+  level: number;
+  linesClearedTotal: number;
+  remainingMs: number | null;
+  gameOver: boolean;
+  stats: RunStats;
+};
+
 /** Read-only frame data consumed by the renderer and UI; active remains mutable game state. */
 export type GameSnapshot = {
   width: number;
@@ -69,6 +106,45 @@ const LOCK_DELAY_MS = 500;
 const MAX_LOCK_RESETS = 15;
 const SPAWN_PAD = 2;
 
+const createPieceCounts = (): PieceCounts => ({
+  I: 0,
+  J: 0,
+  L: 0,
+  O: 0,
+  S: 0,
+  T: 0,
+  Z: 0,
+});
+
+const createLineClearCounts = (): LineClearCounts => ({
+  zero: 0,
+  single: 0,
+  double: 0,
+  triple: 0,
+  quadPlus: 0,
+});
+
+const createRunStats = (): RunStats => ({
+  locksPlaced: 0,
+  piecesByType: createPieceCounts(),
+  lineClearsByCount: createLineClearCounts(),
+  maxCombo: 0,
+  hardDropCellsTotal: 0,
+  softDropCellsTotal: 0,
+  holdUses: 0,
+  tSpinCount: 0,
+  allSpinCount: 0,
+  garbageReceivedEvents: 0,
+  garbageReceivedTotal: 0,
+  garbageAppliedTotal: 0,
+});
+
+const cloneRunStats = (stats: RunStats): RunStats => ({
+  ...stats,
+  piecesByType: { ...stats.piecesByType },
+  lineClearsByCount: { ...stats.lineClearsByCount },
+});
+
 class Game {
   readonly board: BoardModel;
   private readonly queue: Queue;
@@ -98,6 +174,7 @@ class Game {
   private lockDelayResetsUsed = 0;
   private lowestProgress = Number.NEGATIVE_INFINITY;
   private hasTouchedGround = false;
+  private readonly runStats = createRunStats();
 
   constructor(options: GameOptions = {}) {
     this.config = resolveGameConfig(options.config);
@@ -136,6 +213,20 @@ class Game {
       gravityIntervalMs: this.currentGravityIntervalMs(),
       lastSpin: this.lastSpin,
       gameOver: this.gameOver,
+    };
+  }
+
+  getRunSummary(): RunSummary {
+    return {
+      width: this.playWidth,
+      height: this.playHeight,
+      gameMode: this.gameMode,
+      score: this.score,
+      level: this.level,
+      linesClearedTotal: this.linesClearedTotal,
+      remainingMs: this.remainingMs,
+      gameOver: this.gameOver,
+      stats: cloneRunStats(this.runStats),
     };
   }
 
@@ -208,6 +299,7 @@ class Game {
       this.activePiece.move(gx, gy);
       this.clearLastRotation();
       this.score += this.config.scoring.softDropPointPerCell;
+      this.runStats.softDropCellsTotal += 1;
       this.onDownwardAdvance();
     }
   }
@@ -222,6 +314,7 @@ class Game {
     }
     if (movedCells > 0) this.clearLastRotation();
     this.score += movedCells * this.config.scoring.hardDropPointPerCell;
+    this.runStats.hardDropCellsTotal += movedCells;
 
     const isContactLoss = this.board.isContactLoss(this.activePiece);
     if (isContactLoss) {
@@ -270,6 +363,7 @@ class Game {
       this.activePiece = next;
       this.lowestProgress = this.pieceLow(next);
     }
+    this.runStats.holdUses += 1;
     this.holdLocked = true;
     this.clearLockDelayState();
   }
@@ -277,7 +371,11 @@ class Game {
   /** Queue incoming garbage for modes that enable it; ignored by Timed/Zen defaults. */
   enqueueGarbage(amount: number): void {
     if (!this.config.garbage.enabled) return;
-    this.incomingGarbage += Math.max(0, Math.floor(amount));
+    const queued = Math.max(0, Math.floor(amount));
+    if (queued <= 0) return;
+    this.incomingGarbage += queued;
+    this.runStats.garbageReceivedEvents += 1;
+    this.runStats.garbageReceivedTotal += queued;
   }
 
   /** One gravity step; returns true if piece moved along gravity. */
@@ -404,15 +502,31 @@ class Game {
   private lockAndSpawn(): void {
     if (!this.activePiece) return;
     this.lastSpin = this.detectSpin(this.activePiece);
+    const lockedPieceType = this.activePiece.type;
     this.board.lockPiece(this.activePiece);
     const linesCleared = this.board.clearLines();
+    this.recordLockStats(lockedPieceType, linesCleared, this.lastSpin);
     this.applyLineClearProgress(linesCleared);
+    this.runStats.maxCombo = Math.max(this.runStats.maxCombo, Math.max(0, this.combo - 1));
     this.board.rotate();
     this.applyQueuedGarbage();
     this.clearLockDelayState();
     this.holdLocked = false;
     this.activePiece = null;
     this.spawn();
+  }
+
+  private recordLockStats(pieceType: PieceType, linesCleared: number, spin: SpinResult | null): void {
+    this.runStats.locksPlaced += 1;
+    this.runStats.piecesByType[pieceType] += 1;
+    if (linesCleared <= 0) this.runStats.lineClearsByCount.zero += 1;
+    else if (linesCleared === 1) this.runStats.lineClearsByCount.single += 1;
+    else if (linesCleared === 2) this.runStats.lineClearsByCount.double += 1;
+    else if (linesCleared === 3) this.runStats.lineClearsByCount.triple += 1;
+    else this.runStats.lineClearsByCount.quadPlus += 1;
+
+    if (spin?.kind === "t-spin") this.runStats.tSpinCount += 1;
+    if (spin?.kind === "all-spin") this.runStats.allSpinCount += 1;
   }
 
   /** Apply scoring, combo, line total, and level progression for a completed lock. */
@@ -438,6 +552,7 @@ class Game {
     const amount = Math.min(this.incomingGarbage, this.config.garbage.maxPerApply);
     const applied = this.board.addGarbage(amount, this.config.garbage.holesPerRing);
     this.incomingGarbage -= applied;
+    this.runStats.garbageAppliedTotal += applied;
   }
 
   private currentGravityIntervalMs(): number {

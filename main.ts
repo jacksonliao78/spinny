@@ -1,4 +1,4 @@
-import { Game } from "@game/game";
+import { Game, type RunSummary } from "@game/game";
 import type { User } from "@supabase/supabase-js";
 import { createBoard } from "@game/board/factory";
 import type { BoardKind } from "@game/board/factory";
@@ -29,6 +29,7 @@ const MODE_LABELS: Record<GameMode, string> = {
 const RECTANGULAR_BOARD_CONFIG = { width: 10, height: 20 };
 const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
 const PENDING_SIGNUP_USERNAME_KEY = "spinny.pendingSignupUsername.v1";
+const SAVED_RUN_MODES: ReadonlySet<GameMode> = new Set(["timed", "marathon"]);
 
 const SETTINGS_TEST_CONFIG = {
   board: { width: 10, height: 20 },
@@ -81,6 +82,18 @@ const isUsernameTakenError = (error: unknown): boolean => {
   const message = "message" in error ? String(error.message) : "";
   return code === "23505" || /duplicate|unique/i.test(message);
 };
+
+const buildRunInsert = (userId: string, summary: RunSummary, durationMs: number, boardType: BoardKind) => ({
+  user_id: userId,
+  mode: summary.gameMode,
+  score: summary.score,
+  lines: summary.linesClearedTotal,
+  level: summary.level,
+  duration_ms: Math.max(0, Math.round(durationMs)),
+  board_width: summary.width,
+  board_height: summary.height,
+  board_type: boardType,
+});
 
 /** Browser entry point: owns DOM screens/input wiring, while Game and renderer own simulation/drawing. */
 function main(): void {
@@ -150,6 +163,8 @@ function main(): void {
   let guestMode = true;
   let settingsTestFocused = false;
   let paused = false;
+  let runDurationMs = 0;
+  let completedRunSaveStarted = false;
   const supabase = isSupabaseConfigured() ? getSupabase() : null;
   const renderer = createRenderer(canvas, ctx);
   const miniRenderer = createMiniBoardRenderer(settingsCanvas, settingsCtx);
@@ -276,6 +291,12 @@ function main(): void {
     tipsButton.setAttribute("aria-expanded", String(open));
   };
 
+  const persistCompletedRun = async (summary: RunSummary, durationMs: number): Promise<void> => {
+    if (!supabase || !currentUser || guestMode || !SAVED_RUN_MODES.has(summary.gameMode)) return;
+    const { error } = await supabase.from("runs").insert(buildRunInsert(currentUser.id, summary, durationMs, selectedBoard));
+    if (error) console.warn("Could not save run", error);
+  };
+
   const spinBlocksInput = (): boolean => {
     if (appScreen === "playing") return renderer.isSpinAnimating();
     return false;
@@ -335,6 +356,8 @@ function main(): void {
       config: makeGameConfig(),
     });
     paused = false;
+    runDurationMs = 0;
+    completedRunSaveStarted = false;
     gameTitle.textContent = `Solo / ${MODE_LABELS[selectedMode]}`;
     setScreen("playing");
     renderer.syncGameConfig(game);
@@ -357,6 +380,7 @@ function main(): void {
     const dt = now - last;
     last = now;
     if (appScreen === "playing" && game && !paused) {
+      runDurationMs += dt;
       game.tick(dt);
       renderer.updateRotation(game.getSnapshot().boardRotation, dt);
     }
@@ -374,6 +398,11 @@ function main(): void {
       const g = game.getSnapshot().gravityIntervalMs;
       gameplayController.update(dt, g);
       renderer.draw(game, paused);
+      const summary = game.getRunSummary();
+      if (summary.gameOver && !completedRunSaveStarted) {
+        completedRunSaveStarted = true;
+        void persistCompletedRun(summary, runDurationMs);
+      }
     }
     if (appScreen === "settings" && testGame) {
       const g = testGame.getSnapshot().gravityIntervalMs;
