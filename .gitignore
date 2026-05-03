@@ -14,3 +14,8 @@ pnpm-debug.log*
 
 # OS files
 .DS_Store
+
+# Environment (secrets)
+.env
+.env.*
+!.env.example

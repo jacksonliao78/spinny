@@ -42,10 +42,63 @@
             </h1>
           </div>
           <div class="home-menu" aria-label="Main menu">
+            <div class="auth-summary">
+              <p id="auth-summary-text">Playing as guest</p>
+              <div class="auth-summary-actions">
+                <button id="auth-button" class="secondary-button" type="button">Sign In</button>
+                <button id="sign-out-button" class="secondary-button" type="button" hidden>Sign Out</button>
+              </div>
+            </div>
             <button id="solo-button" class="menu-button menu-button--primary" type="button">Solo</button>
             <button class="menu-button" type="button" disabled>Multiplayer</button>
             <button id="settings-button" class="menu-button" type="button">Settings</button>
           </div>
+        </div>
+      </section>
+
+      <section id="auth-screen" class="screen">
+        <div class="setup-header">
+          <div>
+            <p class="eyebrow">Account</p>
+            <h1 id="auth-heading">Sign In</h1>
+          </div>
+          <button id="auth-back-button" class="secondary-button setup-back-button" type="button">Back</button>
+        </div>
+        <div class="auth-layout">
+          <form id="auth-form" class="auth-panel">
+            <div class="auth-tabs" role="tablist" aria-label="Account mode">
+              <button
+                id="auth-login-tab"
+                class="auth-tab auth-tab--selected"
+                type="button"
+                role="tab"
+                aria-selected="true"
+              >
+                Log In
+              </button>
+              <button id="auth-signup-tab" class="auth-tab" type="button" role="tab" aria-selected="false">Sign Up</button>
+            </div>
+
+            <label class="auth-field">
+              <span>Email</span>
+              <input id="auth-email" type="email" autocomplete="email" required />
+            </label>
+
+            <label class="auth-field">
+              <span>Password</span>
+              <input id="auth-password" type="password" autocomplete="current-password" minlength="6" required />
+            </label>
+
+            <label id="auth-username-row" class="auth-field" hidden>
+              <span>Username</span>
+              <input id="auth-username" type="text" autocomplete="username" minlength="3" maxlength="24" />
+            </label>
+
+            <p id="auth-status" class="auth-status" role="status" aria-live="polite"></p>
+
+            <button id="auth-submit-button" class="primary-button" type="submit">Log In</button>
+            <button id="guest-play-button" class="secondary-button auth-guest-button" type="button">Play As Guest</button>
+          </form>
         </div>
       </section>
 

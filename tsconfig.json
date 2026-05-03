@@ -18,9 +18,11 @@
   },
   "include": [
     "main.ts",
+    "vite-env.d.ts",
     "engine/**/*.ts",
     "input/**/*.ts",
     "render/**/*.ts",
+    "supabase/**/*.ts",
     "vite.config.ts",
     "tests/**/*.ts"
   ]

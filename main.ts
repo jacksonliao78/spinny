@@ -1,4 +1,5 @@
 import { Game } from "@game/game";
+import type { User } from "@supabase/supabase-js";
 import { createBoard } from "@game/board/factory";
 import type { BoardKind } from "@game/board/factory";
 import type { GameMode } from "@game/game/rules";
@@ -15,8 +16,10 @@ import {
   type InputSettings,
 } from "./input/settings";
 import { createInputController, gameplayCallbacksFor } from "./input/controller";
+import { getSupabase, isSupabaseConfigured } from "./supabase/client";
 
-type AppScreen = "landing" | "setup" | "playing" | "settings";
+type AppScreen = "landing" | "auth" | "setup" | "playing" | "settings";
+type AuthMode = "login" | "signup";
 
 const MODE_LABELS: Record<GameMode, string> = {
   timed: "Timed",
@@ -24,6 +27,8 @@ const MODE_LABELS: Record<GameMode, string> = {
   zen: "Zen",
 };
 const RECTANGULAR_BOARD_CONFIG = { width: 10, height: 20 };
+const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
+const PENDING_SIGNUP_USERNAME_KEY = "spinny.pendingSignupUsername.v1";
 
 const SETTINGS_TEST_CONFIG = {
   board: { width: 10, height: 20 },
@@ -36,16 +41,74 @@ const getElement = <T extends HTMLElement>(id: string): T => {
   return el as T;
 };
 
+const normalizeUsername = (value: string): string => value.trim().toLowerCase();
+
+const savePendingSignupUsername = (email: string, username: string): void => {
+  localStorage.setItem(PENDING_SIGNUP_USERNAME_KEY, JSON.stringify({ email: email.toLowerCase(), username }));
+};
+
+const loadPendingSignupUsername = (email: string | undefined): string | null => {
+  if (!email) return null;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PENDING_SIGNUP_USERNAME_KEY) ?? "null") as unknown;
+    if (!parsed || typeof parsed !== "object") return null;
+    const pending = parsed as { email?: unknown; username?: unknown };
+    if (pending.email !== email.toLowerCase()) return null;
+    return typeof pending.username === "string" ? pending.username : null;
+  } catch {
+    return null;
+  }
+};
+
+const clearPendingSignupUsername = (): void => {
+  localStorage.removeItem(PENDING_SIGNUP_USERNAME_KEY);
+};
+
+const readableAuthError = (error: unknown): string => {
+  if (error && typeof error === "object") {
+    const code = "code" in error ? String(error.code) : "";
+    const message = "message" in error ? String(error.message) : "";
+    if (code === "23505" || /duplicate|unique/i.test(message)) return "That username is already taken.";
+    if (message) return message;
+  }
+  if (error instanceof Error) return error.message;
+  return "Something went wrong. Please try again.";
+};
+
+const isUsernameTakenError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") return false;
+  const code = "code" in error ? String(error.code) : "";
+  const message = "message" in error ? String(error.message) : "";
+  return code === "23505" || /duplicate|unique/i.test(message);
+};
+
 /** Browser entry point: owns DOM screens/input wiring, while Game and renderer own simulation/drawing. */
 function main(): void {
   const landingScreen = getElement<HTMLElement>("landing-screen");
+  const authScreen = getElement<HTMLElement>("auth-screen");
   const setupScreen = getElement<HTMLElement>("setup-screen");
   const gameScreen = getElement<HTMLElement>("game-screen");
   const settingsScreen = getElement<HTMLElement>("settings-screen");
 
   const soloButton = getElement<HTMLButtonElement>("solo-button");
+  const authButton = getElement<HTMLButtonElement>("auth-button");
+  const signOutButton = getElement<HTMLButtonElement>("sign-out-button");
+  const authSummaryText = getElement<HTMLElement>("auth-summary-text");
   const settingsButton = getElement<HTMLButtonElement>("settings-button");
   const settingsBackButton = getElement<HTMLButtonElement>("settings-back-button");
+
+  const authBackButton = getElement<HTMLButtonElement>("auth-back-button");
+  const authHeading = getElement<HTMLElement>("auth-heading");
+  const authForm = getElement<HTMLFormElement>("auth-form");
+  const authLoginTab = getElement<HTMLButtonElement>("auth-login-tab");
+  const authSignupTab = getElement<HTMLButtonElement>("auth-signup-tab");
+  const authEmail = getElement<HTMLInputElement>("auth-email");
+  const authPassword = getElement<HTMLInputElement>("auth-password");
+  const authUsernameRow = getElement<HTMLLabelElement>("auth-username-row");
+  const authUsername = getElement<HTMLInputElement>("auth-username");
+  const authStatus = getElement<HTMLElement>("auth-status");
+  const authSubmitButton = getElement<HTMLButtonElement>("auth-submit-button");
+  const guestPlayButton = getElement<HTMLButtonElement>("guest-play-button");
 
   const backToLandingButton = getElement<HTMLButtonElement>("back-to-landing-button");
   const backToSetupButton = getElement<HTMLButtonElement>("back-to-setup-button");
@@ -81,8 +144,13 @@ function main(): void {
   let selectedBoard: BoardKind = "ring";
   let game: Game | null = null;
   let testGame: Game | null = null;
+  let authMode: AuthMode = "login";
+  let currentUser: User | null = null;
+  let currentUsername: string | null = null;
+  let guestMode = true;
   let settingsTestFocused = false;
   let paused = false;
+  const supabase = isSupabaseConfigured() ? getSupabase() : null;
   const renderer = createRenderer(canvas, ctx);
   const miniRenderer = createMiniBoardRenderer(settingsCanvas, settingsCtx);
 
@@ -120,6 +188,89 @@ function main(): void {
 
   refreshSettingsUi();
 
+  const setAuthStatus = (message: string, kind: "info" | "error" = "info"): void => {
+    authStatus.textContent = message;
+    authStatus.dataset.kind = kind;
+  };
+
+  const setAuthPending = (pending: boolean): void => {
+    authSubmitButton.disabled = pending;
+    guestPlayButton.disabled = pending;
+    authLoginTab.disabled = pending;
+    authSignupTab.disabled = pending;
+  };
+
+  const refreshAuthModeUi = (): void => {
+    const signingUp = authMode === "signup";
+    authHeading.textContent = signingUp ? "Create Account" : "Sign In";
+    authSubmitButton.textContent = signingUp ? "Create Account" : "Log In";
+    authUsernameRow.hidden = !signingUp;
+    authUsername.required = signingUp;
+    authPassword.autocomplete = signingUp ? "new-password" : "current-password";
+    authLoginTab.classList.toggle("auth-tab--selected", !signingUp);
+    authSignupTab.classList.toggle("auth-tab--selected", signingUp);
+    authLoginTab.setAttribute("aria-selected", String(!signingUp));
+    authSignupTab.setAttribute("aria-selected", String(signingUp));
+    setAuthStatus("");
+  };
+
+  const refreshAuthSummary = (): void => {
+    if (currentUser) {
+      const label = currentUsername ?? currentUser.email ?? "player";
+      authSummaryText.textContent = `Signed in as ${label}`;
+      authButton.hidden = true;
+      signOutButton.hidden = false;
+    } else {
+      authSummaryText.textContent = guestMode ? "Playing as guest" : "Not signed in";
+      authButton.hidden = false;
+      signOutButton.hidden = true;
+    }
+  };
+
+  const loadProfileUsername = async (userId: string): Promise<string | null> => {
+    if (!supabase) return null;
+    const { data, error } = await supabase.from("profiles").select("username").eq("user_id", userId).maybeSingle();
+    if (error) {
+      console.warn("Could not load profile username", error);
+      return null;
+    }
+    return typeof data?.username === "string" && data.username.length > 0 ? data.username : null;
+  };
+
+  const getSignupUsernameCandidate = (user: User): string | null => {
+    const metadataUsername = user.user_metadata.username;
+    const pendingUsername = loadPendingSignupUsername(user.email);
+    const candidate = typeof metadataUsername === "string" ? metadataUsername : pendingUsername;
+    if (!candidate) return null;
+    const normalized = normalizeUsername(candidate);
+    return USERNAME_PATTERN.test(normalized) ? normalized : null;
+  };
+
+  const saveProfileUsername = async (userId: string, username: string): Promise<void> => {
+    if (!supabase) throw new Error("Supabase is not configured.");
+    const { error } = await supabase.from("profiles").upsert({ user_id: userId, username }, { onConflict: "user_id" });
+    if (error) throw error;
+  };
+
+  const syncAuthState = async (user: User | null): Promise<void> => {
+    currentUser = user;
+    currentUsername = user ? await loadProfileUsername(user.id) : null;
+    if (user && !currentUsername) {
+      const username = getSignupUsernameCandidate(user);
+      if (username) {
+        try {
+          await saveProfileUsername(user.id, username);
+          currentUsername = username;
+          clearPendingSignupUsername();
+        } catch (error) {
+          console.warn("Could not create profile after login", error);
+        }
+      }
+    }
+    guestMode = !user;
+    refreshAuthSummary();
+  };
+
   const setTipsOpen = (open: boolean): void => {
     tipsPopover.hidden = !open;
     tipsButton.setAttribute("aria-expanded", String(open));
@@ -150,6 +301,7 @@ function main(): void {
   const setScreen = (nextScreen: AppScreen): void => {
     appScreen = nextScreen;
     landingScreen.classList.toggle("screen--active", nextScreen === "landing");
+    authScreen.classList.toggle("screen--active", nextScreen === "auth");
     setupScreen.classList.toggle("screen--active", nextScreen === "setup");
     gameScreen.classList.toggle("screen--active", nextScreen === "playing");
     settingsScreen.classList.toggle("screen--active", nextScreen === "settings");
@@ -245,6 +397,119 @@ function main(): void {
   settingsCanvas.addEventListener("blur", () => {
     settingsTestFocused = false;
     syncInputControllerState();
+  });
+
+  authLoginTab.addEventListener("click", () => {
+    authMode = "login";
+    refreshAuthModeUi();
+  });
+
+  authSignupTab.addEventListener("click", () => {
+    authMode = "signup";
+    refreshAuthModeUi();
+  });
+
+  authButton.addEventListener("click", () => {
+    authMode = "login";
+    refreshAuthModeUi();
+    setScreen("auth");
+    authEmail.focus();
+  });
+
+  authBackButton.addEventListener("click", () => setScreen("landing"));
+
+  guestPlayButton.addEventListener("click", () => {
+    guestMode = true;
+    refreshAuthSummary();
+    setScreen("setup");
+  });
+
+  authForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!supabase) {
+      setAuthStatus("Supabase is not configured. Check .env.local and restart Vite.", "error");
+      return;
+    }
+
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    const username = normalizeUsername(authUsername.value);
+
+    if (authMode === "signup" && !USERNAME_PATTERN.test(username)) {
+      setAuthStatus("Username must be 3-24 characters: lowercase letters, numbers, or underscores.", "error");
+      return;
+    }
+
+    const submit = async (): Promise<void> => {
+      setAuthPending(true);
+      setAuthStatus(authMode === "signup" ? "Creating account..." : "Signing in...");
+      try {
+        if (authMode === "login") {
+          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+          await syncAuthState(data.user);
+          setScreen("landing");
+          return;
+        }
+
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { username } },
+        });
+        if (error) throw error;
+        savePendingSignupUsername(email, username);
+        if (!data.user) {
+          setAuthStatus("Check your email to confirm your account, then log in.", "info");
+          return;
+        }
+        if (!data.session) {
+          setAuthStatus("Check your email to confirm your account. Your username will be saved when you log in.", "info");
+          return;
+        }
+
+        try {
+          await saveProfileUsername(data.user.id, username);
+        } catch (profileError) {
+          if (isUsernameTakenError(profileError)) {
+            await supabase.auth.signOut();
+            await syncAuthState(null);
+          }
+          throw profileError;
+        }
+
+        currentUsername = username;
+        clearPendingSignupUsername();
+        await syncAuthState(data.user);
+        setScreen("landing");
+      } catch (error) {
+        setAuthStatus(readableAuthError(error), "error");
+      } finally {
+        setAuthPending(false);
+      }
+    };
+
+    void submit();
+  });
+
+  signOutButton.addEventListener("click", () => {
+    if (!supabase) {
+      void syncAuthState(null);
+      return;
+    }
+
+    const signOut = async (): Promise<void> => {
+      signOutButton.disabled = true;
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        authSummaryText.textContent = error.message;
+      } else {
+        await syncAuthState(null);
+      }
+      signOutButton.disabled = false;
+    };
+
+    void signOut();
   });
 
   soloButton.addEventListener("click", () => setScreen("setup"));
@@ -388,6 +653,16 @@ function main(): void {
   });
 
   applyInputSettings(inputSettings);
+  refreshAuthModeUi();
+  refreshAuthSummary();
+  if (supabase) {
+    supabase.auth.getSession().then(({ data }) => {
+      void syncAuthState(data.session?.user ?? null);
+    });
+    supabase.auth.onAuthStateChange((_event, session) => {
+      void syncAuthState(session?.user ?? null);
+    });
+  }
   setScreen("landing");
 }
 
