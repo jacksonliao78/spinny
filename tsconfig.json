@@ -18,6 +18,7 @@
   },
   "include": [
     "main.ts",
+    "app/**/*.ts",
     "vite-env.d.ts",
     "engine/**/*.ts",
     "input/**/*.ts",
