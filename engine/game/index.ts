@@ -58,15 +58,27 @@ export type RunStats = {
   garbageAppliedTotal: number;
 };
 
-export type RunMetrics = {
+export type RunSpeedMetrics = {
   durationMs: number;
   piecesPerSecond: number;
+};
+
+export type RunAttackMetrics = {
   attackTotal: number;
   attacksPerMinute: number;
   attackPerPiece: number;
-  backToBackChain: number;
-  maxBackToBackChain: number;
-  backToBackMultiplier: number;
+};
+
+export type RunBackToBackMetrics = {
+  chain: number;
+  maxChain: number;
+  multiplier: number;
+};
+
+export type RunMetrics = {
+  speed: RunSpeedMetrics;
+  attack: RunAttackMetrics;
+  backToBack: RunBackToBackMetrics;
 };
 
 export type RunSummary = {
@@ -169,14 +181,20 @@ const createRunMetrics = (stats: RunStats, durationMs: number): RunMetrics => {
   const attackTotal = 0;
 
   return {
-    durationMs: safeDurationMs,
-    piecesPerSecond: safeRate(stats.locksPlaced, durationSeconds),
-    attackTotal,
-    attacksPerMinute: safeRate(attackTotal, durationMinutes),
-    attackPerPiece: safeRate(attackTotal, stats.locksPlaced),
-    backToBackChain: 0,
-    maxBackToBackChain: 0,
-    backToBackMultiplier: 1,
+    speed: {
+      durationMs: safeDurationMs,
+      piecesPerSecond: safeRate(stats.locksPlaced, durationSeconds),
+    },
+    attack: {
+      attackTotal,
+      attacksPerMinute: safeRate(attackTotal, durationMinutes),
+      attackPerPiece: safeRate(attackTotal, stats.locksPlaced),
+    },
+    backToBack: {
+      chain: 0,
+      maxChain: 0,
+      multiplier: 1,
+    },
   };
 };
 
@@ -196,6 +214,7 @@ class Game {
   private readonly config: GameConfig;
   private readonly gameMode: GameMode;
   private readonly timedDurationMs: number;
+  private readonly sprintTargetClears: number;
   private score = 0;
   private level = 1;
   private combo = 0;
@@ -222,6 +241,7 @@ class Game {
     this.holdSlot = new Hold();
     this.gameMode = this.config.mode.kind;
     this.timedDurationMs = this.config.mode.timedDurationMs;
+    this.sprintTargetClears = Math.max(1, Math.floor(this.config.mode.sprintTargetClears));
     this.remainingMs = this.gameMode === "timed" ? this.timedDurationMs : null;
     this.spawn();
   }
@@ -271,10 +291,7 @@ class Game {
   tick(dtMs: number): void {
     if (this.gameMode === "timed" && this.remainingMs !== null) {
       this.remainingMs = Math.max(0, this.remainingMs - dtMs);
-      if (this.remainingMs === 0) {
-        this.gameOver = true;
-        this.activePiece = null;
-      }
+      if (this.remainingMs === 0) this.endGame();
     }
     if (this.gameOver || !this.activePiece) return;
     this.gravityMs += dtMs;
@@ -300,8 +317,7 @@ class Game {
       );
       if (shouldLock) {
         if (this.board.isContactLoss(this.activePiece)) {
-          this.gameOver = true;
-          this.activePiece = null;
+          this.endGame();
           this.clearLockDelayState();
           return;
         }
@@ -355,8 +371,7 @@ class Game {
 
     const isContactLoss = this.board.isContactLoss(this.activePiece);
     if (isContactLoss) {
-      this.gameOver = true;
-      this.activePiece = null;
+      this.endGame();
       this.clearLockDelayState();
       return;
     }
@@ -383,8 +398,7 @@ class Game {
       swapped.y = s.y;
       swapped.rotation = 0;
       if (!this.canMovePiece(swapped, 0, 0)) {
-        this.gameOver = true;
-        this.activePiece = null;
+        this.endGame();
         return;
       }
       this.activePiece = swapped;
@@ -393,8 +407,7 @@ class Game {
       const s = this.getSpawnCoords();
       const next = this.queue.consumeNext(s.x, s.y);
       if (!this.canMovePiece(next, 0, 0)) {
-        this.gameOver = true;
-        this.activePiece = null;
+        this.endGame();
         return;
       }
       this.activePiece = next;
@@ -545,6 +558,12 @@ class Game {
     this.recordLockStats(lockedPieceType, linesCleared, this.lastSpin);
     this.applyLineClearProgress(linesCleared);
     this.runStats.maxCombo = Math.max(this.runStats.maxCombo, Math.max(0, this.combo - 1));
+    if (this.gameOver) {
+      this.activePiece = null;
+      this.clearLockDelayState();
+      this.holdLocked = false;
+      return;
+    }
     this.board.rotate();
     this.applyQueuedGarbage();
     this.clearLockDelayState();
@@ -580,6 +599,7 @@ class Game {
     if (this.gameMode === "zen") return;
     const nextLevel = Math.floor(this.linesClearedTotal / this.config.gravity.linesPerLevel) + 1;
     this.level = Math.max(1, nextLevel);
+    if (this.gameMode === "sprint" && this.linesClearedTotal >= this.sprintTargetClears) this.endGame();
   }
 
   /** Apply a capped amount of queued garbage after clears so garbage never blocks a clear first. */
@@ -661,8 +681,7 @@ class Game {
     const s = getSpawnCoords(this.playWidth, this.playHeight, this.spawnPad, this.board.rotation);
     const piece = this.queue.consumeNext(s.x, s.y);
     if (!this.canMovePiece(piece, 0, 0)) {
-      this.gameOver = true;
-      this.activePiece = null;
+      this.endGame();
       return;
     }
     this.activePiece = piece;
@@ -716,6 +735,11 @@ class Game {
     const next = syncLowProgress(this.lowestProgress, this.pieceLow(this.activePiece));
     this.lowestProgress = next.low;
     return next.reachedNewLow;
+  }
+
+  private endGame(): void {
+    this.gameOver = true;
+    this.activePiece = null;
   }
 }
 

@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { InputController } from "../../input/controller";
 import type { createRenderer } from "../../render/renderer";
 import type { AppScreen } from "../constants";
-import { MODE_LABELS, RECTANGULAR_BOARD_CONFIG, SAVED_RUN_MODES } from "../constants";
+import { MODE_LABELS, RECTANGULAR_BOARD_CONFIG, SAVED_RUN_MODES, SPRINT_TARGET_CLEARS } from "../constants";
 import { buildRunInsert } from "../persistence/runs";
 import type { SessionController } from "../session";
 
@@ -82,6 +82,7 @@ const initPlayingScreen = ({
     ...(getSelectedBoard() === "rectangular" ? { board: RECTANGULAR_BOARD_CONFIG } : {}),
     mode: {
       kind: getSelectedMode(),
+      sprintTargetClears: SPRINT_TARGET_CLEARS[getSelectedBoard()],
     },
   });
 

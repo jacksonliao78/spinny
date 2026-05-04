@@ -208,8 +208,8 @@ test("Game run summary computes derived PPS from duration", () => {
   game.hardDrop();
 
   const summary = game.getRunSummary(2_000);
-  assert.equal(summary.metrics.durationMs, 2_000);
-  assert.equal(summary.metrics.piecesPerSecond, 1);
+  assert.equal(summary.metrics.speed.durationMs, 2_000);
+  assert.equal(summary.metrics.speed.piecesPerSecond, 1);
 });
 
 test("Game run summary keeps derived rates safe for zero duration and zero attack", () => {
@@ -218,11 +218,11 @@ test("Game run summary keeps derived rates safe for zero duration and zero attac
   game.hardDrop();
 
   const summary = game.getRunSummary(0);
-  assert.equal(summary.metrics.durationMs, 0);
-  assert.equal(summary.metrics.piecesPerSecond, 0);
-  assert.equal(summary.metrics.attackTotal, 0);
-  assert.equal(summary.metrics.attacksPerMinute, 0);
-  assert.equal(summary.metrics.attackPerPiece, 0);
+  assert.equal(summary.metrics.speed.durationMs, 0);
+  assert.equal(summary.metrics.speed.piecesPerSecond, 0);
+  assert.equal(summary.metrics.attack.attackTotal, 0);
+  assert.equal(summary.metrics.attack.attacksPerMinute, 0);
+  assert.equal(summary.metrics.attack.attackPerPiece, 0);
 });
 
 test("Game run summary exposes neutral back-to-back metrics until implemented", () => {
@@ -231,9 +231,9 @@ test("Game run summary exposes neutral back-to-back metrics until implemented", 
   game.hardDrop();
 
   const summary = game.getRunSummary(1_000);
-  assert.equal(summary.metrics.backToBackChain, 0);
-  assert.equal(summary.metrics.maxBackToBackChain, 0);
-  assert.equal(summary.metrics.backToBackMultiplier, 1);
+  assert.equal(summary.metrics.backToBack.chain, 0);
+  assert.equal(summary.metrics.backToBack.maxChain, 0);
+  assert.equal(summary.metrics.backToBack.multiplier, 1);
 });
 
 test("Game awards combo bonuses after consecutive line clears", () => {
@@ -381,6 +381,63 @@ test("Game increases level and gravity speed with progression", () => {
   assert.ok(after.gravityIntervalMs < before);
 });
 
+test("Sprint rectangular-style target completes after 40 clear units", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(4),
+    config: testConfig({ mode: { kind: "sprint", sprintTargetClears: 40 } }),
+  });
+
+  for (let i = 0; i < 9; i += 1) game.hardDrop();
+  assert.equal(game.getSnapshot().linesClearedTotal, 36);
+  assert.equal(game.getSnapshot().gameOver, false);
+
+  game.hardDrop();
+  const complete = game.getSnapshot();
+  assert.equal(complete.linesClearedTotal, 40);
+  assert.equal(complete.gameOver, true);
+  assert.equal(complete.active, null);
+});
+
+test("Sprint ring-style target completes after 10 clear units", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(1),
+    config: testConfig({ mode: { kind: "sprint", sprintTargetClears: 10 } }),
+  });
+
+  for (let i = 0; i < 9; i += 1) game.hardDrop();
+  assert.equal(game.getSnapshot().linesClearedTotal, 9);
+  assert.equal(game.getSnapshot().gameOver, false);
+
+  game.hardDrop();
+  const complete = game.getSnapshot();
+  assert.equal(complete.linesClearedTotal, 10);
+  assert.equal(complete.gameOver, true);
+  assert.equal(complete.active, null);
+});
+
+test("Marathon mode has no timer and levels from clear units", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(4),
+    config: testConfig({ mode: { kind: "marathon" } }),
+  });
+  const before = game.getSnapshot().gravityIntervalMs;
+
+  game.tick(1);
+  assert.equal(game.getSnapshot().remainingMs, null);
+  assert.equal(game.getSnapshot().gameOver, false);
+
+  game.hardDrop();
+  game.hardDrop();
+  game.hardDrop();
+
+  const after = game.getSnapshot();
+  assert.equal(after.gameMode, "marathon");
+  assert.equal(after.remainingMs, null);
+  assert.equal(after.level, 2);
+  assert.equal(after.linesClearedTotal, 12);
+  assert.ok(after.gravityIntervalMs < before);
+});
+
 test("Zen mode has no timer and uses level-one gravity", () => {
   const game = new Game({
     boardFactory: createAccumulatorBoardFactory(3),
@@ -415,6 +472,22 @@ test("Zen mode keeps level and gravity fixed after clears", () => {
   assert.equal(after.linesClearedTotal, 12);
   assert.equal(after.gravityIntervalMs, before);
   assert.equal(after.score, 2550);
+});
+
+test("Zen mode ignores sprint target config and remains practice-only in the engine", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(4),
+    config: testConfig({ mode: { kind: "zen", sprintTargetClears: 4 } }),
+  });
+
+  game.hardDrop();
+  game.hardDrop();
+
+  const after = game.getSnapshot();
+  assert.equal(after.gameMode, "zen");
+  assert.equal(after.linesClearedTotal, 8);
+  assert.equal(after.gameOver, false);
+  assert.equal(after.level, 1);
 });
 
 test("Game ignores enqueued garbage unless garbage is enabled", () => {

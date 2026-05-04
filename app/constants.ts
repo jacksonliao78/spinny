@@ -7,15 +7,20 @@ type AuthMode = "login" | "signup";
 const MODE_LABELS: Record<GameMode, string> = {
   timed: "Timed",
   marathon: "Marathon",
+  sprint: "Sprint",
   zen: "Zen",
 };
 
 const DEFAULT_BOARD_KIND: BoardKind = "ring";
 const DEFAULT_GAME_MODE: GameMode = "timed";
 const RECTANGULAR_BOARD_CONFIG = { width: 10, height: 20 };
+const SPRINT_TARGET_CLEARS: Record<BoardKind, number> = {
+  rectangular: 40,
+  ring: 10,
+};
 const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
 const PENDING_SIGNUP_USERNAME_KEY = "spinny.pendingSignupUsername.v1";
-const SAVED_RUN_MODES: ReadonlySet<GameMode> = new Set(["timed", "marathon"]);
+const SAVED_RUN_MODES: ReadonlySet<GameMode> = new Set(["timed", "marathon", "sprint"]);
 
 const SETTINGS_TEST_CONFIG = {
   board: { width: 10, height: 20 },
@@ -29,6 +34,7 @@ export {
   PENDING_SIGNUP_USERNAME_KEY,
   RECTANGULAR_BOARD_CONFIG,
   SAVED_RUN_MODES,
+  SPRINT_TARGET_CLEARS,
   SETTINGS_TEST_CONFIG,
   USERNAME_PATTERN,
 };

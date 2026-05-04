@@ -1,4 +1,4 @@
-type GameMode = "timed" | "marathon" | "zen";
+type GameMode = "timed" | "marathon" | "sprint" | "zen";
 
 /** Single source of truth for gameplay tuning, grouped by the system that consumes each value. */
 type GameConfig = {
@@ -9,6 +9,7 @@ type GameConfig = {
   mode: {
     kind: GameMode;
     timedDurationMs: number;
+    sprintTargetClears: number;
   };
   gravity: {
     baseIntervalMs: number;
@@ -57,6 +58,7 @@ const DEFAULT_GAME_CONFIG: GameConfig = {
   mode: {
     kind: "timed",
     timedDurationMs: 180_000,
+    sprintTargetClears: 40,
   },
   gravity: {
     baseIntervalMs: 700,
