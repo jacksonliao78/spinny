@@ -702,13 +702,100 @@ select {
 
 .game-play-area {
   display: flex;
+  align-items: center;
   justify-content: center;
-  overflow: auto;
+  gap: 0.5rem;
+}
+
+.game-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  width: clamp(130px, 13vw, 180px);
+  flex-shrink: 0;
+}
+
+.game-sidebar--left {
+  align-self: stretch;
+  justify-content: space-between;
+  padding: 1.5rem 0;
+}
+
+.game-box {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  padding: 0.7rem;
+  backdrop-filter: blur(12px);
+}
+
+.game-box__title {
+  margin: 0 0 0.45rem;
+  color: var(--heading-text);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.game-box canvas {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+}
+
+.stat-timer {
+  display: block;
+  color: var(--heading-text);
+  font-size: 1.5rem;
+  font-weight: 1000;
+  letter-spacing: -0.02em;
+  text-align: center;
+  padding: 0.15rem 0 0.35rem;
+}
+
+.stat-timer:empty,
+.stat-timer[hidden] {
+  display: none;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.3rem 0;
+  border-top: 1px solid rgba(255, 210, 226, 0.08);
+}
+
+.stat-row:first-of-type,
+.stat-timer + .stat-row,
+.stat-timer[hidden] + .stat-row {
+  border-top: none;
+}
+
+.stat-row[hidden] {
+  display: none;
+}
+
+.stat-label {
+  color: var(--muted-text);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stat-value {
+  color: var(--heading-text);
+  font-size: 0.88rem;
+  font-weight: 900;
 }
 
 #game {
   display: block;
   background: transparent;
+  flex-shrink: 1;
 }
 
 input[type="range"] {
@@ -856,6 +943,19 @@ input[type="range"] {
 
   .settings-layout {
     grid-template-columns: 1fr;
+  }
+
+  .game-play-area {
+    flex-wrap: wrap;
+  }
+
+  .game-sidebar {
+    flex-direction: row;
+    width: 100%;
+  }
+
+  .game-sidebar .game-box {
+    flex: 1;
   }
 }
 

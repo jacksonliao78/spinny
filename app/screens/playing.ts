@@ -5,6 +5,7 @@ import type { GameMode } from "@game/game/rules";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { InputController } from "../../input/controller";
 import type { createRenderer } from "../../render/renderer";
+import type { HudUpdater } from "../../render/hudPanels";
 import type { AppScreen } from "../constants";
 import { MODE_LABELS, RECTANGULAR_BOARD_CONFIG, SAVED_RUN_MODES, SPRINT_TARGET_CLEARS } from "../constants";
 import { buildRunInsert } from "../persistence/runs";
@@ -20,6 +21,7 @@ type PlayingScreenOptions = {
   gameActions: HTMLElement;
   gameTitle: HTMLElement;
   renderer: Renderer;
+  hudUpdater: HudUpdater;
   gameplayController: InputController;
   supabase: SupabaseClient | null;
   session: SessionController;
@@ -54,6 +56,7 @@ const initPlayingScreen = ({
   gameActions,
   gameTitle,
   renderer,
+  hudUpdater,
   gameplayController,
   supabase,
   session,
@@ -104,6 +107,7 @@ const initPlayingScreen = ({
     runDurationMs = 0;
     completedRunSaveStarted = false;
     gameTitle.textContent = `Solo / ${MODE_LABELS[getSelectedMode()]}`;
+    hudUpdater.configure(getSelectedMode(), SPRINT_TARGET_CLEARS[getSelectedBoard()]);
     navigate("playing");
     renderer.syncGameConfig(game);
     renderer.reset(game.getSnapshot().boardRotation);
@@ -172,6 +176,7 @@ const initPlayingScreen = ({
     const gravityIntervalMs = game.getSnapshot().gravityIntervalMs;
     gameplayController.update(dtMs, gravityIntervalMs);
     renderer.draw(game, getPaused());
+    hudUpdater.update(game.getSnapshot());
     const summary = game.getRunSummary(runDurationMs);
     if (summary.gameOver && !completedRunSaveStarted) {
       completedRunSaveStarted = true;

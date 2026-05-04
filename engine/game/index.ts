@@ -114,6 +114,8 @@ export type GameSnapshot = {
   incomingGarbage: number;
   gameMode: GameMode;
   remainingMs: number | null;
+  elapsedMs: number;
+  sprintTargetClears: number;
   gravityIntervalMs: number;
   lastSpin: SpinResult | null;
   gameOver: boolean;
@@ -221,6 +223,7 @@ class Game {
   private linesClearedTotal = 0;
   private incomingGarbage = 0;
   private remainingMs: number | null;
+  private elapsedMs = 0;
   private lastRotation: LastRotation | null = null;
   private lastSpin: SpinResult | null = null;
 
@@ -265,6 +268,8 @@ class Game {
       incomingGarbage: this.incomingGarbage,
       gameMode: this.gameMode,
       remainingMs: this.remainingMs,
+      elapsedMs: this.elapsedMs,
+      sprintTargetClears: this.sprintTargetClears,
       gravityIntervalMs: this.currentGravityIntervalMs(),
       lastSpin: this.lastSpin,
       gameOver: this.gameOver,
@@ -289,6 +294,7 @@ class Game {
 
   /** Advance simulation time; applies gravity when interval elapses. */
   tick(dtMs: number): void {
+    if (!this.gameOver) this.elapsedMs += dtMs;
     if (this.gameMode === "timed" && this.remainingMs !== null) {
       this.remainingMs = Math.max(0, this.remainingMs - dtMs);
       if (this.remainingMs === 0) this.endGame();
@@ -596,10 +602,13 @@ class Game {
     this.score += (base + comboBonus) * this.level;
     this.combo += 1;
     this.linesClearedTotal += linesCleared;
-    if (this.gameMode === "zen") return;
+    if (this.gameMode === "sprint" && this.linesClearedTotal >= this.sprintTargetClears) {
+      this.endGame();
+      return;
+    }
+    if (this.gameMode === "zen" || this.gameMode === "sprint") return;
     const nextLevel = Math.floor(this.linesClearedTotal / this.config.gravity.linesPerLevel) + 1;
     this.level = Math.max(1, nextLevel);
-    if (this.gameMode === "sprint" && this.linesClearedTotal >= this.sprintTargetClears) this.endGame();
   }
 
   /** Apply a capped amount of queued garbage after clears so garbage never blocks a clear first. */

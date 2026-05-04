@@ -1,20 +1,14 @@
 import { Game } from "@game/game";
 import { SOLID_CELL } from "@game/board/types";
-import { PIECE_ROTATIONS } from "@game/piece";
 import { Piece } from "@game/piece";
 import type { PieceType } from "@game/piece";
 import type { BoardCell } from "@game/board/types";
+import { PIECE_STYLES, type PieceStyle } from "./pieceStyles";
 import { getBoardBoundsFromLocked, isWithinBoard } from "./playfieldCoords";
 
 const CELL = 26;
-const PANEL_WIDTH = 178;
 const PADDING = 20;
-const PANEL_INNER_GAP = 10;
 const SPIN_DURATION_MS = 180;
-const HOLD_PANEL_HEIGHT = 170;
-const STATS_PANEL_Y = PADDING + 184;
-const STATS_PANEL_HEIGHT = 220;
-const NEXT_ITEM_SPACING = 88;
 const MIN_DISPLAY_SCALE = 0.55;
 
 type LayoutMetrics = {
@@ -30,38 +24,15 @@ type LayoutMetrics = {
   viewY: number;
   viewW: number;
   viewH: number;
-  panelWidth: number;
-  rightPanelX: number;
-};
-
-type PieceStyle = {
-  fill: string;
-  edge: string;
-  glow: string;
-};
-
-const PIECE_STYLES: Record<PieceType, PieceStyle> = {
-  O: { fill: "#f7dc83", edge: "#c4ab56", glow: "#f7dc83" },
-  I: { fill: "#7ed7ef", edge: "#4f9dbf", glow: "#7ed7ef" },
-  Z: { fill: "#de7ea0", edge: "#a55674", glow: "#de7ea0" },
-  S: { fill: "#72d89d", edge: "#479368", glow: "#72d89d" },
-  L: { fill: "#bf8a69", edge: "#8e6347", glow: "#bf8a69" },
-  J: { fill: "#6f7ddb", edge: "#4b56a6", glow: "#6f7ddb" },
-  T: { fill: "#a276d9", edge: "#6f4ca4", glow: "#a276d9" },
 };
 
 const OBSTACLE_COLOR = "#6b7280";
 
 type Renderer = {
-  // Recompute canvas size when game dimensions change.
   syncGameConfig: (game: Game) => void;
-  // Advance spin animation toward the latest board rotation.
   updateRotation: (boardRotation: number, dtMs: number) => void;
-  // Draw full frame (playfield + side panels).
   draw: (game: Game, paused: boolean) => void;
-  // Used by input handling to briefly freeze controls mid-spin.
   isSpinAnimating: () => boolean;
-  // Reset animation state (e.g. on restart).
   reset: (boardRotation?: number) => void;
 };
 
@@ -84,8 +55,17 @@ function setCanvasSize(
 function getAvailableCanvasSize(canvas: HTMLCanvasElement): { width: number; height: number } {
   const parent = canvas.parentElement;
   const parentWidth = parent?.clientWidth ?? window.innerWidth;
+  let siblingsWidth = 0;
+  if (parent) {
+    for (const child of parent.children) {
+      if (child !== canvas && child instanceof HTMLElement) {
+        siblingsWidth += child.offsetWidth;
+      }
+    }
+  }
+  const gap = siblingsWidth > 0 ? 32 : 0;
   return {
-    width: Math.max(1, parentWidth),
+    width: Math.max(1, parentWidth - siblingsWidth - gap),
     height: Math.max(1, window.innerHeight - 180),
   };
 }
@@ -94,73 +74,6 @@ function getDisplayScale(canvas: HTMLCanvasElement, logicalWidth: number, logica
   const available = getAvailableCanvasSize(canvas);
   const scale = Math.min(1, available.width / logicalWidth, available.height / logicalHeight);
   return Math.max(MIN_DISPLAY_SCALE, scale);
-}
-
-function drawMiniPiece(
-  ctx: CanvasRenderingContext2D,
-  type: PieceType,
-  x: number,
-  y: number,
-  size = 14,
-): void {
-  const shape = PIECE_ROTATIONS[type][0];
-  let minX = 4;
-  let minY = 4;
-  let maxX = 0;
-  let maxY = 0;
-  for (let row = 0; row < shape.length; row++) {
-    for (let col = 0; col < shape[row].length; col++) {
-      if (shape[row][col] === 0) continue;
-      minX = Math.min(minX, col);
-      minY = Math.min(minY, row);
-      maxX = Math.max(maxX, col);
-      maxY = Math.max(maxY, row);
-    }
-  }
-  const pieceWidth = (maxX - minX + 1) * size;
-  const pieceHeight = (maxY - minY + 1) * size;
-  const offsetX = x + (4 * size - pieceWidth) / 2;
-  const offsetY = y + (4 * size - pieceHeight) / 2;
-
-  const style = PIECE_STYLES[type];
-  for (let row = 0; row < shape.length; row++) {
-    for (let col = 0; col < shape[row].length; col++) {
-      if (shape[row][col] === 0) continue;
-      const px = offsetX + (col - minX) * size;
-      const py = offsetY + (row - minY) * size;
-      const inset = 1;
-      const w = size - inset * 2;
-      const h = size - inset * 2;
-      const gradient = ctx.createLinearGradient(px, py, px, py + size);
-      gradient.addColorStop(0, "rgba(255,255,255,0.2)");
-      gradient.addColorStop(0.28, style.fill);
-      gradient.addColorStop(1, style.edge);
-      ctx.fillStyle = gradient;
-      ctx.fillRect(px + inset, py + inset, w, h);
-      ctx.strokeStyle = "rgba(235, 243, 255, 0.45)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(px + inset + 0.5, py + inset + 0.5, w - 1, h - 1);
-    }
-  }
-}
-
-function drawPanel(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  _height: number,
-  title: string,
-): void {
-  ctx.fillStyle = "rgba(214, 228, 255, 0.82)";
-  ctx.font = "bold 14px system-ui, sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText(title, x + PANEL_INNER_GAP, y + 22);
-  ctx.strokeStyle = "rgba(214, 228, 255, 0.12)";
-  ctx.beginPath();
-  ctx.moveTo(x + PANEL_INNER_GAP, y + 30);
-  ctx.lineTo(x + width - PANEL_INNER_GAP, y + 30);
-  ctx.stroke();
 }
 
 function easeOutCubic(t: number): number {
@@ -201,9 +114,8 @@ function drawStyledCell(
   ctx.restore();
 }
 
-/** Canvas renderer owns sizing, board spin animation, and HUD drawing; gameplay stays in Game. */
+/** Board-only canvas renderer: playfield, rotation animation, and overlays. */
 function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): Renderer {
-  // Rotation animation state in quarter-turn units.
   let displayedTurns = 0;
   let targetTurns = 0;
   let animStartTurns = 0;
@@ -212,13 +124,12 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
   let lastBoardRotation = 0;
 
   const syncGameConfig = (game: Game): void => {
-    const width = game.board.width * CELL + PANEL_WIDTH * 2 + PADDING * 2;
+    const width = game.board.width * CELL + PADDING * 2;
     const height = game.board.height * CELL + PADDING * 2;
     setCanvasSize(canvas, ctx, width, height, getDisplayScale(canvas, width, height));
   };
 
   const updateRotation = (boardRotation: number, dtMs: number): void => {
-    // Detect lock-triggered board rotation and start a new tween.
     const delta = (boardRotation - lastBoardRotation + 4) % 4;
     if (delta > 0) {
       animStartTurns = displayedTurns;
@@ -242,18 +153,9 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
   const draw = (game: Game, paused: boolean): void => {
     const snap = game.getSnapshot();
     const layout = buildLayoutMetrics(snap);
-    drawBackground(layout);
+    ctx.clearRect(0, 0, layout.canvasWidth, layout.canvasHeight);
     drawPlayfield(game, snap, layout);
-    drawSidePanels(snap, layout);
     drawOverlay(snap, paused, layout);
-  };
-
-  const formatTimer = (ms: number | null): string => {
-    if (ms === null) return "--:--";
-    const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${String(seconds).padStart(2, "0")}`;
   };
 
   const buildLayoutMetrics = (snap: ReturnType<Game["getSnapshot"]>): LayoutMetrics => {
@@ -262,9 +164,8 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     const fullHeight = bounds.height;
     const playWidth = fullWidth * CELL;
     const playHeight = fullHeight * CELL;
-    const boardX = PADDING + PANEL_WIDTH;
+    const boardX = PADDING;
     const boardY = PADDING;
-    const panelWidth = PANEL_WIDTH - PADDING;
     return {
       boardX,
       boardY,
@@ -272,37 +173,13 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
       fullHeight,
       playWidth,
       playHeight,
-      canvasWidth: playWidth + PANEL_WIDTH * 2 + PADDING * 2,
+      canvasWidth: playWidth + PADDING * 2,
       canvasHeight: playHeight + PADDING * 2,
       viewX: snap.viewOffsetX * CELL,
       viewY: snap.viewOffsetY * CELL,
       viewW: snap.width * CELL,
       viewH: snap.height * CELL,
-      panelWidth,
-      rightPanelX: boardX + playWidth + PADDING,
     };
-  };
-
-  const drawBackground = (layout: LayoutMetrics): void => {
-    const bgGradient = ctx.createLinearGradient(0, 0, 0, layout.canvasHeight);
-    bgGradient.addColorStop(0, "#2a2233");
-    bgGradient.addColorStop(0.55, "#39293e");
-    bgGradient.addColorStop(1, "#263546");
-    ctx.fillStyle = bgGradient;
-    ctx.fillRect(0, 0, layout.canvasWidth, layout.canvasHeight);
-
-    const accentGlow = ctx.createRadialGradient(
-      layout.canvasWidth * 0.48,
-      layout.canvasHeight * 0.78,
-      0,
-      layout.canvasWidth * 0.48,
-      layout.canvasHeight * 0.78,
-      layout.canvasHeight * 0.62,
-    );
-    accentGlow.addColorStop(0, "rgba(185, 157, 232, 0.2)");
-    accentGlow.addColorStop(1, "rgba(185, 157, 232, 0)");
-    ctx.fillStyle = accentGlow;
-    ctx.fillRect(0, 0, layout.canvasWidth, layout.canvasHeight);
   };
 
   const drawPlayfield = (
@@ -332,7 +209,6 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
       ctx.globalAlpha = 1;
     };
 
-    // Rotate only the playfield; HUD panels stay fixed.
     ctx.save();
     ctx.translate(layout.boardX + layout.playWidth / 2, layout.boardY + layout.playHeight / 2);
     ctx.rotate((displayedTurns % 4) * (Math.PI / 2));
@@ -396,30 +272,6 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
       }
     }
     ctx.restore();
-  };
-
-  const drawSidePanels = (snap: ReturnType<Game["getSnapshot"]>, layout: LayoutMetrics): void => {
-    drawPanel(ctx, PADDING, PADDING, layout.panelWidth, HOLD_PANEL_HEIGHT, "Hold");
-    if (snap.hold) {
-      drawMiniPiece(ctx, snap.hold, PADDING + 16, PADDING + 48, 18);
-    }
-
-    drawPanel(ctx, PADDING, STATS_PANEL_Y, layout.panelWidth, STATS_PANEL_HEIGHT, "Stats");
-    ctx.fillStyle = "#dbe7ff";
-    ctx.font = "13px system-ui, sans-serif";
-    ctx.fillText(`Timer: ${formatTimer(snap.remainingMs)}`, PADDING + PANEL_INNER_GAP, PADDING + 218);
-    ctx.fillText(`Score: ${snap.score}`, PADDING + PANEL_INNER_GAP, PADDING + 244);
-    ctx.fillText(`Level: ${snap.level}`, PADDING + PANEL_INNER_GAP, PADDING + 270);
-    ctx.fillText(`Combo: ${snap.combo}`, PADDING + PANEL_INNER_GAP, PADDING + 296);
-    ctx.fillText(`Lines: ${snap.linesClearedTotal}`, PADDING + PANEL_INNER_GAP, PADDING + 322);
-    if (snap.garbageEnabled) {
-      ctx.fillText(`Incoming: ${snap.incomingGarbage}`, PADDING + PANEL_INNER_GAP, PADDING + 348);
-    }
-
-    drawPanel(ctx, layout.rightPanelX, PADDING, layout.panelWidth, layout.playHeight, "Next");
-    snap.next.slice(0, 5).forEach((type, idx) => {
-      drawMiniPiece(ctx, type, layout.rightPanelX + 16, PADDING + 42 + idx * NEXT_ITEM_SPACING, 15);
-    });
   };
 
   const drawOverlay = (

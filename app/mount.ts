@@ -9,6 +9,7 @@ import {
   type InputSettings,
 } from "../input/settings";
 import { createMiniBoardRenderer } from "../render/miniBoard";
+import { createHudUpdater } from "../render/hudPanels";
 import { createRenderer } from "../render/renderer";
 import { getSupabase, isSupabaseConfigured } from "../supabase/client";
 import { DEFAULT_BOARD_KIND, DEFAULT_GAME_MODE, type AppScreen } from "./constants";
@@ -79,6 +80,18 @@ const mountApp = (): void => {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
+  const holdCanvas = getElement<HTMLCanvasElement>("hold-canvas");
+  const nextCanvas = getElement<HTMLCanvasElement>("next-canvas");
+  const statTimer = getElement<HTMLElement>("stat-timer");
+  const statLinesRow = getElement<HTMLElement>("stat-lines-row");
+  const statLines = getElement<HTMLElement>("stat-lines");
+  const statScoreRow = getElement<HTMLElement>("stat-score-row");
+  const statScore = getElement<HTMLElement>("stat-score");
+  const statLevelRow = getElement<HTMLElement>("stat-level-row");
+  const statLevel = getElement<HTMLElement>("stat-level");
+  const statComboRow = getElement<HTMLElement>("stat-combo-row");
+  const statCombo = getElement<HTMLElement>("stat-combo");
+
   const settingsBackButton = getElement<HTMLButtonElement>("settings-back-button");
   const settingsCanvas = getElement<HTMLCanvasElement>("settings-test-board");
   const settingsCtx = settingsCanvas.getContext("2d");
@@ -106,6 +119,19 @@ const mountApp = (): void => {
 
   const supabase = isSupabaseConfigured() ? getSupabase() : null;
   const renderer = createRenderer(canvas, ctx);
+  const hudUpdater = createHudUpdater({
+    holdCanvas,
+    nextCanvas,
+    timerEl: statTimer,
+    linesRow: statLinesRow,
+    linesValue: statLines,
+    scoreRow: statScoreRow,
+    scoreValue: statScore,
+    levelRow: statLevelRow,
+    levelValue: statLevel,
+    comboRow: statComboRow,
+    comboValue: statCombo,
+  });
   const miniRenderer = createMiniBoardRenderer(settingsCanvas, settingsCtx);
 
   const session = createSessionController({
@@ -211,6 +237,7 @@ const mountApp = (): void => {
     gameActions,
     gameTitle,
     renderer,
+    hudUpdater,
     gameplayController,
     supabase,
     session,

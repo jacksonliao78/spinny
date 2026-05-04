@@ -398,6 +398,23 @@ test("Sprint rectangular-style target completes after 40 clear units", () => {
   assert.equal(complete.active, null);
 });
 
+test("Sprint keeps level at 1 and constant gravity after clears", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(4),
+    config: testConfig({ mode: { kind: "sprint", sprintTargetClears: 40 } }),
+  });
+  const before = game.getSnapshot().gravityIntervalMs;
+
+  game.hardDrop();
+  game.hardDrop();
+  game.hardDrop();
+
+  const after = game.getSnapshot();
+  assert.equal(after.level, 1);
+  assert.equal(after.linesClearedTotal, 12);
+  assert.equal(after.gravityIntervalMs, before);
+});
+
 test("Sprint ring-style target completes after 10 clear units", () => {
   const game = new Game({
     boardFactory: createScoringBoardFactory(1),
@@ -550,6 +567,33 @@ test("Timed mode expires and ends the game", () => {
   assert.equal(summary.gameOver, true);
   assert.equal(summary.gameMode, "timed");
   assert.equal(summary.remainingMs, 0);
+});
+
+test("Game tracks elapsedMs and stops counting after game over", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(0),
+    config: testConfig({ mode: { kind: "timed", timedDurationMs: 200 } }),
+  });
+  game.tick(50);
+  assert.equal(game.getSnapshot().elapsedMs, 50);
+
+  game.tick(50);
+  assert.equal(game.getSnapshot().elapsedMs, 100);
+
+  game.tick(200);
+  assert.equal(game.getSnapshot().gameOver, true);
+  const elapsedAtEnd = game.getSnapshot().elapsedMs;
+
+  game.tick(100);
+  assert.equal(game.getSnapshot().elapsedMs, elapsedAtEnd);
+});
+
+test("Snapshot includes sprintTargetClears", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(0),
+    config: testConfig({ mode: { kind: "sprint", sprintTargetClears: 25 } }),
+  });
+  assert.equal(game.getSnapshot().sprintTargetClears, 25);
 });
 
 test("Timed mode clamps overshoot and is idempotent after expiry", () => {
