@@ -201,6 +201,41 @@ test("Game run summary tracks lock and clear distribution counters", () => {
   assert.equal(summary.stats.lineClearsByCount.zero, 0);
 });
 
+test("Game run summary computes derived PPS from duration", () => {
+  const game = new Game({ boardFactory: createScoringBoardFactory(0), config: testConfig() });
+
+  game.hardDrop();
+  game.hardDrop();
+
+  const summary = game.getRunSummary(2_000);
+  assert.equal(summary.metrics.durationMs, 2_000);
+  assert.equal(summary.metrics.piecesPerSecond, 1);
+});
+
+test("Game run summary keeps derived rates safe for zero duration and zero attack", () => {
+  const game = new Game({ boardFactory: createScoringBoardFactory(0), config: testConfig() });
+
+  game.hardDrop();
+
+  const summary = game.getRunSummary(0);
+  assert.equal(summary.metrics.durationMs, 0);
+  assert.equal(summary.metrics.piecesPerSecond, 0);
+  assert.equal(summary.metrics.attackTotal, 0);
+  assert.equal(summary.metrics.attacksPerMinute, 0);
+  assert.equal(summary.metrics.attackPerPiece, 0);
+});
+
+test("Game run summary exposes neutral back-to-back metrics until implemented", () => {
+  const game = new Game({ boardFactory: createScoringBoardFactory(4), config: testConfig() });
+
+  game.hardDrop();
+
+  const summary = game.getRunSummary(1_000);
+  assert.equal(summary.metrics.backToBackChain, 0);
+  assert.equal(summary.metrics.maxBackToBackChain, 0);
+  assert.equal(summary.metrics.backToBackMultiplier, 1);
+});
+
 test("Game awards combo bonuses after consecutive line clears", () => {
   const game = new Game({ boardFactory: createScoringBoardFactory(1), config: testConfig() });
 

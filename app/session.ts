@@ -26,6 +26,7 @@ const createSessionController = ({ supabase, ui }: SessionControllerOptions): Se
   let currentUser: User | null = null;
   let currentUsername: string | null = null;
   let guestMode = true;
+  let authSyncEpoch = 0;
 
   const refreshAuthSummary = (): void => {
     if (currentUser) {
@@ -41,21 +42,43 @@ const createSessionController = ({ supabase, ui }: SessionControllerOptions): Se
   };
 
   const syncAuthState = async (user: User | null): Promise<void> => {
+    const myEpoch = ++authSyncEpoch;
+
     currentUser = user;
-    currentUsername = user && supabase ? await loadProfileUsername(supabase, user.id) : null;
-    if (user && supabase && !currentUsername) {
+    guestMode = !user;
+    if (!user) {
+      currentUsername = null;
+      refreshAuthSummary();
+      return;
+    }
+
+    refreshAuthSummary();
+
+    if (!supabase) {
+      currentUsername = null;
+      if (myEpoch !== authSyncEpoch) return;
+      refreshAuthSummary();
+      return;
+    }
+
+    let nextUsername = await loadProfileUsername(supabase, user.id);
+    if (myEpoch !== authSyncEpoch) return;
+
+    if (!nextUsername) {
       const username = getSignupUsernameCandidate(user);
       if (username) {
         try {
           await saveProfileUsername(supabase, user.id, username);
-          currentUsername = username;
+          nextUsername = username;
           clearPendingSignupUsername();
         } catch (error) {
           console.warn("Could not create profile after login", error);
         }
+        if (myEpoch !== authSyncEpoch) return;
       }
     }
-    guestMode = !user;
+
+    currentUsername = nextUsername ?? null;
     refreshAuthSummary();
   };
 

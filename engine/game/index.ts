@@ -58,6 +58,17 @@ export type RunStats = {
   garbageAppliedTotal: number;
 };
 
+export type RunMetrics = {
+  durationMs: number;
+  piecesPerSecond: number;
+  attackTotal: number;
+  attacksPerMinute: number;
+  attackPerPiece: number;
+  backToBackChain: number;
+  maxBackToBackChain: number;
+  backToBackMultiplier: number;
+};
+
 export type RunSummary = {
   width: number;
   height: number;
@@ -68,6 +79,7 @@ export type RunSummary = {
   remainingMs: number | null;
   gameOver: boolean;
   stats: RunStats;
+  metrics: RunMetrics;
 };
 
 /** Read-only frame data consumed by the renderer and UI; active remains mutable game state. */
@@ -145,6 +157,29 @@ const cloneRunStats = (stats: RunStats): RunStats => ({
   lineClearsByCount: { ...stats.lineClearsByCount },
 });
 
+const safeRate = (numerator: number, denominator: number): number => {
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) return 0;
+  return numerator / denominator;
+};
+
+const createRunMetrics = (stats: RunStats, durationMs: number): RunMetrics => {
+  const safeDurationMs = Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 0;
+  const durationSeconds = safeDurationMs / 1000;
+  const durationMinutes = safeDurationMs / 60_000;
+  const attackTotal = 0;
+
+  return {
+    durationMs: safeDurationMs,
+    piecesPerSecond: safeRate(stats.locksPlaced, durationSeconds),
+    attackTotal,
+    attacksPerMinute: safeRate(attackTotal, durationMinutes),
+    attackPerPiece: safeRate(attackTotal, stats.locksPlaced),
+    backToBackChain: 0,
+    maxBackToBackChain: 0,
+    backToBackMultiplier: 1,
+  };
+};
+
 class Game {
   readonly board: BoardModel;
   private readonly queue: Queue;
@@ -216,7 +251,8 @@ class Game {
     };
   }
 
-  getRunSummary(): RunSummary {
+  getRunSummary(durationMs = 0): RunSummary {
+    const stats = cloneRunStats(this.runStats);
     return {
       width: this.playWidth,
       height: this.playHeight,
@@ -226,7 +262,8 @@ class Game {
       linesClearedTotal: this.linesClearedTotal,
       remainingMs: this.remainingMs,
       gameOver: this.gameOver,
-      stats: cloneRunStats(this.runStats),
+      stats,
+      metrics: createRunMetrics(stats, durationMs),
     };
   }
 
@@ -410,7 +447,7 @@ class Game {
       this.onGroundedAction();
     }
     else {
-      const newRotation = ((this.activePiece.rotation + rotations % 4) + 4 ) % 4;
+      const newRotation = (((this.activePiece.rotation + rotations) % 4) + 4) % 4;
       const placement = tryKicks( {
         pieceType: this.activePiece.type,
         fromRot: this.activePiece.rotation,

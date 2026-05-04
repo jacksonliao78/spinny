@@ -171,7 +171,7 @@ const initPlayingScreen = ({
     const gravityIntervalMs = game.getSnapshot().gravityIntervalMs;
     gameplayController.update(dtMs, gravityIntervalMs);
     renderer.draw(game, getPaused());
-    const summary = game.getRunSummary();
+    const summary = game.getRunSummary(runDurationMs);
     if (summary.gameOver && !completedRunSaveStarted) {
       completedRunSaveStarted = true;
       void persistCompletedRun(summary, runDurationMs);
