@@ -8,6 +8,7 @@ export type GameplayInputCallbacks = {
   softDropToContact: () => void;
   rotateCw: () => void;
   rotateCcw: () => void;
+  rotate180: () => void;
   hardDrop: () => void;
   hold: () => void;
 };
@@ -197,6 +198,10 @@ export function createInputController(
         cbs.rotateCw();
         e.preventDefault();
         return;
+      case "KeyA":
+        cbs.rotate180();
+        e.preventDefault();
+        return;
       case "Space":
         cbs.hardDrop();
         e.preventDefault();
@@ -341,6 +346,7 @@ export function gameplayCallbacksFor(game: Game): GameplayInputCallbacks {
     softDropToContact: () => softDropToContact(game),
     rotateCw: () => game.rotateCw(),
     rotateCcw: () => game.rotateCcw(),
+    rotate180: () => game.rotate180(),
     hardDrop: () => game.hardDrop(),
     hold: () => game.hold(),
   };

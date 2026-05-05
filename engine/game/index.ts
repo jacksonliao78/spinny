@@ -10,7 +10,7 @@ import { Hold } from "../hold";
 import type { PieceType } from "../piece";
 import { Piece } from "../piece";
 import { Queue } from "../queue";
-import { tryKicks } from "../srs";
+import { try180Kicks, tryKicks } from "../srs";
 import type { GameConfig, GameConfigOverrides, GameMode } from "./rules";
 import { pieceLow, syncLowProgress } from "./progression";
 import {
@@ -393,6 +393,11 @@ class Game {
     this.tryRotate(-1);
   }
 
+  /** 180° rotation (TETR.IO-style kick table; not two quarter turns). */
+  rotate180(): void {
+    this.tryRotate(2);
+  }
+
   hold(): void {
     if (!this.activePiece || this.gameOver || this.holdLocked) return;
     this.clearLastRotation();
@@ -460,29 +465,30 @@ class Game {
   /** Applies rotation (with SRS kicks) and grounded reset rules. */
   private tryRotate(rotations: number): void {
     if (!this.activePiece || this.gameOver) return;
+    const step = ((rotations % 4) + 4) % 4;
+    if (step === 0) return;
+
     if (this.canRotatePiece(this.activePiece, rotations)) {
       this.activePiece.rotate(rotations);
       this.recordLastRotation(this.activePiece, false);
       this.onGroundedAction();
+      return;
     }
-    else {
-      const newRotation = (((this.activePiece.rotation + rotations) % 4) + 4) % 4;
-      const placement = tryKicks( {
+
+    const newRotation = (((this.activePiece.rotation + rotations) % 4) + 4) % 4;
+
+    if (step === 2) {
+      const placement = try180Kicks({
         pieceType: this.activePiece.type,
         fromRot: this.activePiece.rotation,
         toRot: newRotation,
-        spin: rotations === 1 ? "cw" : "ccw",
         baseX: this.activePiece.x,
         baseY: this.activePiece.y,
-        canPlace: (rot, x, y) => {
-          return this.canPlacePiece(this.activePiece!, rot, x, y);
-        }
+        canPlace: (rot, x, y) => this.canPlacePiece(this.activePiece!, rot, x, y),
       });
-
-      if(placement) {
+      if (placement) {
         this.activePiece.x = placement.x;
         this.activePiece.y = placement.y;
-
         this.activePiece.rotate(rotations);
         this.recordLastRotation(
           this.activePiece,
@@ -490,7 +496,30 @@ class Game {
         );
         this.onGroundedAction();
       }
+      return;
+    }
 
+    const spin = step === 1 ? "cw" : "ccw";
+    const placement = tryKicks({
+      pieceType: this.activePiece.type,
+      fromRot: this.activePiece.rotation,
+      toRot: newRotation,
+      spin,
+      baseX: this.activePiece.x,
+      baseY: this.activePiece.y,
+      canPlace: (rot, x, y) => this.canPlacePiece(this.activePiece!, rot, x, y),
+    });
+
+    if (placement) {
+      this.activePiece.x = placement.x;
+      this.activePiece.y = placement.y;
+
+      this.activePiece.rotate(rotations);
+      this.recordLastRotation(
+        this.activePiece,
+        placement.usedKick[0] !== 0 || placement.usedKick[1] !== 0,
+      );
+      this.onGroundedAction();
     }
   }
 

@@ -367,6 +367,21 @@ test("Game does not expose all-spin when kicked piece can still move", () => {
   assert.equal(game.getSnapshot().lastSpin, null);
 });
 
+test("SRS kicks cannot place active minos outside horizontal visible bounds", () => {
+  const game = new Game({
+    boardFactory: createLockedBoard([], (_piece, rotation, dx, _dy) => rotation === 0 && dx === -1),
+    config: testConfig(),
+  });
+  game.activePiece = new Piece("L", 2, 5);
+  game.activePiece.rotation = 3;
+
+  game.rotateCw();
+
+  const snap = game.getSnapshot();
+  assert.equal(snap.active?.rotation, 3);
+  assert.equal(snap.active?.x, 2);
+});
+
 test("Game increases level and gravity speed with progression", () => {
   const game = new Game({ boardFactory: createScoringBoardFactory(4), config: testConfig() });
   const before = game.getSnapshot().gravityIntervalMs;
