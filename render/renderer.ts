@@ -5,9 +5,10 @@ import type { PieceType } from "@game/piece";
 import type { BoardCell } from "@game/board/types";
 import { PIECE_STYLES, type PieceStyle } from "./pieceStyles";
 import { getBoardBoundsFromLocked, isWithinBoard } from "./playfieldCoords";
+import { BOARD_PADDING, BOARD_CELL_SIZE } from "./boardCanvasLayout";
 
-const CELL = 26;
-const PADDING = 20;
+const CELL = BOARD_CELL_SIZE;
+const PADDING = BOARD_PADDING;
 const SPIN_DURATION_MS = 180;
 const MIN_DISPLAY_SCALE = 0.55;
 
@@ -53,21 +54,17 @@ function setCanvasSize(
 }
 
 function getAvailableCanvasSize(canvas: HTMLCanvasElement): { width: number; height: number } {
-  const parent = canvas.parentElement;
-  const parentWidth = parent?.clientWidth ?? window.innerWidth;
-  let siblingsWidth = 0;
-  if (parent) {
-    for (const child of parent.children) {
-      if (child !== canvas && child instanceof HTMLElement) {
-        siblingsWidth += child.offsetWidth;
-      }
-    }
+  const slot = canvas.parentElement;
+  if (slot instanceof HTMLElement && slot.clientWidth > 0 && slot.clientHeight > 0) {
+    return {
+      width: Math.max(1, slot.clientWidth),
+      height: Math.max(1, slot.clientHeight),
+    };
   }
-  const gap = siblingsWidth > 0 ? 32 : 0;
-  return {
-    width: Math.max(1, parentWidth - siblingsWidth - gap),
-    height: Math.max(1, window.innerHeight - 180),
-  };
+
+  const w = typeof window !== "undefined" ? window.innerWidth : 640;
+  const h = typeof window !== "undefined" ? Math.max(1, window.innerHeight - 120) : 480;
+  return { width: Math.max(1, w), height: Math.max(1, h) };
 }
 
 function getDisplayScale(canvas: HTMLCanvasElement, logicalWidth: number, logicalHeight: number): number {

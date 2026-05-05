@@ -59,9 +59,9 @@ const SHAPE_I: readonly ShapeGrid[] = [
 
 const SHAPE_Z: readonly ShapeGrid[] = [
     [
-        [ 0, 0, 0, 0 ],
         [ 1, 1, 0, 0 ],
         [ 0, 1, 1, 0 ],
+        [ 0, 0, 0, 0 ],
         [ 0, 0, 0, 0 ],
     ],
     [
@@ -72,9 +72,9 @@ const SHAPE_Z: readonly ShapeGrid[] = [
     ],
     [
         [ 0, 0, 0, 0 ],
-        [ 0, 0, 0, 0 ],
         [ 1, 1, 0, 0 ],
         [ 0, 1, 1, 0 ],
+        [ 0, 0, 0, 0 ],
     ],
     [
         [ 0, 1, 0, 0 ],
@@ -86,9 +86,9 @@ const SHAPE_Z: readonly ShapeGrid[] = [
 
 const SHAPE_S: readonly ShapeGrid[] = [
     [
-        [ 0, 0, 0, 0 ],
         [ 0, 1, 1, 0 ],
         [ 1, 1, 0, 0 ],
+        [ 0, 0, 0, 0 ],
         [ 0, 0, 0, 0 ],
     ],
     [
@@ -99,9 +99,9 @@ const SHAPE_S: readonly ShapeGrid[] = [
     ],
     [
         [ 0, 0, 0, 0 ],
-        [ 0, 0, 0, 0 ],
         [ 0, 1, 1, 0 ],
         [ 1, 1, 0, 0 ],
+        [ 0, 0, 0, 0 ],
     ],
     [
         [ 1, 0, 0, 0 ],
@@ -132,9 +132,9 @@ const SHAPE_L: readonly ShapeGrid[] = [
     ],
     [
         [ 0, 0, 0, 0 ],
-        [ 0, 1, 1, 0 ],
-        [ 0, 0, 1, 0 ],
-        [ 0, 0, 1, 0 ],
+        [ 1, 1, 0, 0 ],
+        [ 0, 1, 0, 0 ],
+        [ 0, 1, 0, 0 ],
     ],
 ]
 

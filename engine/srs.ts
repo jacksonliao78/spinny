@@ -159,6 +159,7 @@ const tryKicks = (args: TryKickArgs): SrsPlacement | null => {
   for (const [dx, dy] of kicks) {
     const x = args.baseX + dx;
     const y = args.baseY + dy;
+
     if (args.canPlace(args.toRot, x, y)) {
       return { x, y, rot: args.toRot, usedKick: [dx, dy] };
     }

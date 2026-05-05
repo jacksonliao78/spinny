@@ -320,10 +320,19 @@ const mountApp = (): void => {
     startGame: playingScreen.startGame,
   });
 
-  window.addEventListener("resize", () => {
+  const runLayoutResizeCallbacks = (): void => {
     playingScreen?.onResize();
     settingsScreen?.onResize();
-  });
+  };
+
+  window.addEventListener("resize", runLayoutResizeCallbacks);
+  window.visualViewport?.addEventListener("resize", runLayoutResizeCallbacks);
+
+  const boardSlot = canvas.parentElement;
+  if (boardSlot instanceof HTMLElement) {
+    const boardSlotResizeObserver = new ResizeObserver(runLayoutResizeCallbacks);
+    boardSlotResizeObserver.observe(boardSlot);
+  }
 
   const loop = (now: number) => {
     const dt = now - last;

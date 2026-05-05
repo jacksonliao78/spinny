@@ -10,6 +10,7 @@ import type { AppScreen } from "../constants";
 import { MODE_LABELS, RECTANGULAR_BOARD_CONFIG, SAVED_RUN_MODES, SPRINT_TARGET_CLEARS } from "../constants";
 import { buildRunInsert } from "../persistence/runs";
 import type { SessionController } from "../session";
+import { logicalCanvasHeightFromSnap, viewportLogicalYRange } from "../../render/boardCanvasLayout";
 
 type Renderer = ReturnType<typeof createRenderer>;
 
@@ -75,6 +76,31 @@ const initPlayingScreen = ({
 }: PlayingScreenOptions): PlayingScreen => {
   let runDurationMs = 0;
   let completedRunSaveStarted = false;
+  const gamePlayArea = canvas.closest(".game-play-area");
+
+  const updateSidebarAlignment = (game: Game): void => {
+    if (!(gamePlayArea instanceof HTMLElement)) return;
+    const snap = game.getSnapshot();
+    if (canvas.clientHeight <= 0) return;
+    const logicalCanvasHeight = logicalCanvasHeightFromSnap(snap);
+    if (logicalCanvasHeight <= 0) return;
+
+    const scale = canvas.clientHeight / logicalCanvasHeight;
+    const areaRect = gamePlayArea.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    const canvasTopInArea = canvasRect.top - areaRect.top + gamePlayArea.scrollTop;
+
+    const { minY, maxY } = viewportLogicalYRange(snap);
+
+    const viewportTopCss = canvasTopInArea + minY * scale;
+    const viewportBottomCss = canvasTopInArea + maxY * scale;
+
+    const topInset = Math.max(0, viewportTopCss);
+    const bottomInset = Math.max(0, gamePlayArea.clientHeight - viewportBottomCss);
+
+    gamePlayArea.style.setProperty("--hud-top-inset", `${topInset}px`);
+    gamePlayArea.style.setProperty("--hud-bottom-inset", `${bottomInset}px`);
+  };
 
   const setTipsOpen = (open: boolean): void => {
     tipsPopover.hidden = !open;
@@ -110,6 +136,11 @@ const initPlayingScreen = ({
     hudUpdater.configure(getSelectedMode(), SPRINT_TARGET_CLEARS[getSelectedBoard()]);
     navigate("playing");
     renderer.syncGameConfig(game);
+    updateSidebarAlignment(game);
+    requestAnimationFrame(() => {
+      renderer.syncGameConfig(game);
+      updateSidebarAlignment(game);
+    });
     renderer.reset(game.getSnapshot().boardRotation);
     resetLastFrameTime();
     canvas.focus();
@@ -173,10 +204,12 @@ const initPlayingScreen = ({
   const drawFrame = (dtMs: number): void => {
     const game = getGame();
     if (getAppScreen() !== "playing" || !game) return;
-    const gravityIntervalMs = game.getSnapshot().gravityIntervalMs;
+    const snap = game.getSnapshot();
+    const gravityIntervalMs = snap.gravityIntervalMs;
     gameplayController.update(dtMs, gravityIntervalMs);
     renderer.draw(game, getPaused());
-    hudUpdater.update(game.getSnapshot());
+    updateSidebarAlignment(game);
+    hudUpdater.update(snap);
     const summary = game.getRunSummary(runDurationMs);
     if (summary.gameOver && !completedRunSaveStarted) {
       completedRunSaveStarted = true;
@@ -186,7 +219,9 @@ const initPlayingScreen = ({
 
   const onResize = (): void => {
     const game = getGame();
-    if (game) renderer.syncGameConfig(game);
+    if (!game) return;
+    renderer.syncGameConfig(game);
+    updateSidebarAlignment(game);
   };
 
   syncInputControllerState();
