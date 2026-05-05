@@ -16,7 +16,12 @@ test("getKicks returns expected defaults for O and I pieces (SRS+ I quarter-turn
   assert.equal(iKicks.length, 5);
   assert.deepEqual(iKicks[0], [0, 0]);
   assert.deepEqual(iKicks[1], [-2, 0]);
-  assert.deepEqual(iKicks[3], [1, 2]);
+  assert.deepEqual(iKicks[3], [1, -2]);
+});
+
+test("getKicks converts SRS y-up kick data into board-space y-down offsets", () => {
+  assert.deepEqual(getKicks("T", 0, 1, "cw"), [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]]);
+  assert.deepEqual(getKicks("T", 0, 3, "ccw"), [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]]);
 });
 
 test("get180Kicks returns six tests for JLSTZ and I", () => {
