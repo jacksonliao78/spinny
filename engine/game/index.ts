@@ -1,4 +1,4 @@
-import type { BoardCell, BoardFactory, BoardModel } from "../board/types";
+import type { BoardModel } from "../board/types";
 import { createBoard } from "../board/factory";
 import {
   getComboBonusPoints,
@@ -11,7 +11,7 @@ import type { PieceType } from "../piece";
 import { Piece } from "../piece";
 import { Queue } from "../queue";
 import { try180Kicks, tryKicks } from "../srs";
-import type { GameConfig, GameConfigOverrides, GameMode } from "./rules";
+import type { GameConfig, GameMode } from "./rules";
 import { pieceLow, syncLowProgress } from "./progression";
 import {
   applyDownwardAdvanceLockDelayTransition,
@@ -19,186 +19,26 @@ import {
   lockDelayShouldLock,
 } from "./lock_delay";
 import { getSpawnCoords, getVisibleBounds, respectsViewBounds } from "./spawn_bounds";
+import { createRunMetrics } from "./metrics";
+import { cloneRunStats, createRunStats } from "./run_stats";
+import { detectSpin } from "./rotation";
+import type { LastRotation, SpinResult } from "./rotation";
+import type { GameOptions, GameSnapshot, RunSummary } from "./types";
 
-type SpinResult = {
-  pieceType: PieceType;
-  kind: "t-spin" | "all-spin";
-};
-
-type LastRotation = {
-  pieceType: PieceType;
-  x: number;
-  y: number;
-  rotation: number;
-  usedKick: boolean;
-};
-
-type PieceCounts = Record<PieceType, number>;
-
-type LineClearCounts = {
-  zero: number;
-  single: number;
-  double: number;
-  triple: number;
-  quadPlus: number;
-};
-
-export type RunStats = {
-  locksPlaced: number;
-  piecesByType: PieceCounts;
-  lineClearsByCount: LineClearCounts;
-  maxCombo: number;
-  hardDropCellsTotal: number;
-  softDropCellsTotal: number;
-  holdUses: number;
-  tSpinCount: number;
-  allSpinCount: number;
-  garbageReceivedEvents: number;
-  garbageReceivedTotal: number;
-  garbageAppliedTotal: number;
-};
-
-export type RunSpeedMetrics = {
-  durationMs: number;
-  piecesPerSecond: number;
-};
-
-export type RunAttackMetrics = {
-  attackTotal: number;
-  attacksPerMinute: number;
-  attackPerPiece: number;
-};
-
-export type RunBackToBackMetrics = {
-  chain: number;
-  maxChain: number;
-  multiplier: number;
-};
-
-export type RunMetrics = {
-  speed: RunSpeedMetrics;
-  attack: RunAttackMetrics;
-  backToBack: RunBackToBackMetrics;
-};
-
-export type RunSummary = {
-  width: number;
-  height: number;
-  gameMode: GameMode;
-  score: number;
-  level: number;
-  linesClearedTotal: number;
-  remainingMs: number | null;
-  gameOver: boolean;
-  stats: RunStats;
-  metrics: RunMetrics;
-};
-
-/** Read-only frame data consumed by the renderer and UI; active remains mutable game state. */
-export type GameSnapshot = {
-  width: number;
-  height: number;
-  viewOffsetX: number;
-  viewOffsetY: number;
-  /** 0–3: how many quarter-turns the playfield has taken (gravity cycles with this). */
-  boardRotation: number;
-  locked: BoardCell[][];
-  active: Piece | null;
-  next: PieceType[];
-  hold: PieceType | null;
-  score: number;
-  level: number;
-  combo: number;
-  linesClearedTotal: number;
-  garbageEnabled: boolean;
-  incomingGarbage: number;
-  gameMode: GameMode;
-  remainingMs: number | null;
-  elapsedMs: number;
-  sprintTargetClears: number;
-  gravityIntervalMs: number;
-  lastSpin: SpinResult | null;
-  gameOver: boolean;
-};
-
-type GameOptions = {
-  /** Optional board implementation, mainly for alternate board types and tests. */
-  boardFactory?: BoardFactory;
-  /** Partial gameplay tuning merged with DEFAULT_GAME_CONFIG. */
-  config?: GameConfigOverrides;
-};
+export type {
+  GameOptions,
+  GameSnapshot,
+  RunAttackMetrics,
+  RunBackToBackMetrics,
+  RunMetrics,
+  RunSpeedMetrics,
+  RunStats,
+  RunSummary,
+} from "./types";
 
 const LOCK_DELAY_MS = 500;
 const MAX_LOCK_RESETS = 15;
 const SPAWN_PAD = 2;
-
-const createPieceCounts = (): PieceCounts => ({
-  I: 0,
-  J: 0,
-  L: 0,
-  O: 0,
-  S: 0,
-  T: 0,
-  Z: 0,
-});
-
-const createLineClearCounts = (): LineClearCounts => ({
-  zero: 0,
-  single: 0,
-  double: 0,
-  triple: 0,
-  quadPlus: 0,
-});
-
-const createRunStats = (): RunStats => ({
-  locksPlaced: 0,
-  piecesByType: createPieceCounts(),
-  lineClearsByCount: createLineClearCounts(),
-  maxCombo: 0,
-  hardDropCellsTotal: 0,
-  softDropCellsTotal: 0,
-  holdUses: 0,
-  tSpinCount: 0,
-  allSpinCount: 0,
-  garbageReceivedEvents: 0,
-  garbageReceivedTotal: 0,
-  garbageAppliedTotal: 0,
-});
-
-const cloneRunStats = (stats: RunStats): RunStats => ({
-  ...stats,
-  piecesByType: { ...stats.piecesByType },
-  lineClearsByCount: { ...stats.lineClearsByCount },
-});
-
-const safeRate = (numerator: number, denominator: number): number => {
-  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) return 0;
-  return numerator / denominator;
-};
-
-const createRunMetrics = (stats: RunStats, durationMs: number): RunMetrics => {
-  const safeDurationMs = Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 0;
-  const durationSeconds = safeDurationMs / 1000;
-  const durationMinutes = safeDurationMs / 60_000;
-  const attackTotal = 0;
-
-  return {
-    speed: {
-      durationMs: safeDurationMs,
-      piecesPerSecond: safeRate(stats.locksPlaced, durationSeconds),
-    },
-    attack: {
-      attackTotal,
-      attacksPerMinute: safeRate(attackTotal, durationMinutes),
-      attackPerPiece: safeRate(attackTotal, stats.locksPlaced),
-    },
-    backToBack: {
-      chain: 0,
-      maxChain: 0,
-      multiplier: 1,
-    },
-  };
-};
 
 class Game {
   readonly board: BoardModel;
@@ -263,6 +103,7 @@ class Game {
       score: this.score,
       level: this.level,
       combo: Math.max(0, this.combo - 1),
+      b2b: this.runStats.b2bChain,
       linesClearedTotal: this.linesClearedTotal,
       garbageEnabled: this.config.garbage.enabled,
       incomingGarbage: this.incomingGarbage,
@@ -586,7 +427,14 @@ class Game {
   /** Lock current piece, resolve clear/scoring/garbage, rotate the board, then spawn next. */
   private lockAndSpawn(): void {
     if (!this.activePiece) return;
-    this.lastSpin = this.detectSpin(this.activePiece);
+    this.lastSpin = detectSpin({
+      piece: this.activePiece,
+      lastRotation: this.lastRotation,
+      config: this.config,
+      board: this.board,
+      visibleBounds: this.getVisibleBounds(),
+      canMovePiece: (piece, dx, dy) => this.canMovePiece(piece, dx, dy),
+    });
     const lockedPieceType = this.activePiece.type;
     this.board.lockPiece(this.activePiece);
     const linesCleared = this.board.clearLines();
@@ -616,7 +464,25 @@ class Game {
     else if (linesCleared === 3) this.runStats.lineClearsByCount.triple += 1;
     else this.runStats.lineClearsByCount.quadPlus += 1;
 
-    if (spin?.kind === "t-spin") this.runStats.tSpinCount += 1;
+    // Back-to-back: only quads and non-zero T-spin clears qualify for now.
+    if (linesCleared > 0) {
+      const isQuad = linesCleared >= 4;
+      const isTSpinClear = spin?.kind === "t-spin";
+      const qualifies = isQuad || isTSpinClear;
+      if (qualifies) {
+        this.runStats.b2bChain += 1;
+        this.runStats.b2bMaxChain = Math.max(this.runStats.b2bMaxChain, this.runStats.b2bChain);
+      } else {
+        this.runStats.b2bChain = 0;
+      }
+    }
+
+    if (spin?.kind === "t-spin") {
+      this.runStats.tSpinCount += 1;
+      if (linesCleared === 1) this.runStats.tSpinSingles += 1;
+      else if (linesCleared === 2) this.runStats.tSpinDoubles += 1;
+      else if (linesCleared === 3) this.runStats.tSpinTriples += 1;
+    }
     if (spin?.kind === "all-spin") this.runStats.allSpinCount += 1;
   }
 
@@ -652,63 +518,6 @@ class Game {
 
   private currentGravityIntervalMs(): number {
     return getGravityIntervalMs(this.level, this.config);
-  }
-
-  private detectSpin(piece: Piece): SpinResult | null {
-    if (!this.matchesLastRotation(piece)) return null;
-    if (piece.type === "T" && this.validTSpin(piece)) {
-      return { pieceType: piece.type, kind: "t-spin" };
-    }
-    if (
-      this.config.modifiers.allSpins &&
-      piece.type !== "T" &&
-      this.lastRotation?.usedKick &&
-      this.isImmobile(piece)
-    ) {
-      return { pieceType: piece.type, kind: "all-spin" };
-    }
-    return null;
-  }
-
-  private matchesLastRotation(piece: Piece): boolean {
-    return (
-      this.lastRotation !== null &&
-      this.lastRotation.pieceType === piece.type &&
-      this.lastRotation.x === piece.x &&
-      this.lastRotation.y === piece.y &&
-      this.lastRotation.rotation === piece.rotation
-    );
-  }
-
-  private validTSpin(piece: Piece): boolean {
-    const centerX = piece.x + 1;
-    const centerY = piece.y + 2;
-    const locked = this.board.getLockedCopy();
-    const corners = [
-      [centerX - 1, centerY - 1],
-      [centerX + 1, centerY - 1],
-      [centerX - 1, centerY + 1],
-      [centerX + 1, centerY + 1],
-    ] as const;
-    return corners.filter(([x, y]) => this.isSpinCornerBlocked(x, y, locked)).length >= 3;
-  }
-
-  private isSpinCornerBlocked(x: number, y: number, locked: BoardCell[][]): boolean {
-    const bounds = this.getVisibleBounds();
-    if (x < bounds.minX || x > bounds.maxX || y < bounds.minY || y > bounds.maxY) return true;
-    if (x < 0 || x >= this.board.width || y < 0 || y >= this.board.height) return true;
-    return locked[y][x] !== null;
-  }
-
-  private isImmobile(piece: Piece): boolean {
-    const [gx, gy] = this.board.gravityDelta();
-    const [leftX, leftY] = this.board.lateralLeftDelta();
-    const [rightX, rightY] = this.board.lateralRightDelta();
-    return (
-      !this.canMovePiece(piece, gx, gy) &&
-      !this.canMovePiece(piece, leftX, leftY) &&
-      !this.canMovePiece(piece, rightX, rightY)
-    );
   }
 
   /** Spawn next queue piece at the current entry side, including the hidden spawn pad. */

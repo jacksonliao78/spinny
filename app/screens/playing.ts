@@ -117,9 +117,30 @@ const initPlayingScreen = ({
 
   const persistCompletedRun = async (summary: RunSummary, durationMs: number): Promise<void> => {
     const currentUser = session.getCurrentUser();
-    if (!supabase || !currentUser || session.isGuestMode() || !SAVED_RUN_MODES.has(summary.gameMode)) return;
-    const { error } = await supabase.from("runs").insert(buildRunInsert(currentUser.id, summary, durationMs, getSelectedBoard()));
-    if (error) console.warn("Could not save run", error);
+    if (!supabase) {
+      return;
+    }
+    if (!currentUser) {
+      return;
+    }
+    if (session.isGuestMode()) {
+      return;
+    }
+    if (!SAVED_RUN_MODES.has(summary.gameMode)) {
+      return;
+    }
+
+    const payload = buildRunInsert(currentUser.id, summary, durationMs, getSelectedBoard());
+    const { error } = await supabase.from("runs").insert(payload);
+    if (error) {
+      console.warn("Could not save run", {
+        message: error.message,
+        details: (error as any).details,
+        hint: (error as any).hint,
+        code: (error as any).code,
+        payloadKeys: Object.keys(payload),
+      });
+    }
   };
 
   const startGame = (): void => {

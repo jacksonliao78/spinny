@@ -276,6 +276,19 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     paused: boolean,
     layout: LayoutMetrics,
   ): void => {
+    if (!paused && !snap.gameOver && snap.b2b >= 3) {
+      const x = layout.boardX + layout.viewX + 10;
+      const y = layout.boardY + layout.viewY + 20;
+      ctx.save();
+      ctx.font = "bold 16px system-ui, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.shadowColor = "rgba(0,0,0,0.55)";
+      ctx.shadowBlur = 6;
+      ctx.fillText(`B2B ${snap.b2b}`, x, y);
+      ctx.restore();
+    }
+
     if (paused && !snap.gameOver) {
       ctx.fillStyle = "rgba(0,0,0,0.6)";
       ctx.fillRect(layout.boardX, layout.boardY, layout.playWidth, layout.playHeight);

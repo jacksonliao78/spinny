@@ -57,7 +57,7 @@ const DEFAULT_GAME_CONFIG: GameConfig = {
   },
   mode: {
     kind: "timed",
-    timedDurationMs: 180_000,
+    timedDurationMs: 120_000,
     sprintTargetClears: 40,
   },
   gravity: {

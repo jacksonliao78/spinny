@@ -328,6 +328,18 @@ const mountApp = (): void => {
   window.addEventListener("resize", runLayoutResizeCallbacks);
   window.visualViewport?.addEventListener("resize", runLayoutResizeCallbacks);
 
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) return;
+    // When backgrounded, pause so timers/simulation don't jump on return.
+    if (appScreen === "playing" && !paused) {
+      paused = true;
+      playingScreen?.setTipsOpen(false);
+      syncInputControllerState();
+    }
+  });
+
+  const MAX_FRAME_DT_MS = 50;
+
   const boardSlot = canvas.parentElement;
   if (boardSlot instanceof HTMLElement) {
     const boardSlotResizeObserver = new ResizeObserver(runLayoutResizeCallbacks);
@@ -335,7 +347,13 @@ const mountApp = (): void => {
   }
 
   const loop = (now: number) => {
-    const dt = now - last;
+    if (document.hidden) {
+      last = now;
+      requestAnimationFrame(loop);
+      return;
+    }
+
+    const dt = Math.min(MAX_FRAME_DT_MS, now - last);
     last = now;
     playingScreen?.stepFrame(dt);
     settingsScreen?.stepFrame(dt);

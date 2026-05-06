@@ -225,15 +225,71 @@ test("Game run summary keeps derived rates safe for zero duration and zero attac
   assert.equal(summary.metrics.attack.attackPerPiece, 0);
 });
 
-test("Game run summary exposes neutral back-to-back metrics until implemented", () => {
-  const game = new Game({ boardFactory: createScoringBoardFactory(4), config: testConfig() });
+test("Game run summary tracks back-to-back on quads and resets on other clears", () => {
+  let locks = 0;
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(() => {
+      locks += 1;
+      // quad, quad, single, quad -> chain 1,2,0,1
+      if (locks === 1) return 4;
+      if (locks === 2) return 4;
+      if (locks === 3) return 1;
+      return 4;
+    }),
+    config: testConfig(),
+  });
 
+  game.hardDrop();
+  assert.equal(game.getRunSummary(1_000).metrics.backToBack.chain, 1);
+  assert.equal(game.getRunSummary(1_000).metrics.backToBack.maxChain, 1);
+
+  game.hardDrop();
+  assert.equal(game.getRunSummary(1_000).metrics.backToBack.chain, 2);
+  assert.equal(game.getRunSummary(1_000).metrics.backToBack.maxChain, 2);
+
+  game.hardDrop();
+  assert.equal(game.getRunSummary(1_000).metrics.backToBack.chain, 0);
+  assert.equal(game.getRunSummary(1_000).metrics.backToBack.maxChain, 2);
+
+  game.hardDrop();
+  assert.equal(game.getRunSummary(1_000).metrics.backToBack.chain, 1);
+  assert.equal(game.getRunSummary(1_000).metrics.backToBack.maxChain, 2);
+});
+
+test("Game run summary increments back-to-back on T-spin clears", () => {
+  const boardFactory = (width: number, height: number): BoardModel => {
+    const locked = Array.from({ length: height }, () => Array<BoardCell>(width).fill(null));
+    // Block 3 corners around T center (x+1,y+2). Piece at (5,5) -> center (6,7).
+    locked[6][5] = "I"; // (5,6)
+    locked[6][7] = "I"; // (7,6)
+    locked[8][5] = "I"; // (5,8)
+    return {
+      width,
+      height,
+      rotation: 0,
+      rotate: () => {},
+      gravityDelta: () => [0, 1],
+      lateralLeftDelta: () => [-1, 0],
+      lateralRightDelta: () => [1, 0],
+      getLockedCopy: () => locked.map((row) => [...row]),
+      canPlace: (_piece, _rotation, _dx, dy) => dy !== 1,
+      isContactLoss: () => false,
+      lockPiece: (_piece: Piece) => {},
+      clearLines: () => 2,
+      addGarbage: () => 0,
+    };
+  };
+
+  const game = new Game({ boardFactory, config: testConfig() });
+  game.activePiece = new Piece("T", 5, 5);
+
+  game.rotateCw();
   game.hardDrop();
 
   const summary = game.getRunSummary(1_000);
-  assert.equal(summary.metrics.backToBack.chain, 0);
-  assert.equal(summary.metrics.backToBack.maxChain, 0);
-  assert.equal(summary.metrics.backToBack.multiplier, 1);
+  assert.deepEqual(game.getSnapshot().lastSpin, { pieceType: "T", kind: "t-spin" });
+  assert.equal(summary.metrics.backToBack.chain, 1);
+  assert.equal(summary.metrics.backToBack.maxChain, 1);
 });
 
 test("Game awards combo bonuses after consecutive line clears", () => {
