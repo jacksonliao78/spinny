@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   DEFAULT_GAME_CONFIG,
+  GAME_MODE_POLICIES,
   getComboBonusPoints,
   getGravityIntervalMs,
   getLineClearBasePoints,
@@ -78,4 +79,35 @@ test("resolveGameConfig preserves survival overrides under garbage", () => {
 test("resolveGameConfig defaults survival to undefined when not provided", () => {
   const resolved = resolveGameConfig({ garbage: { enabled: true } });
   assert.equal(resolved.garbage.survival, undefined);
+});
+
+test("resolveGameConfig applies marathon survival defaults", () => {
+  const resolved = resolveGameConfig({ mode: { kind: "marathon" } });
+
+  assert.equal(resolved.garbage.enabled, true);
+  assert.equal(resolved.garbage.holesPerRing, 1);
+  assert.equal(resolved.garbage.maxPerApply, 10);
+  assert.ok(resolved.garbage.survival);
+  assert.equal(resolved.garbage.survival!.tierDurationMs, 60_000);
+  assert.deepEqual(resolved.garbage.survival!.intervalsMs, [6_000, 5_000, 4_000, 3_000, 2_000, 1_000]);
+  assert.equal(resolved.garbage.survival!.linesPerEvent, 1);
+});
+
+test("resolveGameConfig lets explicit garbage survival overrides disable marathon survival", () => {
+  const resolved = resolveGameConfig({
+    mode: { kind: "marathon" },
+    garbage: { enabled: false, survival: null },
+  });
+
+  assert.equal(resolved.garbage.enabled, false);
+  assert.equal(resolved.garbage.survival, undefined);
+});
+
+test("mode policies mark saved modes and Zen practice behavior", () => {
+  assert.equal(GAME_MODE_POLICIES.timed.savesRun, true);
+  assert.equal(GAME_MODE_POLICIES.marathon.savesRun, true);
+  assert.equal(GAME_MODE_POLICIES.sprint.savesRun, true);
+  assert.equal(GAME_MODE_POLICIES.zen.savesRun, false);
+  assert.equal(GAME_MODE_POLICIES.zen.timerStyle, "none");
+  assert.equal(GAME_MODE_POLICIES.zen.advancesLevel, false);
 });

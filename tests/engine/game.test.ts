@@ -503,6 +503,22 @@ test("Sprint ring-style target completes after 10 clear units", () => {
   assert.equal(complete.active, null);
 });
 
+test("Sprint progress clamps to target when a clear overshoots", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(4),
+    config: testConfig({ mode: { kind: "sprint", sprintTargetClears: 38 } }),
+  });
+
+  for (let i = 0; i < 9; i += 1) game.hardDrop();
+  assert.equal(game.getSnapshot().linesClearedTotal, 36);
+  assert.equal(game.getSnapshot().gameOver, false);
+
+  game.hardDrop();
+  const complete = game.getSnapshot();
+  assert.equal(complete.linesClearedTotal, 38);
+  assert.equal(complete.gameOver, true);
+});
+
 test("Marathon mode has no timer and levels from clear units", () => {
   const game = new Game({
     boardFactory: createScoringBoardFactory(4),
@@ -718,16 +734,6 @@ test("Snapshot includes mode and timer fields", () => {
 
 const marathonSurvivalConfig = (): GameConfigOverrides => ({
   mode: { kind: "marathon" },
-  garbage: {
-    enabled: true,
-    holesPerRing: 1,
-    maxPerApply: 10,
-    survival: {
-      tierDurationMs: 60_000,
-      intervalsMs: [6_000, 5_000, 4_000, 3_000, 2_000, 1_000],
-      linesPerEvent: 1,
-    },
-  },
 });
 
 test("Marathon survival enqueues 1 line after the first interval", () => {
@@ -773,6 +779,28 @@ test("Marathon survival shrinks intervals each tier and caps at the last entry",
   // Sanity: same instance also reports the cap interval after long elapsedMs.
   game.tick(900_000);
   assert.equal(game.getSnapshot().survival!.intervalMs, 1_000);
+});
+
+test("Marathon survival catch-up uses scheduled intervals instead of final tier for the whole tick", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(0),
+    config: testConfig({
+      mode: { kind: "marathon" },
+      garbage: {
+        enabled: true,
+        survival: {
+          tierDurationMs: 10_000,
+          intervalsMs: [6_000, 2_000],
+          linesPerEvent: 1,
+        },
+      },
+    }),
+  });
+
+  game.tick(12_000);
+
+  assert.equal(game.getSnapshot().incomingGarbage, 2);
+  assert.equal(game.getRunSummary().stats.garbageReceivedEvents, 2);
 });
 
 test("Marathon survival populates snapshot countdown when active", () => {

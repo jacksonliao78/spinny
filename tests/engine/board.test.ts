@@ -126,7 +126,7 @@ test("Board clearLines prune removes cells without inward support chain", () => 
 });
 
 test("Board addGarbage fills outer ring with holes only", () => {
-  const board = new RingBoard(7, 7);
+  const board = new RingBoard(7, 7, () => 0);
 
   const applied = board.addGarbage(1, 4);
 
@@ -143,7 +143,7 @@ test("Board addGarbage fills outer ring with holes only", () => {
 });
 
 test("Board addGarbage does not overwrite existing locked cells", () => {
-  const board = new RingBoard(7, 7);
+  const board = new RingBoard(7, 7, () => 0);
   board.board[0][1] = "T";
 
   const applied = board.addGarbage(1, 4);
@@ -208,7 +208,7 @@ test("RectangularBoard floor contact is not a loss", () => {
 });
 
 test("RectangularBoard addGarbage pushes cells up and adds a holed bottom line", () => {
-  const board = new RectangularBoard(8, 8);
+  const board = new RectangularBoard(8, 8, () => 0);
   board.board[4][3] = "T";
 
   const applied = board.addGarbage(1, 2);
@@ -218,5 +218,36 @@ test("RectangularBoard addGarbage pushes cells up and adds a holed bottom line",
   assert.equal(board.board[5][2], null);
   assert.equal(board.board[5][4], null);
   assert.equal(board.board[5][3], SOLID_CELL);
+  assert.equal(board.board[5][5], SOLID_CELL);
+});
+
+test("RectangularBoard reuses one random garbage hole set per addGarbage call", () => {
+  let randomCalls = 0;
+  const board = new RectangularBoard(8, 8, () => {
+    randomCalls += 1;
+    return 0.75;
+  });
+
+  const applied = board.addGarbage(3, 1);
+
+  assert.equal(applied, 3);
+  assert.equal(randomCalls, 1);
+  for (const y of [3, 4, 5]) {
+    assert.equal(board.board[y][2], SOLID_CELL);
+    assert.equal(board.board[y][3], SOLID_CELL);
+    assert.equal(board.board[y][4], SOLID_CELL);
+    assert.equal(board.board[y][5], null);
+  }
+});
+
+test("RectangularBoard chooses a fresh random hole set for separate garbage calls", () => {
+  const randomValues = [0.75, 0];
+  const board = new RectangularBoard(8, 8, () => randomValues.shift() ?? 0);
+
+  board.addGarbage(1, 1);
+  board.addGarbage(1, 1);
+
+  assert.equal(board.board[4][5], null);
+  assert.equal(board.board[5][2], null);
   assert.equal(board.board[5][5], SOLID_CELL);
 });

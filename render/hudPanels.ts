@@ -1,4 +1,5 @@
 import type { GameSnapshot } from "@game/game";
+import { GAME_MODE_POLICIES } from "@game/game/rules";
 import type { GameMode } from "@game/game/rules";
 import type { PieceType } from "@game/piece";
 import { PIECE_ROTATIONS } from "@game/piece";
@@ -123,14 +124,11 @@ function createHudUpdater(elements: HudElements): HudUpdater {
     target = sprintTarget;
     lastHold = undefined;
     lastNextKey = "";
+    const policy = GAME_MODE_POLICIES[mode];
 
-    const showTimer = mode !== "zen";
-    const showScore = mode !== "sprint";
-    const showLevel = mode === "timed" || mode === "marathon";
-
-    elements.timerEl.hidden = !showTimer;
-    elements.scoreRow.hidden = !showScore;
-    elements.levelRow.hidden = !showLevel;
+    elements.timerEl.hidden = policy.timerStyle === "none";
+    elements.scoreRow.hidden = !policy.showsScore;
+    elements.levelRow.hidden = !policy.showsLevel;
     elements.comboRow.hidden = false;
     elements.linesRow.hidden = false;
     elements.survivalRow.hidden = true;
@@ -147,13 +145,14 @@ function createHudUpdater(elements: HudElements): HudUpdater {
   };
 
   const update = (snap: GameSnapshot): void => {
-    if (mode === "timed") {
+    const policy = GAME_MODE_POLICIES[mode];
+    if (policy.timerStyle === "countdown") {
       elements.timerEl.textContent = formatCountdown(snap.remainingMs);
-    } else if (mode === "sprint" || mode === "marathon") {
+    } else if (policy.timerStyle === "countup") {
       elements.timerEl.textContent = formatCountUp(snap.elapsedMs);
     }
 
-    if (mode === "sprint") {
+    if (policy.completesAtSprintTarget) {
       elements.linesValue.textContent = `${snap.linesClearedTotal} / ${target}`;
     } else {
       elements.linesValue.textContent = String(snap.linesClearedTotal);

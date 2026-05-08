@@ -1,4 +1,6 @@
 import type { Piece } from "../piece";
+import { pickGarbageHoles } from "./garbage";
+import type { RandomSource } from "./garbage";
 import { SOLID_CELL } from "./types";
 import type { BoardCell, BoardModel } from "./types";
 
@@ -10,13 +12,14 @@ class RectangularBoard implements BoardModel {
   height: number;
   board: BoardCell[][];
   rotation: number;
-  private garbageHoleCursor = 0;
+  private readonly random: RandomSource;
 
-  constructor(width: number, height: number) {
+  constructor(width: number, height: number, random: RandomSource = Math.random) {
     this.width = width;
     this.height = height;
     this.board = Array.from({ length: height }, () => Array<BoardCell>(width).fill(null));
     this.rotation = 0;
+    this.random = random;
   }
 
   rotate(): void {
@@ -104,9 +107,11 @@ class RectangularBoard implements BoardModel {
     const amount = Math.max(0, Math.floor(lines));
     if (amount === 0) return 0;
 
+    const { minX, maxX } = this.getPlayBounds();
+    const holes = pickGarbageHoles(maxX - minX + 1, holesPerLine, this.random);
     let applied = 0;
     for (let i = 0; i < amount; i++) {
-      this.pushGarbageLine(holesPerLine);
+      this.pushGarbageLine(holes);
       applied += 1;
     }
     return applied;
@@ -120,7 +125,7 @@ class RectangularBoard implements BoardModel {
     };
   }
 
-  private pushGarbageLine(holesPerLine: number): void {
+  private pushGarbageLine(holes: Set<number>): void {
     const { minX, maxX, maxY } = this.getPlayBounds();
     for (let y = 0; y < maxY; y++) {
       for (let x = minX; x <= maxX; x++) {
@@ -128,22 +133,9 @@ class RectangularBoard implements BoardModel {
       }
     }
 
-    const width = maxX - minX + 1;
-    const holes = this.pickGarbageHoles(width, holesPerLine);
     for (let x = minX; x <= maxX; x++) {
       this.board[maxY][x] = holes.has(x - minX) ? null : SOLID_CELL;
     }
-  }
-
-  private pickGarbageHoles(cellCount: number, holesPerLine: number): Set<number> {
-    const holeCount = Math.min(Math.max(1, Math.floor(holesPerLine)), cellCount);
-    const holes = new Set<number>();
-    const step = Math.max(1, Math.floor(cellCount / holeCount));
-    for (let i = 0; holes.size < holeCount; i++) {
-      holes.add((this.garbageHoleCursor + i * step) % cellCount);
-    }
-    this.garbageHoleCursor = (this.garbageHoleCursor + 1) % cellCount;
-    return holes;
   }
 }
 

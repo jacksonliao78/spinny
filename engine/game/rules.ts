@@ -1,4 +1,14 @@
 type GameMode = "timed" | "marathon" | "sprint" | "zen";
+type GameModeTimerStyle = "countdown" | "countup" | "none";
+
+type GameModePolicy = {
+  timerStyle: GameModeTimerStyle;
+  advancesLevel: boolean;
+  completesAtSprintTarget: boolean;
+  showsScore: boolean;
+  showsLevel: boolean;
+  savesRun: boolean;
+};
 
 /** Single source of truth for gameplay tuning, grouped by the system that consumes each value. */
 type GameConfig = {
@@ -63,6 +73,61 @@ type GameConfigOverrides = {
   modifiers?: Partial<GameConfig["modifiers"]>;
 };
 
+const MARATHON_SURVIVAL_GARBAGE: GameConfig["garbage"] = {
+  enabled: true,
+  holesPerRing: 1,
+  maxPerApply: 10,
+  survival: {
+    tierDurationMs: 60_000,
+    intervalsMs: [6_000, 5_000, 4_000, 3_000, 2_000, 1_000],
+    linesPerEvent: 1,
+  },
+};
+
+const GAME_MODE_POLICIES: Record<GameMode, GameModePolicy> = {
+  timed: {
+    timerStyle: "countdown",
+    advancesLevel: true,
+    completesAtSprintTarget: false,
+    showsScore: true,
+    showsLevel: true,
+    savesRun: true,
+  },
+  marathon: {
+    timerStyle: "countup",
+    advancesLevel: true,
+    completesAtSprintTarget: false,
+    showsScore: true,
+    showsLevel: true,
+    savesRun: true,
+  },
+  sprint: {
+    timerStyle: "countup",
+    advancesLevel: false,
+    completesAtSprintTarget: true,
+    showsScore: false,
+    showsLevel: false,
+    savesRun: true,
+  },
+  zen: {
+    timerStyle: "none",
+    advancesLevel: false,
+    completesAtSprintTarget: false,
+    showsScore: true,
+    showsLevel: false,
+    savesRun: false,
+  },
+};
+
+const GAME_MODE_DEFAULT_OVERRIDES: Record<GameMode, GameConfigOverrides> = {
+  timed: {},
+  marathon: {
+    garbage: MARATHON_SURVIVAL_GARBAGE,
+  },
+  sprint: {},
+  zen: {},
+};
+
 /** Baseline solo config; modes should override this through `resolveGameConfig`. */
 const DEFAULT_GAME_CONFIG: GameConfig = {
   board: {
@@ -102,41 +167,59 @@ const DEFAULT_GAME_CONFIG: GameConfig = {
   },
 };
 
+const resolveSurvivalConfig = (
+  modeGarbage: GameConfigOverrides["garbage"],
+  overrideGarbage: GameConfigOverrides["garbage"],
+): GarbageSurvivalConfig | undefined => {
+  if (overrideGarbage && "survival" in overrideGarbage) return overrideGarbage.survival ?? undefined;
+  if (modeGarbage && "survival" in modeGarbage) return modeGarbage.survival ?? undefined;
+  return DEFAULT_GAME_CONFIG.garbage.survival;
+};
+
 /** Deep-merge partial config overrides without dropping nested defaults like line-clear points. */
-const resolveGameConfig = (overrides: GameConfigOverrides = {}): GameConfig => ({
-  board: {
-    ...DEFAULT_GAME_CONFIG.board,
-    ...overrides.board,
-  },
-  mode: {
-    ...DEFAULT_GAME_CONFIG.mode,
-    ...overrides.mode,
-  },
-  gravity: {
-    ...DEFAULT_GAME_CONFIG.gravity,
-    ...overrides.gravity,
-  },
-  scoring: {
-    ...DEFAULT_GAME_CONFIG.scoring,
-    ...overrides.scoring,
-    lineClearPoints: {
-      ...DEFAULT_GAME_CONFIG.scoring.lineClearPoints,
-      ...overrides.scoring?.lineClearPoints,
+const resolveGameConfig = (overrides: GameConfigOverrides = {}): GameConfig => {
+  const modeKind = overrides.mode?.kind ?? DEFAULT_GAME_CONFIG.mode.kind;
+  const modeDefaults = GAME_MODE_DEFAULT_OVERRIDES[modeKind];
+
+  return {
+    board: {
+      ...DEFAULT_GAME_CONFIG.board,
+      ...modeDefaults.board,
+      ...overrides.board,
     },
-  },
-  garbage: {
-    ...DEFAULT_GAME_CONFIG.garbage,
-    ...overrides.garbage,
-    survival:
-      overrides.garbage && "survival" in overrides.garbage
-        ? overrides.garbage.survival ?? undefined
-        : DEFAULT_GAME_CONFIG.garbage.survival,
-  },
-  modifiers: {
-    ...DEFAULT_GAME_CONFIG.modifiers,
-    ...overrides.modifiers,
-  },
-});
+    mode: {
+      ...DEFAULT_GAME_CONFIG.mode,
+      ...modeDefaults.mode,
+      ...overrides.mode,
+    },
+    gravity: {
+      ...DEFAULT_GAME_CONFIG.gravity,
+      ...modeDefaults.gravity,
+      ...overrides.gravity,
+    },
+    scoring: {
+      ...DEFAULT_GAME_CONFIG.scoring,
+      ...modeDefaults.scoring,
+      ...overrides.scoring,
+      lineClearPoints: {
+        ...DEFAULT_GAME_CONFIG.scoring.lineClearPoints,
+        ...modeDefaults.scoring?.lineClearPoints,
+        ...overrides.scoring?.lineClearPoints,
+      },
+    },
+    garbage: {
+      ...DEFAULT_GAME_CONFIG.garbage,
+      ...modeDefaults.garbage,
+      ...overrides.garbage,
+      survival: resolveSurvivalConfig(modeDefaults.garbage, overrides.garbage),
+    },
+    modifiers: {
+      ...DEFAULT_GAME_CONFIG.modifiers,
+      ...modeDefaults.modifiers,
+      ...overrides.modifiers,
+    },
+  };
+};
 
 /** Return the baseline clear score before combo and level multipliers. */
 const getLineClearBasePoints = (linesCleared: number, config: GameConfig): number => {
@@ -166,5 +249,13 @@ const getComboBonusPoints = (combo: number, config: GameConfig): number => {
   return Math.max(0, combo) * config.scoring.comboPointPerChain;
 };
 
-export { DEFAULT_GAME_CONFIG, resolveGameConfig, getLineClearBasePoints, getGravityIntervalMs, getComboBonusPoints };
-export type { GameMode, GameConfig, GameConfigOverrides, GarbageSurvivalConfig };
+export {
+  DEFAULT_GAME_CONFIG,
+  GAME_MODE_DEFAULT_OVERRIDES,
+  GAME_MODE_POLICIES,
+  resolveGameConfig,
+  getLineClearBasePoints,
+  getGravityIntervalMs,
+  getComboBonusPoints,
+};
+export type { GameMode, GameModePolicy, GameModeTimerStyle, GameConfig, GameConfigOverrides, GarbageSurvivalConfig };

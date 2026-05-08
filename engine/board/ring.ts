@@ -1,4 +1,6 @@
 import { Piece } from "../piece";
+import { pickGarbageHoles } from "./garbage";
+import type { RandomSource } from "./garbage";
 import { SOLID_CELL } from "./types";
 import type { BoardCell, BoardModel } from "./types";
 
@@ -10,10 +12,9 @@ class RingBoard implements BoardModel {
 
   center: number;
   rotation: number;
-  /** Rotates garbage holes around the outer ring so repeated garbage is not identical. */
-  private garbageHoleCursor = 0;
+  private readonly random: RandomSource;
 
-  constructor(width: number, height: number) {
+  constructor(width: number, height: number, random: RandomSource = Math.random) {
     this.width = width;
     this.height = height;
 
@@ -30,6 +31,7 @@ class RingBoard implements BoardModel {
     this.center = width / 2 - 1;
 
     this.rotation = 0;
+    this.random = random;
   }
 
   /** Called after a piece locks; cycles which way gravity pulls in grid space. */
@@ -142,7 +144,7 @@ class RingBoard implements BoardModel {
 
     let applied = 0;
     for (let i = 0; i < amount; i++) {
-      const holes = this.pickGarbageHoles(cells.length, holesPerRing);
+      const holes = pickGarbageHoles(cells.length, holesPerRing, this.random);
       let placedCells = 0;
       for (let cellIndex = 0; cellIndex < cells.length; cellIndex++) {
         if (holes.has(cellIndex)) continue;
@@ -264,17 +266,6 @@ class RingBoard implements BoardModel {
       }
     }
     return cells;
-  }
-
-  private pickGarbageHoles(cellCount: number, holesPerRing: number): Set<number> {
-    const holeCount = Math.min(Math.max(1, Math.floor(holesPerRing)), cellCount);
-    const holes = new Set<number>();
-    const step = Math.max(1, Math.floor(cellCount / holeCount));
-    for (let i = 0; holes.size < holeCount; i++) {
-      holes.add((this.garbageHoleCursor + i * step) % cellCount);
-    }
-    this.garbageHoleCursor = (this.garbageHoleCursor + 1) % cellCount;
-    return holes;
   }
 }
 

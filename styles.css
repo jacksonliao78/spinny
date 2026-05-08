@@ -546,27 +546,20 @@ select {
   font-weight: 700;
 }
 
-.board-choice {
+.setup-controls {
   display: grid;
-  gap: 0.65rem;
-  margin-top: 1rem;
+  gap: 1rem;
 }
 
-.board-choice-label {
-  color: var(--page-text);
-  font-weight: 1000;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.board-panel {
+.arena-panel,
+.start-run-panel {
   border: 1px solid rgba(255, 210, 226, 0.12);
-  border-radius: 22px;
+  border-radius: 8px;
   background: rgba(49, 38, 58, 0.34);
   padding: 1.15rem;
 }
 
-.board-panel h3 {
+.arena-panel h3 {
   margin: 0;
   color: var(--heading-text);
   font-size: 1.25rem;
@@ -574,17 +567,8 @@ select {
   text-transform: uppercase;
 }
 
-.board-panel p {
-  color: var(--muted-text);
-  line-height: 1.45;
-}
-
-.board-options {
-  display: grid;
-  gap: 0.65rem;
-}
-
 .board-toggle {
+  margin-top: 1rem;
   width: 100%;
   display: flex;
   align-items: center;
@@ -602,6 +586,18 @@ select {
     border-color 160ms ease,
     background 160ms ease,
     box-shadow 160ms ease;
+}
+
+.start-run-panel {
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+}
+
+.start-run-button {
+  width: 100%;
+  min-height: 64px;
+  font-size: 1.1rem;
 }
 
 .board-toggle:hover {

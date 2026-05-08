@@ -4,6 +4,7 @@ import {
   getComboBonusPoints,
   getGravityIntervalMs,
   getLineClearBasePoints,
+  GAME_MODE_POLICIES,
   resolveGameConfig,
 } from "./rules";
 import { Hold } from "../hold";
@@ -11,7 +12,7 @@ import type { PieceType } from "../piece";
 import { Piece } from "../piece";
 import { Queue } from "../queue";
 import { try180Kicks, tryKicks } from "../srs";
-import type { GameConfig, GameMode } from "./rules";
+import type { GameConfig, GameMode, GameModePolicy } from "./rules";
 import { pieceLow, syncLowProgress } from "./progression";
 import {
   applyDownwardAdvanceLockDelayTransition,
@@ -55,6 +56,7 @@ class Game {
   private gravityMs = 0;
   private readonly config: GameConfig;
   private readonly gameMode: GameMode;
+  private readonly modePolicy: GameModePolicy;
   private readonly timedDurationMs: number;
   private readonly sprintTargetClears: number;
   private score = 0;
@@ -84,9 +86,10 @@ class Game {
     this.queue = new Queue();
     this.holdSlot = new Hold();
     this.gameMode = this.config.mode.kind;
+    this.modePolicy = GAME_MODE_POLICIES[this.gameMode];
     this.timedDurationMs = this.config.mode.timedDurationMs;
     this.sprintTargetClears = Math.max(1, Math.floor(this.config.mode.sprintTargetClears));
-    this.remainingMs = this.gameMode === "timed" ? this.timedDurationMs : null;
+    this.remainingMs = this.modePolicy.timerStyle === "countdown" ? this.timedDurationMs : null;
     this.spawn();
   }
 
@@ -138,7 +141,7 @@ class Game {
   /** Advance simulation time; applies gravity when interval elapses. */
   tick(dtMs: number): void {
     if (!this.gameOver) this.elapsedMs += dtMs;
-    if (this.gameMode === "timed" && this.remainingMs !== null) {
+    if (this.modePolicy.timerStyle === "countdown" && this.remainingMs !== null) {
       this.remainingMs = Math.max(0, this.remainingMs - dtMs);
       if (this.remainingMs === 0) this.endGame();
     }
@@ -500,12 +503,15 @@ class Game {
     const comboBonus = getComboBonusPoints(this.combo, this.config);
     this.score += (base + comboBonus) * this.level;
     this.combo += 1;
-    this.linesClearedTotal += linesCleared;
-    if (this.gameMode === "sprint" && this.linesClearedTotal >= this.sprintTargetClears) {
+    const clearProgress = this.modePolicy.completesAtSprintTarget
+      ? Math.min(linesCleared, Math.max(0, this.sprintTargetClears - this.linesClearedTotal))
+      : linesCleared;
+    this.linesClearedTotal += clearProgress;
+    if (this.modePolicy.completesAtSprintTarget && this.linesClearedTotal >= this.sprintTargetClears) {
       this.endGame();
       return;
     }
-    if (this.gameMode === "zen" || this.gameMode === "sprint") return;
+    if (!this.modePolicy.advancesLevel) return;
     const nextLevel = Math.floor(this.linesClearedTotal / this.config.gravity.linesPerLevel) + 1;
     this.level = Math.max(1, nextLevel);
   }
@@ -550,22 +556,26 @@ class Game {
     const survival = this.config.garbage.survival;
     if (!survival) return;
     if (survival.intervalsMs.length === 0) return;
-    const intervalMs = this.currentSurvivalIntervalMs(survival);
-    if (intervalMs <= 0) return;
     const linesPerEvent = Math.max(1, Math.floor(survival.linesPerEvent));
-    while (this.elapsedMs - this.survivalLastEnqueueMs >= intervalMs) {
+    let intervalMs = this.survivalIntervalMsAt(survival, this.survivalLastEnqueueMs);
+    while (intervalMs > 0 && this.elapsedMs - this.survivalLastEnqueueMs >= intervalMs) {
       this.survivalLastEnqueueMs += intervalMs;
       this.enqueueGarbage(linesPerEvent);
+      intervalMs = this.survivalIntervalMsAt(survival, this.survivalLastEnqueueMs);
     }
+  }
+
+  private survivalIntervalMsAt(survival: NonNullable<GameConfig["garbage"]["survival"]>, elapsedMs: number): number {
+    const tiers = survival.intervalsMs;
+    if (tiers.length === 0) return 0;
+    const tierDuration = Math.max(1, survival.tierDurationMs);
+    const idx = Math.min(tiers.length - 1, Math.max(0, Math.floor(elapsedMs / tierDuration)));
+    return Math.max(1, tiers[idx]);
   }
 
   /** Returns the current per-tier interval based on `elapsedMs`; the last interval holds forever. */
   private currentSurvivalIntervalMs(survival: NonNullable<GameConfig["garbage"]["survival"]>): number {
-    const tiers = survival.intervalsMs;
-    if (tiers.length === 0) return 0;
-    const tierDuration = Math.max(1, survival.tierDurationMs);
-    const idx = Math.min(tiers.length - 1, Math.max(0, Math.floor(this.elapsedMs / tierDuration)));
-    return Math.max(1, tiers[idx]);
+    return this.survivalIntervalMsAt(survival, this.elapsedMs);
   }
 
   private getSurvivalSnapshot(): SurvivalSnapshot | null {

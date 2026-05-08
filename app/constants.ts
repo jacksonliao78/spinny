@@ -21,7 +21,6 @@ const SPRINT_TARGET_CLEARS: Record<BoardKind, number> = {
 };
 const USERNAME_PATTERN = /^[a-z0-9_]{3,24}$/;
 const PENDING_SIGNUP_USERNAME_KEY = "spinny.pendingSignupUsername.v1";
-const SAVED_RUN_MODES: ReadonlySet<GameMode> = new Set(["timed", "marathon", "sprint"]);
 
 const SETTINGS_TEST_CONFIG = {
   board: { width: 10, height: 20 },
@@ -34,7 +33,6 @@ export {
   MODE_LABELS,
   PENDING_SIGNUP_USERNAME_KEY,
   RECTANGULAR_BOARD_CONFIG,
-  SAVED_RUN_MODES,
   SPINNY_BOARD_PREF_KEY,
   SPRINT_TARGET_CLEARS,
   SETTINGS_TEST_CONFIG,
