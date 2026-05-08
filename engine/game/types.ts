@@ -90,6 +90,8 @@ export type GameSnapshot = {
   linesClearedTotal: number;
   garbageEnabled: boolean;
   incomingGarbage: number;
+  /** Time-driven garbage producer state when survival is configured; null otherwise. */
+  survival: SurvivalSnapshot | null;
   gameMode: GameMode;
   remainingMs: number | null;
   elapsedMs: number;
@@ -97,6 +99,17 @@ export type GameSnapshot = {
   gravityIntervalMs: number;
   lastSpin: SpinResult | null;
   gameOver: boolean;
+};
+
+export type SurvivalSnapshot = {
+  /** True while the producer is active for this run. */
+  active: boolean;
+  /** Current per-tier interval between enqueue events (ms). */
+  intervalMs: number;
+  /** Lines enqueued per scheduled event. */
+  linesPerEvent: number;
+  /** Time until the next scheduled enqueue, in ms (clamped to >= 0). */
+  msUntilNext: number;
 };
 
 export type GameOptions = {

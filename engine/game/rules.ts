@@ -32,10 +32,22 @@ type GameConfig = {
     enabled: boolean;
     holesPerRing: number;
     maxPerApply: number;
+    /** Optional time-based producer; when set, garbage is enqueued automatically as the run progresses. */
+    survival?: GarbageSurvivalConfig;
   };
   modifiers: {
     allSpins: boolean;
   };
+};
+
+/** Time-driven garbage schedule: an interval is selected per `tierDurationMs` block of elapsed time. */
+type GarbageSurvivalConfig = {
+  /** Length of each tier in ms; once `intervalsMs` runs out, the last interval is held forever. */
+  tierDurationMs: number;
+  /** Per-tier interval between enqueue events (lower = faster pressure). */
+  intervalsMs: number[];
+  /** Lines enqueued per event (typically 1). */
+  linesPerEvent: number;
 };
 
 type GameConfigOverrides = {
@@ -45,7 +57,9 @@ type GameConfigOverrides = {
   scoring?: Partial<Omit<GameConfig["scoring"], "lineClearPoints">> & {
     lineClearPoints?: Partial<GameConfig["scoring"]["lineClearPoints"]>;
   };
-  garbage?: Partial<GameConfig["garbage"]>;
+  garbage?: Partial<Omit<GameConfig["garbage"], "survival">> & {
+    survival?: GarbageSurvivalConfig | null;
+  };
   modifiers?: Partial<GameConfig["modifiers"]>;
 };
 
@@ -81,6 +95,7 @@ const DEFAULT_GAME_CONFIG: GameConfig = {
     enabled: false,
     holesPerRing: 2,
     maxPerApply: 1,
+    survival: undefined,
   },
   modifiers: {
     allSpins: false,
@@ -112,6 +127,10 @@ const resolveGameConfig = (overrides: GameConfigOverrides = {}): GameConfig => (
   garbage: {
     ...DEFAULT_GAME_CONFIG.garbage,
     ...overrides.garbage,
+    survival:
+      overrides.garbage && "survival" in overrides.garbage
+        ? overrides.garbage.survival ?? undefined
+        : DEFAULT_GAME_CONFIG.garbage.survival,
   },
   modifiers: {
     ...DEFAULT_GAME_CONFIG.modifiers,
@@ -148,4 +167,4 @@ const getComboBonusPoints = (combo: number, config: GameConfig): number => {
 };
 
 export { DEFAULT_GAME_CONFIG, resolveGameConfig, getLineClearBasePoints, getGravityIntervalMs, getComboBonusPoints };
-export type { GameMode, GameConfig, GameConfigOverrides };
+export type { GameMode, GameConfig, GameConfigOverrides, GarbageSurvivalConfig };

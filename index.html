@@ -133,19 +133,17 @@
           </div>
           <aside class="board-panel">
             <h3>Board</h3>
-            <p>Pick the arena style for this run.</p>
+            <p>Toggle the rotating Spinny arena on or off.</p>
             <div class="board-choice">
-              <span class="board-choice-label" id="board-choice-label">Board Type</span>
-              <div class="board-options" role="group" aria-labelledby="board-choice-label">
-                <button class="board-option board-option--selected" type="button" data-board="ring" aria-pressed="true">
-                  <strong>Ring Board</strong>
-                  <span>Rotating arena</span>
-                </button>
-                <button class="board-option" type="button" data-board="rectangular" aria-pressed="false">
-                  <strong>Rectangular Board</strong>
-                  <span>Classic grid</span>
-                </button>
-              </div>
+              <button id="spinny-toggle" class="board-toggle" type="button" aria-pressed="false">
+                <span class="board-toggle__label">
+                  <strong>Spinny board</strong>
+                  <span>Rotating arena instead of the classic grid.</span>
+                </span>
+                <span class="board-toggle__switch" aria-hidden="true">
+                  <span class="board-toggle__thumb"></span>
+                </span>
+              </button>
             </div>
             <button id="start-game-button" class="primary-button" type="button">Start Run</button>
           </aside>
@@ -205,6 +203,10 @@
               <div id="stat-combo-row" class="stat-row">
                 <span class="stat-label">Combo</span>
                 <span id="stat-combo" class="stat-value"></span>
+              </div>
+              <div id="stat-survival-row" class="stat-row" hidden>
+                <span class="stat-label">Next garbage</span>
+                <span id="stat-survival" class="stat-value"></span>
               </div>
             </div>
           </div>

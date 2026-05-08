@@ -1,6 +1,8 @@
 TODOs:
 
-add regular board type
-zen game mode
-survival game mode
-combos
+don't pause when switch screen, but don't count time either
+multiplayer 
+frontend stuff
+sound effects
+improved settings
+more board effects 

@@ -715,3 +715,228 @@ test("Snapshot includes mode and timer fields", () => {
   assert.equal(typeof snap.gravityIntervalMs, "number");
   assert.equal(snap.remainingMs, 300);
 });
+
+const marathonSurvivalConfig = (): GameConfigOverrides => ({
+  mode: { kind: "marathon" },
+  garbage: {
+    enabled: true,
+    holesPerRing: 1,
+    maxPerApply: 10,
+    survival: {
+      tierDurationMs: 60_000,
+      intervalsMs: [6_000, 5_000, 4_000, 3_000, 2_000, 1_000],
+      linesPerEvent: 1,
+    },
+  },
+});
+
+test("Marathon survival enqueues 1 line after the first interval", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(0),
+    config: testConfig(marathonSurvivalConfig()),
+  });
+
+  game.tick(5_999);
+  assert.equal(game.getSnapshot().incomingGarbage, 0);
+
+  game.tick(1);
+  const snap = game.getSnapshot();
+  assert.equal(snap.incomingGarbage, 1);
+  const stats = game.getRunSummary().stats;
+  assert.equal(stats.garbageReceivedEvents, 1);
+  assert.equal(stats.garbageReceivedTotal, 1);
+});
+
+test("Marathon survival shrinks intervals each tier and caps at the last entry", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(0),
+    config: testConfig(marathonSurvivalConfig()),
+  });
+
+  const intervalAt = (elapsedMs: number): number => {
+    const fresh = new Game({
+      boardFactory: createScoringBoardFactory(0),
+      config: testConfig(marathonSurvivalConfig()),
+    });
+    fresh.tick(elapsedMs);
+    return fresh.getSnapshot().survival!.intervalMs;
+  };
+
+  assert.equal(intervalAt(0), 6_000);
+  assert.equal(intervalAt(60_000), 5_000);
+  assert.equal(intervalAt(120_000), 4_000);
+  assert.equal(intervalAt(180_000), 3_000);
+  assert.equal(intervalAt(240_000), 2_000);
+  assert.equal(intervalAt(300_000), 1_000);
+  assert.equal(intervalAt(900_000), 1_000);
+
+  // Sanity: same instance also reports the cap interval after long elapsedMs.
+  game.tick(900_000);
+  assert.equal(game.getSnapshot().survival!.intervalMs, 1_000);
+});
+
+test("Marathon survival populates snapshot countdown when active", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(0),
+    config: testConfig(marathonSurvivalConfig()),
+  });
+
+  game.tick(2_000);
+  const snap = game.getSnapshot();
+  assert.ok(snap.survival);
+  assert.equal(snap.survival!.active, true);
+  assert.equal(snap.survival!.intervalMs, 6_000);
+  assert.equal(snap.survival!.linesPerEvent, 1);
+  assert.equal(snap.survival!.msUntilNext, 4_000);
+});
+
+test("Survival snapshot is null for non-survival modes", () => {
+  const timed = new Game({
+    boardFactory: createScoringBoardFactory(0),
+    config: testConfig({ mode: { kind: "timed", timedDurationMs: 60_000 } }),
+  });
+  assert.equal(timed.getSnapshot().survival, null);
+
+  const sprint = new Game({
+    boardFactory: createScoringBoardFactory(0),
+    config: testConfig({ mode: { kind: "sprint", sprintTargetClears: 40 } }),
+  });
+  assert.equal(sprint.getSnapshot().survival, null);
+
+  const zen = new Game({
+    boardFactory: createScoringBoardFactory(0),
+    config: testConfig({ mode: { kind: "zen" } }),
+  });
+  assert.equal(zen.getSnapshot().survival, null);
+});
+
+test("Line clears never cancel queued garbage", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(2),
+    config: testConfig({
+      mode: { kind: "marathon" },
+      garbage: { enabled: true, maxPerApply: 1 },
+    }),
+  });
+
+  game.enqueueGarbage(5);
+  assert.equal(game.getSnapshot().incomingGarbage, 5);
+
+  game.hardDrop();
+  const snap = game.getSnapshot();
+  assert.equal(snap.linesClearedTotal, 2);
+  assert.equal(snap.incomingGarbage, 5);
+});
+
+test("Marathon survival drains backlog on lock when maxPerApply allows", () => {
+  const garbageBoard = createGarbageBoardFactory();
+  const game = new Game({
+    boardFactory: garbageBoard.factory,
+    config: testConfig(marathonSurvivalConfig()),
+  });
+
+  // Three 6s intervals elapse during the tick; tick-time drain applies the backlog as it rises.
+  game.tick(18_000);
+
+  assert.equal(garbageBoard.getAppliedGarbage(), 3);
+  assert.equal(game.getSnapshot().incomingGarbage, 0);
+  const stats = game.getRunSummary().stats;
+  assert.equal(stats.garbageReceivedEvents, 3);
+  assert.equal(stats.garbageReceivedTotal, 3);
+  assert.equal(stats.garbageAppliedTotal, 3);
+});
+
+test("Marathon survival applies garbage on tick before any piece locks", () => {
+  const garbageBoard = createGarbageBoardFactory();
+  const game = new Game({
+    boardFactory: garbageBoard.factory,
+    config: testConfig(marathonSurvivalConfig()),
+  });
+
+  // 6s elapses without any lock yet; player should already see one garbage line.
+  game.tick(6_000);
+
+  assert.equal(garbageBoard.getAppliedGarbage(), 1);
+  assert.equal(game.getSnapshot().incomingGarbage, 0);
+  assert.equal(game.getRunSummary().stats.garbageAppliedTotal, 1);
+});
+
+test("Active piece rides the rising stack when garbage applies mid-air", () => {
+  // Each addGarbage(amount) raises a virtual wall by `amount`; canPlace fails when piece.y >= wallY.
+  let wallY = Number.POSITIVE_INFINITY;
+  const factory = (_width: number, height: number): BoardModel => ({
+    width: 0,
+    height,
+    rotation: 0,
+    rotate: () => {},
+    gravityDelta: () => [0, 1],
+    lateralLeftDelta: () => [-1, 0],
+    lateralRightDelta: () => [1, 0],
+    getLockedCopy: () => Array.from({ length: height }, () => Array<BoardCell>(0)),
+    canPlace: (piece, _rotation, _dx, dy) => {
+      if (dy === 1) return false;
+      return piece.y + dy < wallY;
+    },
+    isContactLoss: () => false,
+    lockPiece: () => {},
+    clearLines: () => 0,
+    addGarbage: (amount) => {
+      wallY -= amount;
+      return amount;
+    },
+  });
+
+  const game = new Game({
+    boardFactory: factory,
+    config: testConfig({
+      mode: { kind: "marathon" },
+      garbage: { enabled: true, maxPerApply: 1 },
+    }),
+  });
+  const startY = game.activePiece?.y;
+  assert.ok(typeof startY === "number");
+  // Position the wall one row beneath the piece; addGarbage(1) brings it to the piece's row.
+  wallY = startY! + 1;
+
+  game.enqueueGarbage(1);
+  game.tick(0);
+
+  const after = game.getSnapshot();
+  assert.equal(after.gameOver, false);
+  assert.equal(after.active?.y, startY! - 1);
+});
+
+test("Run ends when garbage applies and the active piece can no longer fit", () => {
+  let topOut = false;
+  const factory = (_width: number, height: number): BoardModel => ({
+    width: 0,
+    height,
+    rotation: 0,
+    rotate: () => {},
+    gravityDelta: () => [0, 1],
+    lateralLeftDelta: () => [-1, 0],
+    lateralRightDelta: () => [1, 0],
+    getLockedCopy: () => Array.from({ length: height }, () => Array<BoardCell>(0)),
+    canPlace: (_piece, _rotation, _dx, _dy) => !topOut,
+    isContactLoss: () => false,
+    lockPiece: () => {},
+    clearLines: () => 0,
+    addGarbage: (amount) => {
+      topOut = true;
+      return amount;
+    },
+  });
+
+  const game = new Game({
+    boardFactory: factory,
+    config: testConfig({
+      mode: { kind: "marathon" },
+      garbage: { enabled: true, maxPerApply: 1 },
+    }),
+  });
+
+  game.enqueueGarbage(1);
+  game.tick(0);
+
+  assert.equal(game.getSnapshot().gameOver, true);
+});

@@ -56,3 +56,26 @@ test("resolveGameConfig deeply merges grouped overrides", () => {
   assert.equal(resolved.garbage.holesPerRing, DEFAULT_GAME_CONFIG.garbage.holesPerRing);
   assert.equal(resolved.modifiers.allSpins, true);
 });
+
+test("resolveGameConfig preserves survival overrides under garbage", () => {
+  const resolved = resolveGameConfig({
+    garbage: {
+      enabled: true,
+      survival: {
+        tierDurationMs: 30_000,
+        intervalsMs: [4000, 2000],
+        linesPerEvent: 1,
+      },
+    },
+  });
+
+  assert.ok(resolved.garbage.survival);
+  assert.equal(resolved.garbage.survival!.tierDurationMs, 30_000);
+  assert.deepEqual(resolved.garbage.survival!.intervalsMs, [4000, 2000]);
+  assert.equal(resolved.garbage.survival!.linesPerEvent, 1);
+});
+
+test("resolveGameConfig defaults survival to undefined when not provided", () => {
+  const resolved = resolveGameConfig({ garbage: { enabled: true } });
+  assert.equal(resolved.garbage.survival, undefined);
+});

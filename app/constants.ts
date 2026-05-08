@@ -11,8 +11,9 @@ const MODE_LABELS: Record<GameMode, string> = {
   zen: "Zen",
 };
 
-const DEFAULT_BOARD_KIND: BoardKind = "ring";
+const DEFAULT_BOARD_KIND: BoardKind = "rectangular";
 const DEFAULT_GAME_MODE: GameMode = "timed";
+const SPINNY_BOARD_PREF_KEY = "spinny.useSpinnyBoard.v1";
 const RECTANGULAR_BOARD_CONFIG = { width: 10, height: 20 };
 const SPRINT_TARGET_CLEARS: Record<BoardKind, number> = {
   rectangular: 40,
@@ -34,6 +35,7 @@ export {
   PENDING_SIGNUP_USERNAME_KEY,
   RECTANGULAR_BOARD_CONFIG,
   SAVED_RUN_MODES,
+  SPINNY_BOARD_PREF_KEY,
   SPRINT_TARGET_CLEARS,
   SETTINGS_TEST_CONFIG,
   USERNAME_PATTERN,

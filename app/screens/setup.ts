@@ -6,18 +6,25 @@ type SetupScreenOptions = {
   backToLandingButton: HTMLButtonElement;
   startGameButton: HTMLButtonElement;
   modeButtons: HTMLButtonElement[];
-  boardButtons: HTMLButtonElement[];
+  spinnyToggleButton: HTMLButtonElement;
+  initialSpinnyOn: boolean;
   navigate: (screen: AppScreen) => void;
   setSelectedMode: (mode: GameMode) => void;
   setSelectedBoard: (board: BoardKind) => void;
   startGame: () => void;
 };
 
+const renderSpinnyToggle = (button: HTMLButtonElement, on: boolean): void => {
+  button.setAttribute("aria-pressed", String(on));
+  button.classList.toggle("board-toggle--on", on);
+};
+
 const initSetupScreen = ({
   backToLandingButton,
   startGameButton,
   modeButtons,
-  boardButtons,
+  spinnyToggleButton,
+  initialSpinnyOn,
   navigate,
   setSelectedMode,
   setSelectedBoard,
@@ -35,15 +42,14 @@ const initSetupScreen = ({
     });
   });
 
-  boardButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      setSelectedBoard(button.dataset.board as BoardKind);
-      boardButtons.forEach((boardButton) => {
-        const selected = boardButton === button;
-        boardButton.classList.toggle("board-option--selected", selected);
-        boardButton.setAttribute("aria-pressed", String(selected));
-      });
-    });
+  let spinnyOn = initialSpinnyOn;
+  renderSpinnyToggle(spinnyToggleButton, spinnyOn);
+  setSelectedBoard(spinnyOn ? "ring" : "rectangular");
+
+  spinnyToggleButton.addEventListener("click", () => {
+    spinnyOn = !spinnyOn;
+    renderSpinnyToggle(spinnyToggleButton, spinnyOn);
+    setSelectedBoard(spinnyOn ? "ring" : "rectangular");
   });
 };
 

@@ -1,7 +1,7 @@
 import { createBoard } from "@game/board/factory";
 import type { BoardKind } from "@game/board/factory";
 import { Game, type RunSummary } from "@game/game";
-import type { GameMode } from "@game/game/rules";
+import type { GameConfigOverrides, GameMode } from "@game/game/rules";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { InputController } from "../../input/controller";
 import type { createRenderer } from "../../render/renderer";
@@ -107,13 +107,29 @@ const initPlayingScreen = ({
     tipsButton.setAttribute("aria-expanded", String(open));
   };
 
-  const makeGameConfig = () => ({
-    ...(getSelectedBoard() === "rectangular" ? { board: RECTANGULAR_BOARD_CONFIG } : {}),
-    mode: {
-      kind: getSelectedMode(),
-      sprintTargetClears: SPRINT_TARGET_CLEARS[getSelectedBoard()],
-    },
-  });
+  const makeGameConfig = (): GameConfigOverrides => {
+    const mode = getSelectedMode();
+    const base: GameConfigOverrides = {
+      ...(getSelectedBoard() === "rectangular" ? { board: RECTANGULAR_BOARD_CONFIG } : {}),
+      mode: {
+        kind: mode,
+        sprintTargetClears: SPRINT_TARGET_CLEARS[getSelectedBoard()],
+      },
+    };
+    if (mode === "marathon") {
+      base.garbage = {
+        enabled: true,
+        holesPerRing: 1,
+        maxPerApply: 10,
+        survival: {
+          tierDurationMs: 60_000,
+          intervalsMs: [6_000, 5_000, 4_000, 3_000, 2_000, 1_000],
+          linesPerEvent: 1,
+        },
+      };
+    }
+    return base;
+  };
 
   const persistCompletedRun = async (summary: RunSummary, durationMs: number): Promise<void> => {
     const currentUser = session.getCurrentUser();

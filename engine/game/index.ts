@@ -23,7 +23,7 @@ import { createRunMetrics } from "./metrics";
 import { cloneRunStats, createRunStats } from "./run_stats";
 import { detectSpin } from "./rotation";
 import type { LastRotation, SpinResult } from "./rotation";
-import type { GameOptions, GameSnapshot, RunSummary } from "./types";
+import type { GameOptions, GameSnapshot, RunSummary, SurvivalSnapshot } from "./types";
 
 export type {
   GameOptions,
@@ -64,6 +64,7 @@ class Game {
   private incomingGarbage = 0;
   private remainingMs: number | null;
   private elapsedMs = 0;
+  private survivalLastEnqueueMs = 0;
   private lastRotation: LastRotation | null = null;
   private lastSpin: SpinResult | null = null;
 
@@ -107,6 +108,7 @@ class Game {
       linesClearedTotal: this.linesClearedTotal,
       garbageEnabled: this.config.garbage.enabled,
       incomingGarbage: this.incomingGarbage,
+      survival: this.getSurvivalSnapshot(),
       gameMode: this.gameMode,
       remainingMs: this.remainingMs,
       elapsedMs: this.elapsedMs,
@@ -140,6 +142,8 @@ class Game {
       this.remainingMs = Math.max(0, this.remainingMs - dtMs);
       if (this.remainingMs === 0) this.endGame();
     }
+    this.tickSurvivalProducer();
+    this.drainQueuedGarbageDuringTick();
     if (this.gameOver || !this.activePiece) return;
     this.gravityMs += dtMs;
     while (this.gravityMs >= this.currentGravityIntervalMs()) {
@@ -507,13 +511,76 @@ class Game {
   }
 
   /** Apply a capped amount of queued garbage after clears so garbage never blocks a clear first. */
-  private applyQueuedGarbage(): void {
-    if (!this.config.garbage.enabled) return;
-    if (this.incomingGarbage <= 0) return;
+  private applyQueuedGarbage(): number {
+    if (!this.config.garbage.enabled) return 0;
+    if (this.incomingGarbage <= 0) return 0;
     const amount = Math.min(this.incomingGarbage, this.config.garbage.maxPerApply);
     const applied = this.board.addGarbage(amount, this.config.garbage.holesPerRing);
     this.incomingGarbage -= applied;
     this.runStats.garbageAppliedTotal += applied;
+    return applied;
+  }
+
+  /** Drain queued garbage during a normal tick so survival pressure rises continuously, not only on lock. */
+  private drainQueuedGarbageDuringTick(): void {
+    if (this.gameOver) return;
+    const applied = this.applyQueuedGarbage();
+    if (applied <= 0) return;
+    const piece = this.activePiece;
+    if (!piece) return;
+    if (this.canMovePiece(piece, 0, 0)) return;
+    // Garbage pushed locked cells into the active piece; ride the rising stack in the negative-gravity direction.
+    const [gx, gy] = this.board.gravityDelta();
+    for (let i = 0; i < applied; i += 1) {
+      if (this.canMovePiece(piece, 0, 0)) break;
+      if (!this.canPlacePiece(piece, piece.rotation, piece.x - gx, piece.y - gy)) break;
+      piece.move(-gx, -gy);
+      this.clearLastRotation();
+    }
+    if (!this.canMovePiece(piece, 0, 0)) {
+      this.endGame();
+      this.clearLockDelayState();
+    }
+  }
+
+  /** Drives the time-based survival garbage producer when configured. */
+  private tickSurvivalProducer(): void {
+    if (this.gameOver) return;
+    if (!this.config.garbage.enabled) return;
+    const survival = this.config.garbage.survival;
+    if (!survival) return;
+    if (survival.intervalsMs.length === 0) return;
+    const intervalMs = this.currentSurvivalIntervalMs(survival);
+    if (intervalMs <= 0) return;
+    const linesPerEvent = Math.max(1, Math.floor(survival.linesPerEvent));
+    while (this.elapsedMs - this.survivalLastEnqueueMs >= intervalMs) {
+      this.survivalLastEnqueueMs += intervalMs;
+      this.enqueueGarbage(linesPerEvent);
+    }
+  }
+
+  /** Returns the current per-tier interval based on `elapsedMs`; the last interval holds forever. */
+  private currentSurvivalIntervalMs(survival: NonNullable<GameConfig["garbage"]["survival"]>): number {
+    const tiers = survival.intervalsMs;
+    if (tiers.length === 0) return 0;
+    const tierDuration = Math.max(1, survival.tierDurationMs);
+    const idx = Math.min(tiers.length - 1, Math.max(0, Math.floor(this.elapsedMs / tierDuration)));
+    return Math.max(1, tiers[idx]);
+  }
+
+  private getSurvivalSnapshot(): SurvivalSnapshot | null {
+    const survival = this.config.garbage.survival;
+    if (!survival || !this.config.garbage.enabled) return null;
+    if (survival.intervalsMs.length === 0) return null;
+    const intervalMs = this.currentSurvivalIntervalMs(survival);
+    const sinceLast = this.elapsedMs - this.survivalLastEnqueueMs;
+    const msUntilNext = Math.max(0, intervalMs - sinceLast);
+    return {
+      active: !this.gameOver,
+      intervalMs,
+      linesPerEvent: Math.max(1, Math.floor(survival.linesPerEvent)),
+      msUntilNext,
+    };
   }
 
   private currentGravityIntervalMs(): number {

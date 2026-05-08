@@ -12,7 +12,7 @@ import { createMiniBoardRenderer } from "../render/miniBoard";
 import { createHudUpdater } from "../render/hudPanels";
 import { createRenderer } from "../render/renderer";
 import { getSupabase, isSupabaseConfigured } from "../supabase/client";
-import { DEFAULT_BOARD_KIND, DEFAULT_GAME_MODE, type AppScreen } from "./constants";
+import { DEFAULT_BOARD_KIND, DEFAULT_GAME_MODE, SPINNY_BOARD_PREF_KEY, type AppScreen } from "./constants";
 import { getElement } from "./dom";
 import { createSessionController } from "./session";
 import { initAuthScreen } from "./screens/auth";
@@ -75,7 +75,7 @@ const mountApp = (): void => {
   const gameActions = getElement<HTMLElement>("game-actions");
   const gameTitle = getElement<HTMLElement>("game-title");
   const modeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".mode-button[data-mode]"));
-  const boardButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".board-option[data-board]"));
+  const spinnyToggleButton = getElement<HTMLButtonElement>("spinny-toggle");
   const canvas = getElement<HTMLCanvasElement>("game");
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -91,6 +91,8 @@ const mountApp = (): void => {
   const statLevel = getElement<HTMLElement>("stat-level");
   const statComboRow = getElement<HTMLElement>("stat-combo-row");
   const statCombo = getElement<HTMLElement>("stat-combo");
+  const statSurvivalRow = getElement<HTMLElement>("stat-survival-row");
+  const statSurvival = getElement<HTMLElement>("stat-survival");
 
   const settingsBackButton = getElement<HTMLButtonElement>("settings-back-button");
   const settingsCanvas = getElement<HTMLCanvasElement>("settings-test-board");
@@ -110,7 +112,14 @@ const mountApp = (): void => {
   let inputSettings: InputSettings = clampInputSettings(loadInputSettings());
   let appScreen: AppScreen = "landing";
   let selectedMode: GameMode = DEFAULT_GAME_MODE;
-  let selectedBoard: BoardKind = DEFAULT_BOARD_KIND;
+  const initialSpinnyOn = (() => {
+    try {
+      return window.localStorage.getItem(SPINNY_BOARD_PREF_KEY) === "1";
+    } catch {
+      return false;
+    }
+  })();
+  let selectedBoard: BoardKind = initialSpinnyOn ? "ring" : DEFAULT_BOARD_KIND;
   let game: Game | null = null;
   let testGame: Game | null = null;
   let settingsTestFocused = false;
@@ -131,6 +140,8 @@ const mountApp = (): void => {
     levelValue: statLevel,
     comboRow: statComboRow,
     comboValue: statCombo,
+    survivalRow: statSurvivalRow,
+    survivalValue: statSurvival,
   });
   const miniRenderer = createMiniBoardRenderer(settingsCanvas, settingsCtx);
 
@@ -309,13 +320,19 @@ const mountApp = (): void => {
     backToLandingButton,
     startGameButton,
     modeButtons,
-    boardButtons,
+    spinnyToggleButton,
+    initialSpinnyOn,
     navigate,
     setSelectedMode: (next) => {
       selectedMode = next;
     },
     setSelectedBoard: (next) => {
       selectedBoard = next;
+      try {
+        window.localStorage.setItem(SPINNY_BOARD_PREF_KEY, next === "ring" ? "1" : "0");
+      } catch {
+        // localStorage unavailable; ignore.
+      }
     },
     startGame: playingScreen.startGame,
   });

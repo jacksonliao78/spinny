@@ -16,6 +16,8 @@ type HudElements = {
   levelValue: HTMLElement;
   comboRow: HTMLElement;
   comboValue: HTMLElement;
+  survivalRow: HTMLElement;
+  survivalValue: HTMLElement;
 };
 
 type HudUpdater = {
@@ -131,12 +133,14 @@ function createHudUpdater(elements: HudElements): HudUpdater {
     elements.levelRow.hidden = !showLevel;
     elements.comboRow.hidden = false;
     elements.linesRow.hidden = false;
+    elements.survivalRow.hidden = true;
 
     elements.timerEl.textContent = "";
     elements.linesValue.textContent = "";
     elements.scoreValue.textContent = "";
     elements.levelValue.textContent = "";
     elements.comboValue.textContent = "";
+    elements.survivalValue.textContent = "";
 
     holdCtx.clearRect(0, 0, holdW, holdH);
     nextCtx.clearRect(0, 0, nextW, nextH);
@@ -158,6 +162,16 @@ function createHudUpdater(elements: HudElements): HudUpdater {
     elements.scoreValue.textContent = String(snap.score);
     elements.levelValue.textContent = String(snap.level);
     elements.comboValue.textContent = String(snap.combo);
+
+    if (snap.survival && snap.survival.active) {
+      const seconds = (snap.survival.msUntilNext / 1000).toFixed(1);
+      const lines = snap.survival.linesPerEvent;
+      elements.survivalValue.textContent = lines === 1 ? `${seconds}s` : `${seconds}s × ${lines}`;
+      elements.survivalRow.hidden = false;
+    } else {
+      elements.survivalRow.hidden = true;
+      elements.survivalValue.textContent = "";
+    }
 
     if (snap.hold !== lastHold) {
       lastHold = snap.hold;
