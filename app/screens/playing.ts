@@ -22,6 +22,7 @@ type PlayingScreenOptions = {
   tipsPopover: HTMLElement;
   gameActions: HTMLElement;
   gameTitle: HTMLElement;
+  countdownEl: HTMLElement;
   renderer: Renderer;
   hudUpdater: HudUpdater;
   gameplayController: InputController;
@@ -37,12 +38,13 @@ type PlayingScreenOptions = {
   navigate: (screen: AppScreen) => void;
   resetLastFrameTime: () => void;
   syncInputControllerState: () => void;
+  setGameplayBlocked: (blocked: boolean) => void;
   shouldBlockGameplayKey: () => boolean;
   blockHandledKeys: (e: KeyboardEvent) => void;
 };
 
 type PlayingScreen = {
-  startGame: () => void;
+  startGame: (countdownSeconds?: number) => void;
   resetGame: () => void;
   setTipsOpen: (open: boolean) => void;
   stepFrame: (dtMs: number) => void;
@@ -57,6 +59,7 @@ const initPlayingScreen = ({
   tipsPopover,
   gameActions,
   gameTitle,
+  countdownEl,
   renderer,
   hudUpdater,
   gameplayController,
@@ -72,12 +75,41 @@ const initPlayingScreen = ({
   navigate,
   resetLastFrameTime,
   syncInputControllerState,
+  setGameplayBlocked,
   shouldBlockGameplayKey,
   blockHandledKeys,
 }: PlayingScreenOptions): PlayingScreen => {
   let runDurationMs = 0;
   let completedRunSaveStarted = false;
+  let countdownRemainingMs = 0;
   const gamePlayArea = canvas.closest(".game-play-area");
+
+  const countdownActive = (): boolean => countdownRemainingMs > 0;
+
+  const renderCountdown = (): void => {
+    if (!countdownActive()) {
+      countdownEl.hidden = true;
+      countdownEl.textContent = "";
+      return;
+    }
+    countdownEl.hidden = false;
+    countdownEl.textContent = String(Math.max(1, Math.ceil(countdownRemainingMs / 1000)));
+  };
+
+  const beginCountdown = (seconds: number): void => {
+    countdownRemainingMs = Math.max(0, seconds * 1000);
+    setGameplayBlocked(countdownActive());
+    setPaused(false);
+    renderCountdown();
+    syncInputControllerState();
+  };
+
+  const clearCountdown = (): void => {
+    countdownRemainingMs = 0;
+    setGameplayBlocked(false);
+    renderCountdown();
+    syncInputControllerState();
+  };
 
   const updateSidebarAlignment = (game: Game): void => {
     if (!(gamePlayArea instanceof HTMLElement)) return;
@@ -148,14 +180,14 @@ const initPlayingScreen = ({
     }
   };
 
-  const startGame = (): void => {
+  const startGame = (countdownSeconds = 3): void => {
     const selectedBoard = getSelectedBoard();
     const game = new Game({
       boardFactory: (width, height) => createBoard(selectedBoard, width, height),
       config: makeGameConfig(),
+      deferFirstSpawn: true,
     });
     setGame(game);
-    setPaused(false);
     runDurationMs = 0;
     completedRunSaveStarted = false;
     gameTitle.textContent = `Solo / ${MODE_LABELS[getSelectedMode()]}`;
@@ -168,12 +200,13 @@ const initPlayingScreen = ({
       updateSidebarAlignment(game);
     });
     renderer.reset(game.getSnapshot().boardRotation);
+    beginCountdown(countdownSeconds);
     resetLastFrameTime();
     canvas.focus();
   };
 
   const resetGame = (): void => {
-    startGame();
+    startGame(2);
   };
 
   const handleGlobalKeys = (e: KeyboardEvent): boolean => {
@@ -183,8 +216,8 @@ const initPlayingScreen = ({
       return true;
     }
     if (getAppScreen() !== "playing") return false;
-    if (e.code === "KeyP") {
-      setPaused(!getPaused());
+    if (e.code === "KeyP" && getSelectedMode() === "zen") {
+      if (!countdownActive()) setPaused(!getPaused());
       e.preventDefault();
       return true;
     }
@@ -197,7 +230,10 @@ const initPlayingScreen = ({
   };
 
   canvas.addEventListener("click", () => canvas.focus());
-  backToSetupButton.addEventListener("click", () => navigate("setup"));
+  backToSetupButton.addEventListener("click", () => {
+    clearCountdown();
+    navigate("setup");
+  });
   tipsButton.addEventListener("click", () => setTipsOpen(!!tipsPopover.hidden));
   document.addEventListener("click", (e) => {
     if (tipsPopover.hidden || gameActions.contains(e.target as Node)) return;
@@ -220,6 +256,18 @@ const initPlayingScreen = ({
 
   const stepFrame = (dtMs: number): void => {
     const game = getGame();
+    if (getAppScreen() === "playing" && game && countdownActive()) {
+      countdownRemainingMs = Math.max(0, countdownRemainingMs - dtMs);
+      if (!countdownActive()) {
+        game.beginRun();
+        setPaused(false);
+        setGameplayBlocked(false);
+        resetLastFrameTime();
+        syncInputControllerState();
+      }
+      renderCountdown();
+      return;
+    }
     if (getAppScreen() === "playing" && game && !getPaused()) {
       runDurationMs += dtMs;
       game.tick(dtMs);

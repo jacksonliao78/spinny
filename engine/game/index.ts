@@ -90,6 +90,11 @@ class Game {
     this.timedDurationMs = this.config.mode.timedDurationMs;
     this.sprintTargetClears = Math.max(1, Math.floor(this.config.mode.sprintTargetClears));
     this.remainingMs = this.modePolicy.timerStyle === "countdown" ? this.timedDurationMs : null;
+    if (!options.deferFirstSpawn) this.beginRun();
+  }
+
+  beginRun(): void {
+    if (this.activePiece || this.gameOver) return;
     this.spawn();
   }
 

@@ -49,6 +49,23 @@ test("Game uses provided board factory", () => {
   assert.equal(game.board.height, 24);
 });
 
+test("Game can defer the first spawn until the run begins", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(0),
+    config: testConfig(),
+    deferFirstSpawn: true,
+  });
+  const waiting = game.getSnapshot();
+
+  assert.equal(waiting.active, null);
+  assert.equal(waiting.next.length, 5);
+
+  game.beginRun();
+  const started = game.getSnapshot();
+  assert.ok(started.active);
+  assert.equal(started.next.length, 5);
+});
+
 const createScoringBoardFactory = (linesToClear: number | (() => number)) => {
   return (width: number, height: number): BoardModel => ({
     width,

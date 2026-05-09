@@ -551,7 +551,7 @@ select {
   gap: 1rem;
 }
 
-.arena-panel,
+.spinny-panel,
 .start-run-panel {
   border: 1px solid rgba(255, 210, 226, 0.12);
   border-radius: 8px;
@@ -559,16 +559,7 @@ select {
   padding: 1.15rem;
 }
 
-.arena-panel h3 {
-  margin: 0;
-  color: var(--heading-text);
-  font-size: 1.25rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 .board-toggle {
-  margin-top: 1rem;
   width: 100%;
   display: flex;
   align-items: center;
@@ -807,12 +798,30 @@ select {
 }
 
 .game-board-slot {
+  position: relative;
   flex: 0 1 auto;
   min-width: 0;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.run-countdown {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  color: #fff;
+  font-size: clamp(4rem, 18vw, 8rem);
+  font-weight: 1000;
+  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.65);
+  background: rgba(8, 10, 18, 0.34);
+}
+
+.run-countdown[hidden] {
+  display: none;
 }
 
 .game-sidebar {

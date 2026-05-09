@@ -132,12 +132,11 @@
             </div>
           </div>
           <aside class="setup-controls">
-            <div class="arena-panel">
-              <h3>Arena</h3>
+            <div class="spinny-panel">
               <button id="spinny-toggle" class="board-toggle" type="button" aria-pressed="false">
                 <span class="board-toggle__label">
                   <strong>Spinny</strong>
-                  <span>Switch from regular grid to rotating arena.</span>
+                  <span>Switch from regular grid to rotating board.</span>
                 </span>
                 <span class="board-toggle__switch" aria-hidden="true">
                   <span class="board-toggle__thumb"></span>
@@ -175,8 +174,10 @@
                 <dd>Hard drop</dd>
                 <dt>C</dt>
                 <dd>Hold piece</dd>
-                <dt>P / R</dt>
-                <dd>Pause or restart</dd>
+                <dt>P</dt>
+                <dd>Pause in Zen</dd>
+                <dt>R</dt>
+                <dd>Restart</dd>
               </dl>
             </div>
           </div>
@@ -213,6 +214,7 @@
           </div>
           <div class="game-board-slot">
             <canvas id="game" width="320" height="640" tabindex="0"></canvas>
+            <div id="run-countdown" class="run-countdown" aria-live="polite" hidden></div>
           </div>
           <div class="game-sidebar game-sidebar--right">
             <div class="game-box">

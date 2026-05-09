@@ -296,12 +296,6 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
       ctx.font = "bold 26px system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.fillText("Paused", layout.boardX + layout.playWidth / 2, layout.boardY + layout.playHeight / 2);
-      ctx.font = "14px system-ui, sans-serif";
-      ctx.fillText(
-        "Press P to resume",
-        layout.boardX + layout.playWidth / 2,
-        layout.boardY + layout.playHeight / 2 + 26,
-      );
     }
 
     if (snap.gameOver) {

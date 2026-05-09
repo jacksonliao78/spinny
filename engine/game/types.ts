@@ -117,5 +117,6 @@ export type GameOptions = {
   boardFactory?: BoardFactory;
   /** Partial gameplay tuning merged with DEFAULT_GAME_CONFIG. */
   config?: GameConfigOverrides;
+  /** When true, leave the first piece in the queue until `beginRun` is called. */
+  deferFirstSpawn?: boolean;
 };
-

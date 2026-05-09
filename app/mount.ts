@@ -74,6 +74,7 @@ const mountApp = (): void => {
   const tipsPopover = getElement<HTMLElement>("tips-popover");
   const gameActions = getElement<HTMLElement>("game-actions");
   const gameTitle = getElement<HTMLElement>("game-title");
+  const countdownEl = getElement<HTMLElement>("run-countdown");
   const modeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".mode-button[data-mode]"));
   const spinnyToggleButton = getElement<HTMLButtonElement>("spinny-toggle");
   const canvas = getElement<HTMLCanvasElement>("game");
@@ -124,6 +125,7 @@ const mountApp = (): void => {
   let testGame: Game | null = null;
   let settingsTestFocused = false;
   let paused = false;
+  let gameplayBlocked = false;
   let last = performance.now();
 
   const supabase = isSupabaseConfigured() ? getSupabase() : null;
@@ -183,13 +185,15 @@ const mountApp = (): void => {
     const playing = appScreen === "playing";
     const settings = appScreen === "settings";
 
-    gameplayController.setEnabled(playing && !paused && !!game && !game.getSnapshot().gameOver && !spinBlocksInput());
+    gameplayController.setEnabled(
+      playing && !paused && !gameplayBlocked && !!game && !game.getSnapshot().gameOver && !spinBlocksInput(),
+    );
     testController.setEnabled(settings && settingsTestFocused && !!testGame && !testGame.getSnapshot().gameOver);
   };
 
   const shouldBlockGameplayKey = (): boolean => {
     if (appScreen === "playing") {
-      return !game || paused || game.getSnapshot().gameOver || spinBlocksInput();
+      return !game || paused || gameplayBlocked || game.getSnapshot().gameOver || spinBlocksInput();
     }
     if (appScreen === "settings") {
       return !testGame || testGame.getSnapshot().gameOver;
@@ -247,6 +251,7 @@ const mountApp = (): void => {
     tipsPopover,
     gameActions,
     gameTitle,
+    countdownEl,
     renderer,
     hudUpdater,
     gameplayController,
@@ -269,6 +274,9 @@ const mountApp = (): void => {
       last = performance.now();
     },
     syncInputControllerState,
+    setGameplayBlocked: (blocked) => {
+      gameplayBlocked = blocked;
+    },
     shouldBlockGameplayKey,
     blockHandledKeys,
   });
@@ -347,8 +355,8 @@ const mountApp = (): void => {
 
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) return;
-    // When backgrounded, pause so timers/simulation don't jump on return.
-    if (appScreen === "playing" && !paused) {
+    // Zen allows manual pause/resume; competitive modes keep the pause architecture internal.
+    if (appScreen === "playing" && selectedMode === "zen" && !paused) {
       paused = true;
       playingScreen?.setTipsOpen(false);
       syncInputControllerState();
