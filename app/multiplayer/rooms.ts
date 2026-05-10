@@ -184,17 +184,15 @@ const listPublicRooms = async (supabase: SupabaseClient): Promise<MultiplayerRoo
 const joinPublicRoom = async (
   supabase: SupabaseClient,
   roomId: string,
-  userId: string,
   username: string,
 ): Promise<RoomWithMembers> => {
-  const { error } = await supabase.from("room_members").insert({
-    room_id: roomId,
-    user_id: userId,
-    username: sanitizeUsername(username),
-    slot: 2,
+  const { data, error } = await supabase.rpc("join_public_room", {
+    target_room_id: roomId,
+    member_username: sanitizeUsername(username),
+    requested_slot: 2,
   });
   if (error && !isDuplicateMembershipError(error)) throw error;
-  return fetchRoom(supabase, roomId);
+  return fetchRoom(supabase, String(data ?? roomId));
 };
 
 const joinPrivateRoomByCode = async (
@@ -211,8 +209,10 @@ const joinPrivateRoomByCode = async (
   return fetchRoom(supabase, String(data));
 };
 
-const leaveRoom = async (supabase: SupabaseClient, roomId: string, userId: string): Promise<void> => {
-  const { error } = await supabase.from("room_members").delete().eq("room_id", roomId).eq("user_id", userId);
+const leaveRoom = async (supabase: SupabaseClient, roomId: string): Promise<void> => {
+  const { error } = await supabase.rpc("leave_room", {
+    target_room_id: roomId,
+  });
   if (error) throw error;
 };
 
@@ -241,17 +241,12 @@ const startRoom = async (
   seed: string,
   countdownStartsAt: string,
 ): Promise<MultiplayerRoom> => {
-  const { data, error } = await supabase
-    .from("rooms")
-    .update({
-      status: "countdown",
-      settings,
-      seed,
-      countdown_starts_at: countdownStartsAt,
-    })
-    .eq("id", roomId)
-    .select("*")
-    .single();
+  const { data, error } = await supabase.rpc("start_room", {
+    target_room_id: roomId,
+    next_settings: settings,
+    next_seed: seed,
+    next_countdown_starts_at: countdownStartsAt,
+  });
   if (error) throw error;
   return roomFromRow(data);
 };

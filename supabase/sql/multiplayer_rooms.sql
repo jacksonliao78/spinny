@@ -189,6 +189,207 @@ $$;
 REVOKE ALL ON FUNCTION public.join_private_room_by_code(text, text, int) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.join_private_room_by_code(text, text, int) TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.join_public_room(
+  target_room_id uuid,
+  member_username text,
+  requested_slot int DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  target_room public.rooms%ROWTYPE;
+  chosen_slot int;
+  clean_username text;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  SELECT *
+  INTO target_room
+  FROM public.rooms
+  WHERE id = target_room_id
+    AND visibility = 'public'
+    AND status = 'lobby'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Room not found';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.room_members
+    WHERE room_id = target_room.id AND user_id = auth.uid()
+  ) THEN
+    RETURN target_room.id;
+  END IF;
+
+  IF requested_slot IN (1, 2) AND NOT EXISTS (
+    SELECT 1 FROM public.room_members
+    WHERE room_id = target_room.id AND slot = requested_slot
+  ) THEN
+    chosen_slot := requested_slot;
+  ELSE
+    SELECT candidate.slot_number
+    INTO chosen_slot
+    FROM generate_series(1, target_room.max_players) AS candidate(slot_number)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.room_members
+      WHERE room_id = target_room.id AND room_members.slot = candidate.slot_number
+    )
+    ORDER BY candidate.slot_number
+    LIMIT 1;
+  END IF;
+
+  IF chosen_slot IS NULL THEN
+    RAISE EXCEPTION 'Room is full';
+  END IF;
+
+  clean_username := left(nullif(trim(member_username), ''), 64);
+
+  INSERT INTO public.room_members (room_id, user_id, username, slot)
+  VALUES (target_room.id, auth.uid(), coalesce(clean_username, 'player'), chosen_slot);
+
+  RETURN target_room.id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.join_public_room(uuid, text, int) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.join_public_room(uuid, text, int) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.leave_room(target_room_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  target_room public.rooms%ROWTYPE;
+  next_host uuid;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  SELECT *
+  INTO target_room
+  FROM public.rooms
+  WHERE id = target_room_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.room_members
+    WHERE room_id = target_room_id AND user_id = auth.uid()
+  ) THEN
+    RAISE EXCEPTION 'Not a room member';
+  END IF;
+
+  DELETE FROM public.room_members
+  WHERE room_id = target_room_id
+    AND user_id = auth.uid();
+
+  IF target_room.host_user_id <> auth.uid() THEN
+    RETURN;
+  END IF;
+
+  SELECT user_id
+  INTO next_host
+  FROM public.room_members
+  WHERE room_id = target_room_id
+  ORDER BY slot
+  LIMIT 1;
+
+  IF next_host IS NULL THEN
+    UPDATE public.rooms
+    SET status = 'abandoned'
+    WHERE id = target_room_id;
+  ELSE
+    UPDATE public.rooms
+    SET host_user_id = next_host
+    WHERE id = target_room_id;
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.leave_room(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.leave_room(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.start_room(
+  target_room_id uuid,
+  next_settings jsonb,
+  next_seed text,
+  next_countdown_starts_at timestamptz
+)
+RETURNS public.rooms
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  started_room public.rooms%ROWTYPE;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  SELECT *
+  INTO started_room
+  FROM public.rooms
+  WHERE id = target_room_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Room not found';
+  END IF;
+
+  IF started_room.host_user_id <> auth.uid() THEN
+    RAISE EXCEPTION 'Only the host can start the room';
+  END IF;
+
+  IF started_room.status <> 'lobby' THEN
+    RAISE EXCEPTION 'Room already started';
+  END IF;
+
+  IF (
+    SELECT count(*)
+    FROM public.room_members
+    WHERE room_id = target_room_id
+  ) <> started_room.max_players THEN
+    RAISE EXCEPTION 'Room needs two players';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.room_members
+    WHERE room_id = target_room_id
+      AND ready = false
+  ) THEN
+    RAISE EXCEPTION 'All players must be ready';
+  END IF;
+
+  UPDATE public.rooms
+  SET
+    status = 'countdown',
+    settings = coalesce(next_settings, '{}'::jsonb),
+    seed = next_seed,
+    countdown_starts_at = next_countdown_starts_at
+  WHERE id = target_room_id
+  RETURNING * INTO started_room;
+
+  RETURN started_room;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.start_room(uuid, jsonb, text, timestamptz) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.start_room(uuid, jsonb, text, timestamptz) TO authenticated;
+
 ALTER TABLE public.rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.room_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.room_results ENABLE ROW LEVEL SECURITY;
