@@ -75,6 +75,14 @@ const mountApp = (): void => {
   const gameActions = getElement<HTMLElement>("game-actions");
   const gameTitle = getElement<HTMLElement>("game-title");
   const countdownEl = getElement<HTMLElement>("run-countdown");
+  const runSummaryEl = getElement<HTMLElement>("run-summary");
+  const runSummaryHeadline = getElement<HTMLElement>("run-summary-headline");
+  const runSummarySubhead = getElement<HTMLElement>("run-summary-subhead");
+  const runSummaryPrimaryLabel = getElement<HTMLElement>("run-summary-primary-label");
+  const runSummaryPrimaryValue = getElement<HTMLElement>("run-summary-primary-value");
+  const runSummaryStats = getElement<HTMLElement>("run-summary-stats");
+  const runSummaryRestartButton = getElement<HTMLButtonElement>("run-summary-restart");
+  const runSummarySetupButton = getElement<HTMLButtonElement>("run-summary-setup");
   const modeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".mode-button[data-mode]"));
   const spinnyToggleButton = getElement<HTMLButtonElement>("spinny-toggle");
   const canvas = getElement<HTMLCanvasElement>("game");
@@ -252,6 +260,14 @@ const mountApp = (): void => {
     gameActions,
     gameTitle,
     countdownEl,
+    runSummaryEl,
+    runSummaryHeadline,
+    runSummarySubhead,
+    runSummaryPrimaryLabel,
+    runSummaryPrimaryValue,
+    runSummaryStats,
+    runSummaryRestartButton,
+    runSummarySetupButton,
     renderer,
     hudUpdater,
     gameplayController,

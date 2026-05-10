@@ -10,6 +10,7 @@ import type { HudUpdater } from "../../render/hudPanels";
 import type { AppScreen } from "../constants";
 import { MODE_LABELS, RECTANGULAR_BOARD_CONFIG, SPRINT_TARGET_CLEARS } from "../constants";
 import { buildRunInsert } from "../persistence/runs";
+import { buildRunSummaryViewModel } from "../runSummary";
 import type { SessionController } from "../session";
 import { logicalCanvasHeightFromSnap, viewportLogicalYRange } from "../../render/boardCanvasLayout";
 
@@ -23,6 +24,14 @@ type PlayingScreenOptions = {
   gameActions: HTMLElement;
   gameTitle: HTMLElement;
   countdownEl: HTMLElement;
+  runSummaryEl: HTMLElement;
+  runSummaryHeadline: HTMLElement;
+  runSummarySubhead: HTMLElement;
+  runSummaryPrimaryLabel: HTMLElement;
+  runSummaryPrimaryValue: HTMLElement;
+  runSummaryStats: HTMLElement;
+  runSummaryRestartButton: HTMLButtonElement;
+  runSummarySetupButton: HTMLButtonElement;
   renderer: Renderer;
   hudUpdater: HudUpdater;
   gameplayController: InputController;
@@ -60,6 +69,14 @@ const initPlayingScreen = ({
   gameActions,
   gameTitle,
   countdownEl,
+  runSummaryEl,
+  runSummaryHeadline,
+  runSummarySubhead,
+  runSummaryPrimaryLabel,
+  runSummaryPrimaryValue,
+  runSummaryStats,
+  runSummaryRestartButton,
+  runSummarySetupButton,
   renderer,
   hudUpdater,
   gameplayController,
@@ -108,6 +125,36 @@ const initPlayingScreen = ({
     countdownRemainingMs = 0;
     setGameplayBlocked(false);
     renderCountdown();
+    syncInputControllerState();
+  };
+
+  const hideRunSummary = (): void => {
+    runSummaryEl.hidden = true;
+    runSummaryStats.replaceChildren();
+    setGameplayBlocked(countdownActive());
+    syncInputControllerState();
+  };
+
+  const showRunSummary = (summary: RunSummary, durationMs: number, boardKind: BoardKind): void => {
+    const view = buildRunSummaryViewModel(summary, durationMs, boardKind);
+    runSummarySubhead.textContent = view.subhead;
+    runSummaryHeadline.textContent = view.headline;
+    runSummaryPrimaryLabel.textContent = view.primaryLabel;
+    runSummaryPrimaryValue.textContent = view.primaryValue;
+    runSummaryStats.replaceChildren(
+      ...view.stats.map((stat) => {
+        const item = document.createElement("div");
+        const label = document.createElement("dt");
+        const value = document.createElement("dd");
+        label.textContent = stat.label;
+        value.textContent = stat.value;
+        item.append(label, value);
+        return item;
+      }),
+    );
+    runSummaryEl.hidden = false;
+    runSummaryEl.focus();
+    setGameplayBlocked(true);
     syncInputControllerState();
   };
 
@@ -190,6 +237,7 @@ const initPlayingScreen = ({
     setGame(game);
     runDurationMs = 0;
     completedRunSaveStarted = false;
+    hideRunSummary();
     gameTitle.textContent = `Solo / ${MODE_LABELS[getSelectedMode()]}`;
     hudUpdater.configure(getSelectedMode(), SPRINT_TARGET_CLEARS[getSelectedBoard()]);
     navigate("playing");
@@ -232,6 +280,13 @@ const initPlayingScreen = ({
   canvas.addEventListener("click", () => canvas.focus());
   backToSetupButton.addEventListener("click", () => {
     clearCountdown();
+    hideRunSummary();
+    navigate("setup");
+  });
+  runSummaryRestartButton.addEventListener("click", () => resetGame());
+  runSummarySetupButton.addEventListener("click", () => {
+    clearCountdown();
+    hideRunSummary();
     navigate("setup");
   });
   tipsButton.addEventListener("click", () => setTipsOpen(!!tipsPopover.hidden));
@@ -252,6 +307,10 @@ const initPlayingScreen = ({
       return;
     }
     blockHandledKeys(e);
+  });
+  runSummaryEl.addEventListener("keydown", (e) => {
+    if (e.repeat) return;
+    handleGlobalKeys(e);
   });
 
   const stepFrame = (dtMs: number): void => {
@@ -287,6 +346,7 @@ const initPlayingScreen = ({
     const summary = game.getRunSummary(runDurationMs);
     if (summary.gameOver && !completedRunSaveStarted) {
       completedRunSaveStarted = true;
+      showRunSummary(summary, runDurationMs, getSelectedBoard());
       void persistCompletedRun(summary, runDurationMs);
     }
   };

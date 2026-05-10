@@ -787,6 +787,7 @@ select {
 .game-play-area {
   --hud-top-inset: 1.5rem;
   --hud-bottom-inset: 1.5rem;
+  position: relative;
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
@@ -822,6 +823,110 @@ select {
 
 .run-countdown[hidden] {
   display: none;
+}
+
+.run-summary {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background:
+    radial-gradient(circle at top, rgba(185, 157, 232, 0.2), transparent 34rem),
+    rgba(8, 10, 18, 0.62);
+  backdrop-filter: blur(10px) saturate(0.82);
+}
+
+.run-summary[hidden] {
+  display: none;
+}
+
+.run-summary__panel {
+  width: min(520px, 100%);
+  max-height: min(720px, 100%);
+  overflow: auto;
+  border: 1px solid rgba(255, 210, 226, 0.18);
+  border-radius: 8px;
+  background: rgba(46, 35, 54, 0.9);
+  box-shadow: 0 22px 54px rgba(8, 10, 18, 0.55);
+  padding: 1rem;
+}
+
+.run-summary__subhead {
+  margin: 0;
+  color: var(--muted-text);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.run-summary h2 {
+  margin: 0.25rem 0 0;
+  color: var(--heading-text);
+  font-size: 1.75rem;
+  letter-spacing: 0;
+}
+
+.run-summary__primary {
+  margin-top: 0.9rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(255, 210, 226, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.run-summary__primary span,
+.run-summary__stats dt {
+  color: var(--muted-text);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.run-summary__primary strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--heading-text);
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.run-summary__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem 0.9rem;
+  margin: 0.9rem 0 0;
+}
+
+.run-summary__stats div {
+  min-width: 0;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(255, 210, 226, 0.08);
+}
+
+.run-summary__stats dt,
+.run-summary__stats dd {
+  margin: 0;
+}
+
+.run-summary__stats dd {
+  margin-top: 0.2rem;
+  color: var(--heading-text);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.run-summary__actions {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.run-summary__actions button {
+  flex: 1;
 }
 
 .game-sidebar {
