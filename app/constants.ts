@@ -1,7 +1,7 @@
 import type { BoardKind } from "@game/board/factory";
 import type { GameMode } from "@game/game/rules";
 
-type AppScreen = "landing" | "auth" | "setup" | "playing" | "settings";
+type AppScreen = "landing" | "auth" | "setup" | "playing" | "settings" | "stats";
 type AuthMode = "login" | "signup";
 
 const MODE_LABELS: Record<GameMode, string> = {

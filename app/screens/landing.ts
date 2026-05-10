@@ -8,6 +8,7 @@ type LandingScreenOptions = {
   signOutButton: HTMLButtonElement;
   authSummaryText: HTMLElement;
   settingsButton: HTMLButtonElement;
+  statsButton: HTMLButtonElement;
   supabase: SupabaseClient | null;
   session: SessionController;
   navigate: (screen: AppScreen) => void;
@@ -20,6 +21,7 @@ const initLandingScreen = ({
   signOutButton,
   authSummaryText,
   settingsButton,
+  statsButton,
   supabase,
   session,
   navigate,
@@ -27,6 +29,7 @@ const initLandingScreen = ({
 }: LandingScreenOptions): void => {
   authButton.addEventListener("click", openAuthLogin);
   soloButton.addEventListener("click", () => navigate("setup"));
+  statsButton.addEventListener("click", () => navigate("stats"));
   settingsButton.addEventListener("click", () => navigate("settings"));
 
   signOutButton.addEventListener("click", () => {

@@ -23,6 +23,8 @@ import type { PlayingScreen } from "./screens/playing";
 import { initSettingsScreen } from "./screens/settings";
 import type { SettingsScreen } from "./screens/settings";
 import { initSetupScreen } from "./screens/setup";
+import { initStatsScreen } from "./screens/stats";
+import type { StatsScreen } from "./screens/stats";
 
 const blockHandledKeys = (e: KeyboardEvent): void => {
   switch (e.code) {
@@ -47,11 +49,13 @@ const mountApp = (): void => {
   const setupScreen = getElement<HTMLElement>("setup-screen");
   const gameScreen = getElement<HTMLElement>("game-screen");
   const settingsScreenEl = getElement<HTMLElement>("settings-screen");
+  const statsScreenEl = getElement<HTMLElement>("stats-screen");
 
   const soloButton = getElement<HTMLButtonElement>("solo-button");
   const authButton = getElement<HTMLButtonElement>("auth-button");
   const signOutButton = getElement<HTMLButtonElement>("sign-out-button");
   const authSummaryText = getElement<HTMLElement>("auth-summary-text");
+  const statsButton = getElement<HTMLButtonElement>("stats-button");
   const settingsButton = getElement<HTMLButtonElement>("settings-button");
 
   const authBackButton = getElement<HTMLButtonElement>("auth-back-button");
@@ -66,6 +70,17 @@ const mountApp = (): void => {
   const authStatus = getElement<HTMLElement>("auth-status");
   const authSubmitButton = getElement<HTMLButtonElement>("auth-submit-button");
   const guestPlayButton = getElement<HTMLButtonElement>("guest-play-button");
+
+  const statsBackButton = getElement<HTMLButtonElement>("stats-back-button");
+  const statsSignInButton = getElement<HTMLButtonElement>("stats-sign-in-button");
+  const statsSetupButton = getElement<HTMLButtonElement>("stats-setup-button");
+  const statsStatus = getElement<HTMLElement>("stats-status");
+  const statsContent = getElement<HTMLElement>("stats-content");
+  const statsAccount = getElement<HTMLElement>("stats-account");
+  const statsHeadline = getElement<HTMLElement>("stats-headline");
+  const statsBests = getElement<HTMLElement>("stats-bests");
+  const statsActivity = getElement<HTMLElement>("stats-activity");
+  const statsEmpty = getElement<HTMLElement>("stats-empty");
 
   const backToLandingButton = getElement<HTMLButtonElement>("back-to-landing-button");
   const backToSetupButton = getElement<HTMLButtonElement>("back-to-setup-button");
@@ -211,6 +226,7 @@ const mountApp = (): void => {
 
   let settingsScreen: SettingsScreen | null = null;
   let playingScreen: PlayingScreen | null = null;
+  let statsScreen: StatsScreen | null = null;
 
   const navigate = (nextScreen: AppScreen): void => {
     appScreen = nextScreen;
@@ -219,6 +235,7 @@ const mountApp = (): void => {
     setupScreen.classList.toggle("screen--active", nextScreen === "setup");
     gameScreen.classList.toggle("screen--active", nextScreen === "playing");
     settingsScreenEl.classList.toggle("screen--active", nextScreen === "settings");
+    statsScreenEl.classList.toggle("screen--active", nextScreen === "stats");
 
     if (nextScreen !== "playing") {
       paused = true;
@@ -229,6 +246,10 @@ const mountApp = (): void => {
       settingsScreen?.enter();
     } else {
       settingsScreen?.leave();
+    }
+
+    if (nextScreen === "stats") {
+      statsScreen?.enter();
     }
 
     syncInputControllerState();
@@ -328,12 +349,30 @@ const mountApp = (): void => {
     blockHandledKeys,
   });
 
+  statsScreen = initStatsScreen({
+    statsBackButton,
+    statsSignInButton,
+    statsSetupButton,
+    statsStatus,
+    statsContent,
+    statsAccount,
+    statsHeadline,
+    statsBests,
+    statsActivity,
+    statsEmpty,
+    supabase,
+    session,
+    navigate,
+    openAuthLogin: authScreen.openLogin,
+  });
+
   initLandingScreen({
     soloButton,
     authButton,
     signOutButton,
     authSummaryText,
     settingsButton,
+    statsButton,
     supabase,
     session,
     navigate,

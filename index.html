@@ -50,6 +50,7 @@
               </div>
             </div>
             <button id="solo-button" class="menu-button menu-button--primary" type="button">Solo</button>
+            <button id="stats-button" class="menu-button" type="button">My Stats</button>
             <button class="menu-button" type="button" disabled>Multiplayer</button>
             <button id="settings-button" class="menu-button" type="button">Settings</button>
           </div>
@@ -99,6 +100,42 @@
             <button id="auth-submit-button" class="primary-button" type="submit">Log In</button>
             <button id="guest-play-button" class="secondary-button auth-guest-button" type="button">Play As Guest</button>
           </form>
+        </div>
+      </section>
+
+      <section id="stats-screen" class="screen">
+        <div class="setup-header">
+          <div>
+            <p class="eyebrow">Account</p>
+            <h1>My Stats</h1>
+          </div>
+          <button id="stats-back-button" class="secondary-button setup-back-button" type="button">Back</button>
+        </div>
+        <div class="stats-layout">
+          <p id="stats-status" class="auth-status stats-status" role="status" aria-live="polite"></p>
+          <div id="stats-content" class="stats-content" hidden>
+            <section class="stats-section" aria-labelledby="stats-account-heading">
+              <h2 id="stats-account-heading">Account</h2>
+              <dl id="stats-account" class="stats-grid stats-grid--account"></dl>
+            </section>
+            <section class="stats-section" aria-labelledby="stats-headline-heading">
+              <h2 id="stats-headline-heading">Totals</h2>
+              <dl id="stats-headline" class="stats-grid stats-grid--headline"></dl>
+            </section>
+            <section class="stats-section" aria-labelledby="stats-bests-heading">
+              <h2 id="stats-bests-heading">Bests</h2>
+              <dl id="stats-bests" class="stats-bests"></dl>
+            </section>
+            <section class="stats-section" aria-labelledby="stats-activity-heading">
+              <h2 id="stats-activity-heading">Activity</h2>
+              <dl id="stats-activity" class="stats-grid"></dl>
+            </section>
+          </div>
+          <div id="stats-empty" class="stats-empty" hidden>No saved runs yet.</div>
+          <div class="stats-actions">
+            <button id="stats-sign-in-button" class="primary-button" type="button" hidden>Sign In</button>
+            <button id="stats-setup-button" class="secondary-button" type="button" hidden>Start A Run</button>
+          </div>
         </div>
       </section>
 
