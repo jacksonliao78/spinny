@@ -128,8 +128,9 @@ const initLobbyScreen = ({
     Boolean(room.room.seed) &&
     Boolean(room.room.countdownStartsAt);
 
-  const startLocalGameFromRoom = async (room: RoomWithMembers["room"]): Promise<void> => {
+  const startLocalGameFromRoom = async (room: RoomWithMembers["room"], epoch: number): Promise<void> => {
     const serverTime = supabase ? Date.parse(await getServerTime(supabase)) : NaN;
+    if (epoch !== loadEpoch || getCurrentRoomId() !== room.id) return;
     startMultiplayerGame(room, Number.isFinite(serverTime) ? serverTime : undefined);
   };
 
@@ -161,7 +162,7 @@ const initLobbyScreen = ({
       currentRoom = room;
       render(room);
       if (shouldStartLocalGame(room)) {
-        await startLocalGameFromRoom(room.room);
+        await startLocalGameFromRoom(room.room, myEpoch);
         return;
       }
       setStatus("", "");
@@ -184,6 +185,7 @@ const initLobbyScreen = ({
       return;
     }
     setButtonsBusy(true);
+    loadEpoch += 1;
     setStatus("Leaving room...", "");
     try {
       await leaveRoom(supabase, roomId);
@@ -227,7 +229,7 @@ const initLobbyScreen = ({
       const started = await startRoom(supabase, room.room.id, room.room.settings, createSeed(), 3_000);
       currentRoom = { ...room, room: started };
       render(currentRoom);
-      await startLocalGameFromRoom(started);
+      await startLocalGameFromRoom(started, loadEpoch);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not start room.", "error");
     } finally {
@@ -249,6 +251,7 @@ const initLobbyScreen = ({
       window.clearInterval(pollTimer);
       pollTimer = null;
     }
+    loadEpoch += 1;
   };
 
   lobbyLeaveButton.addEventListener("click", () => void leaveCurrentRoom());
