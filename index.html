@@ -330,7 +330,12 @@
           <div class="game-sidebar game-sidebar--right">
             <div id="mp-opponent-panel" class="game-box opponent-panel" hidden>
               <h3 class="game-box__title">Opponent</h3>
-              <div class="opponent-placeholder">Waiting for board</div>
+              <div id="mp-opponent-board" class="opponent-board"></div>
+              <div id="mp-opponent-status" class="opponent-status">Waiting for board</div>
+              <div class="opponent-stats">
+                <span id="mp-opponent-lines">0 lines</span>
+                <span id="mp-opponent-garbage">0 incoming</span>
+              </div>
             </div>
             <div class="game-box">
               <h3 class="game-box__title">Next</h3>

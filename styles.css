@@ -1264,19 +1264,70 @@ select {
   height: auto;
 }
 
-.opponent-placeholder {
-  min-height: 120px;
+.opponent-board {
   display: grid;
-  place-items: center;
+  gap: 1px;
   border: 1px solid rgba(255, 210, 226, 0.1);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
+  padding: 3px;
+  aspect-ratio: 1 / 2;
+  overflow: hidden;
+}
+
+.opponent-cell {
+  min-width: 0;
+  min-height: 0;
+  background: rgba(15, 23, 40, 0.7);
+}
+
+.opponent-cell[data-value="solid"] {
+  background: #6b7280;
+}
+
+.opponent-cell[data-value="I"] {
+  background: #7ed7ef;
+}
+
+.opponent-cell[data-value="J"] {
+  background: #6f7ddb;
+}
+
+.opponent-cell[data-value="L"] {
+  background: #bf8a69;
+}
+
+.opponent-cell[data-value="O"] {
+  background: #f7dc83;
+}
+
+.opponent-cell[data-value="S"] {
+  background: #72d89d;
+}
+
+.opponent-cell[data-value="T"] {
+  background: #a276d9;
+}
+
+.opponent-cell[data-value="Z"] {
+  background: #de7ea0;
+}
+
+.opponent-status,
+.opponent-stats {
+  margin-top: 0.45rem;
   color: var(--muted-text);
   font-size: 0.78rem;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-align: center;
   text-transform: uppercase;
+}
+
+.opponent-stats {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.7rem;
 }
 
 .stat-timer {

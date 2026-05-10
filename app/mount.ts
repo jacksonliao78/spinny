@@ -121,6 +121,10 @@ const mountApp = (): void => {
   const gameActions = getElement<HTMLElement>("game-actions");
   const gameTitle = getElement<HTMLElement>("game-title");
   const multiplayerOpponentPanel = getElement<HTMLElement>("mp-opponent-panel");
+  const multiplayerOpponentBoard = getElement<HTMLElement>("mp-opponent-board");
+  const multiplayerOpponentStatus = getElement<HTMLElement>("mp-opponent-status");
+  const multiplayerOpponentLines = getElement<HTMLElement>("mp-opponent-lines");
+  const multiplayerOpponentGarbage = getElement<HTMLElement>("mp-opponent-garbage");
   const countdownEl = getElement<HTMLElement>("run-countdown");
   const runSummaryEl = getElement<HTMLElement>("run-summary");
   const runSummaryHeadline = getElement<HTMLElement>("run-summary-headline");
@@ -328,6 +332,10 @@ const mountApp = (): void => {
     gameActions,
     gameTitle,
     multiplayerOpponentPanel,
+    multiplayerOpponentBoard,
+    multiplayerOpponentStatus,
+    multiplayerOpponentLines,
+    multiplayerOpponentGarbage,
     countdownEl,
     runSummaryEl,
     runSummaryHeadline,
