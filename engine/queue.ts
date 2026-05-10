@@ -1,4 +1,5 @@
 import { Piece, PieceType } from "./piece";
+import type { RandomSource } from "./random";
 
 const ALL_TYPES: PieceType[] = ["O", "I", "Z", "S", "L", "J", "T"];
 
@@ -6,8 +7,10 @@ const ALL_TYPES: PieceType[] = ["O", "I", "Z", "S", "L", "J", "T"];
 class Queue {
   private preview: PieceType[] = [];
   private bag: Piece[] = [];
+  private readonly random: RandomSource;
 
-  constructor() {
+  constructor(random: RandomSource = Math.random) {
+    this.random = random;
     this.refillBag();
     while (this.preview.length < 5) {
       this.preview.push(this.takeFromBag().type);
@@ -17,7 +20,7 @@ class Queue {
   private shuffle<T>( arr: T[] ): T[] {
     const a = [ ...arr ];
     for ( let i = a.length - 1; i > 0; i-- ) {
-      const j = Math.floor( Math.random() * (i + 1) );
+      const j = Math.floor( this.random() * (i + 1) );
       [a[i], a[j]] = [a[j], a[i]];
     }
     return a;

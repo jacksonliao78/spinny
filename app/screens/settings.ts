@@ -80,7 +80,7 @@ const initSettingsScreen = ({
 }: SettingsScreenOptions): SettingsScreen => {
   const restartTestGame = (): void => {
     const testGame = new Game({
-      boardFactory: (width, height) => createBoard("rectangular", width, height),
+      boardFactory: (width, height, random) => createBoard("rectangular", width, height, random),
       config: SETTINGS_TEST_CONFIG,
     });
     setTestGame(testGame);

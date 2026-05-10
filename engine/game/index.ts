@@ -78,12 +78,14 @@ class Game {
 
   constructor(options: GameOptions = {}) {
     this.config = resolveGameConfig(options.config);
-    const boardFactory = options.boardFactory ?? ((boardWidth, boardHeight) => createBoard("ring", boardWidth, boardHeight));
+    const random = options.random ?? Math.random;
+    const boardFactory =
+      options.boardFactory ?? ((boardWidth, boardHeight, boardRandom) => createBoard("ring", boardWidth, boardHeight, boardRandom));
     this.playWidth = this.config.board.width;
     this.playHeight = this.config.board.height;
     this.spawnPad = SPAWN_PAD;
-    this.board = boardFactory(this.playWidth + SPAWN_PAD * 2, this.playHeight + SPAWN_PAD * 2);
-    this.queue = new Queue();
+    this.board = boardFactory(this.playWidth + SPAWN_PAD * 2, this.playHeight + SPAWN_PAD * 2, random);
+    this.queue = new Queue(random);
     this.holdSlot = new Hold();
     this.gameMode = this.config.mode.kind;
     this.modePolicy = GAME_MODE_POLICIES[this.gameMode];

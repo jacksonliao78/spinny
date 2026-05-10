@@ -245,7 +245,7 @@ const initPlayingScreen = ({
   const startGame = (countdownSeconds = 3): void => {
     const selectedBoard = getSelectedBoard();
     const game = new Game({
-      boardFactory: (width, height) => createBoard(selectedBoard, width, height),
+      boardFactory: (width, height, random) => createBoard(selectedBoard, width, height, random),
       config: makeGameConfig(),
       deferFirstSpawn: true,
     });

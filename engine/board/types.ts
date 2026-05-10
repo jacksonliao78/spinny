@@ -1,4 +1,5 @@
 import type { PieceType, Piece } from "../piece";
+import type { RandomSource } from "../random";
 
 const SOLID_CELL = "solid";
 
@@ -35,7 +36,7 @@ type BoardModel = {
   addGarbage: (rings: number, holesPerRing: number) => number;
 };
 
-type BoardFactory = (width: number, height: number) => BoardModel;
+type BoardFactory = (width: number, height: number, random?: RandomSource) => BoardModel;
 
 export { SOLID_CELL };
 export type { SolidCell, BoardCell, BoardModel, BoardFactory };

@@ -1,6 +1,7 @@
 import type { BoardCell, BoardFactory } from "../board/types";
 import type { PieceType } from "../piece";
 import type { Piece } from "../piece";
+import type { RandomSource } from "../random";
 import type { GameConfigOverrides, GameMode } from "./rules";
 import type { SpinResult } from "./rotation";
 
@@ -117,6 +118,8 @@ export type GameOptions = {
   boardFactory?: BoardFactory;
   /** Partial gameplay tuning merged with DEFAULT_GAME_CONFIG. */
   config?: GameConfigOverrides;
+  /** Optional random source for deterministic queues and board garbage, mainly multiplayer/tests. */
+  random?: RandomSource;
   /** When true, leave the first piece in the queue until `beginRun` is called. */
   deferFirstSpawn?: boolean;
 };

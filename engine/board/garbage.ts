@@ -1,4 +1,4 @@
-type RandomSource = () => number;
+import type { RandomSource } from "../random";
 
 const pickGarbageHoles = (cellCount: number, holesPerLine: number, random: RandomSource): Set<number> => {
   const holeCount = Math.min(Math.max(1, Math.floor(holesPerLine)), cellCount);

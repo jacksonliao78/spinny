@@ -1,10 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { createBoard } from "../../engine/board/factory";
 import { SOLID_CELL } from "../../engine/board/types";
 import { RectangularBoard } from "../../engine/board/rectangular";
 import { RingBoard } from "../../engine/board/ring";
 import { Piece } from "../../engine/piece";
+import { createSeededRandom } from "../../engine/random";
 
 test("Board gravity and lateral deltas follow rotation", () => {
   const board = new RingBoard(10, 20);
@@ -250,4 +252,14 @@ test("RectangularBoard chooses a fresh random hole set for separate garbage call
   assert.equal(board.board[4][5], null);
   assert.equal(board.board[5][2], null);
   assert.equal(board.board[5][5], SOLID_CELL);
+});
+
+test("createBoard passes seeded randomness into garbage generation", () => {
+  const a = createBoard("rectangular", 14, 24, createSeededRandom("garbage-seed"));
+  const b = createBoard("rectangular", 14, 24, createSeededRandom("garbage-seed"));
+
+  a.addGarbage(2, 1);
+  b.addGarbage(2, 1);
+
+  assert.deepEqual(a.getLockedCopy(), b.getLockedCopy());
 });
