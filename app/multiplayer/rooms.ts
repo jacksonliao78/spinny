@@ -18,6 +18,7 @@ type MultiplayerRoom = {
   settings: MultiplayerRoomSettings;
   seed: string | null;
   countdownStartsAt: string | null;
+  memberCount: number | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -89,6 +90,7 @@ const roomFromRow = (row: any): MultiplayerRoom => ({
   settings: buildRoomSettings(row.settings ?? {}),
   seed: typeof row.seed === "string" ? row.seed : null,
   countdownStartsAt: typeof row.countdown_starts_at === "string" ? row.countdown_starts_at : null,
+  memberCount: row.member_count == null ? null : Number(row.member_count),
   createdAt: String(row.created_at),
   updatedAt: String(row.updated_at),
 });
@@ -171,12 +173,7 @@ const createRoom = async (
 };
 
 const listPublicRooms = async (supabase: SupabaseClient): Promise<MultiplayerRoom[]> => {
-  const { data, error } = await supabase
-    .from("rooms")
-    .select("*")
-    .eq("visibility", "public")
-    .eq("status", "lobby")
-    .order("created_at", { ascending: false });
+  const { data, error } = await supabase.rpc("list_public_rooms");
   if (error) throw error;
   return (data ?? []).map(roomFromRow);
 };

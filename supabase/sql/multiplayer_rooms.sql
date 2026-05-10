@@ -260,6 +260,50 @@ $$;
 REVOKE ALL ON FUNCTION public.join_public_room(uuid, text, int) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.join_public_room(uuid, text, int) TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.list_public_rooms()
+RETURNS TABLE (
+  id uuid,
+  join_code text,
+  visibility text,
+  status text,
+  host_user_id uuid,
+  max_players int,
+  settings jsonb,
+  seed text,
+  countdown_starts_at timestamptz,
+  created_at timestamptz,
+  updated_at timestamptz,
+  member_count bigint
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    r.id,
+    r.join_code,
+    r.visibility,
+    r.status,
+    r.host_user_id,
+    r.max_players,
+    r.settings,
+    r.seed,
+    r.countdown_starts_at,
+    r.created_at,
+    r.updated_at,
+    count(m.user_id) AS member_count
+  FROM public.rooms r
+  LEFT JOIN public.room_members m ON m.room_id = r.id
+  WHERE r.visibility = 'public'
+    AND r.status = 'lobby'
+  GROUP BY r.id
+  HAVING count(m.user_id) < r.max_players
+  ORDER BY r.created_at DESC;
+$$;
+
+REVOKE ALL ON FUNCTION public.list_public_rooms() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.list_public_rooms() TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.leave_room(target_room_id uuid)
 RETURNS void
 LANGUAGE plpgsql

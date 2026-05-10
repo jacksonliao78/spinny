@@ -148,6 +148,8 @@ const initLobbyScreen = ({
       currentRoom = null;
       lobbyContent.hidden = true;
       setStatus(error instanceof Error ? error.message : "Could not load lobby.", "error");
+    } finally {
+      if (myEpoch === loadEpoch) lobbyRefreshButton.disabled = false;
     }
   };
 
