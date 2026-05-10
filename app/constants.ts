@@ -9,6 +9,7 @@ const MODE_LABELS: Record<GameMode, string> = {
   marathon: "Marathon",
   sprint: "Sprint",
   zen: "Zen",
+  versus: "Versus",
 };
 
 const DEFAULT_BOARD_KIND: BoardKind = "rectangular";

@@ -108,6 +108,19 @@ test("mode policies mark saved modes and Zen practice behavior", () => {
   assert.equal(GAME_MODE_POLICIES.marathon.savesRun, true);
   assert.equal(GAME_MODE_POLICIES.sprint.savesRun, true);
   assert.equal(GAME_MODE_POLICIES.zen.savesRun, false);
+  assert.equal(GAME_MODE_POLICIES.versus.savesRun, false);
   assert.equal(GAME_MODE_POLICIES.zen.timerStyle, "none");
   assert.equal(GAME_MODE_POLICIES.zen.advancesLevel, false);
+});
+
+test("resolveGameConfig applies versus garbage defaults without survival", () => {
+  const resolved = resolveGameConfig({ mode: { kind: "versus" } });
+
+  assert.equal(resolved.mode.kind, "versus");
+  assert.equal(resolved.garbage.enabled, true);
+  assert.equal(resolved.garbage.holesPerRing, 1);
+  assert.equal(resolved.garbage.maxPerApply, 4);
+  assert.equal(resolved.garbage.survival, undefined);
+  assert.equal(GAME_MODE_POLICIES.versus.timerStyle, "countup");
+  assert.equal(GAME_MODE_POLICIES.versus.advancesLevel, false);
 });

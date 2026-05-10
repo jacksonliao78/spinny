@@ -1,4 +1,4 @@
-type GameMode = "timed" | "marathon" | "sprint" | "zen";
+type GameMode = "timed" | "marathon" | "sprint" | "zen" | "versus";
 type GameModeTimerStyle = "countdown" | "countup" | "none";
 
 type GameModePolicy = {
@@ -117,6 +117,14 @@ const GAME_MODE_POLICIES: Record<GameMode, GameModePolicy> = {
     showsLevel: false,
     savesRun: false,
   },
+  versus: {
+    timerStyle: "countup",
+    advancesLevel: false,
+    completesAtSprintTarget: false,
+    showsScore: true,
+    showsLevel: false,
+    savesRun: false,
+  },
 };
 
 const GAME_MODE_DEFAULT_OVERRIDES: Record<GameMode, GameConfigOverrides> = {
@@ -126,6 +134,14 @@ const GAME_MODE_DEFAULT_OVERRIDES: Record<GameMode, GameConfigOverrides> = {
   },
   sprint: {},
   zen: {},
+  versus: {
+    garbage: {
+      enabled: true,
+      holesPerRing: 1,
+      maxPerApply: 4,
+      survival: null,
+    },
+  },
 };
 
 /** Baseline solo config; modes should override this through `resolveGameConfig`. */

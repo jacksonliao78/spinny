@@ -37,6 +37,8 @@ const headlineFor = (summary: RunSummary): string => {
       return "Time Up";
     case "zen":
       return "Practice Ended";
+    case "versus":
+      return "Match Over";
     case "marathon":
     default:
       return "Run Over";
@@ -51,6 +53,8 @@ const primaryFor = (summary: RunSummary, durationMs: number): { label: string; v
       return { label: "Time", value: formatRunDuration(durationMs) };
     case "marathon":
       return { label: "Survival Time", value: formatRunDuration(durationMs) };
+    case "versus":
+      return { label: "Score", value: String(summary.score) };
     case "zen":
     default:
       return { label: "Practice Time", value: formatRunDuration(durationMs) };
