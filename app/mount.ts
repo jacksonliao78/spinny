@@ -18,6 +18,10 @@ import { createSessionController } from "./session";
 import { initAuthScreen } from "./screens/auth";
 import type { AuthScreen } from "./screens/auth";
 import { initLandingScreen } from "./screens/landing";
+import { initLobbyScreen } from "./screens/lobby";
+import type { LobbyScreen } from "./screens/lobby";
+import { initMultiplayerScreen } from "./screens/multiplayer";
+import type { MultiplayerScreen } from "./screens/multiplayer";
 import { initPlayingScreen } from "./screens/playing";
 import type { PlayingScreen } from "./screens/playing";
 import { initSettingsScreen } from "./screens/settings";
@@ -50,12 +54,15 @@ const mountApp = (): void => {
   const gameScreen = getElement<HTMLElement>("game-screen");
   const settingsScreenEl = getElement<HTMLElement>("settings-screen");
   const statsScreenEl = getElement<HTMLElement>("stats-screen");
+  const multiplayerScreenEl = getElement<HTMLElement>("multiplayer-screen");
+  const lobbyScreenEl = getElement<HTMLElement>("lobby-screen");
 
   const soloButton = getElement<HTMLButtonElement>("solo-button");
   const authButton = getElement<HTMLButtonElement>("auth-button");
   const signOutButton = getElement<HTMLButtonElement>("sign-out-button");
   const authSummaryText = getElement<HTMLElement>("auth-summary-text");
   const statsButton = getElement<HTMLButtonElement>("stats-button");
+  const multiplayerButton = getElement<HTMLButtonElement>("multiplayer-button");
   const settingsButton = getElement<HTMLButtonElement>("settings-button");
 
   const authBackButton = getElement<HTMLButtonElement>("auth-back-button");
@@ -81,6 +88,29 @@ const mountApp = (): void => {
   const statsBests = getElement<HTMLElement>("stats-bests");
   const statsActivity = getElement<HTMLElement>("stats-activity");
   const statsEmpty = getElement<HTMLElement>("stats-empty");
+
+  const multiplayerBackButton = getElement<HTMLButtonElement>("multiplayer-back-button");
+  const multiplayerSignInButton = getElement<HTMLButtonElement>("multiplayer-sign-in-button");
+  const createPublicRoomButton = getElement<HTMLButtonElement>("create-public-room-button");
+  const createPrivateRoomButton = getElement<HTMLButtonElement>("create-private-room-button");
+  const joinCodeInput = getElement<HTMLInputElement>("join-code-input");
+  const joinCodeButton = getElement<HTMLButtonElement>("join-code-button");
+  const refreshRoomsButton = getElement<HTMLButtonElement>("refresh-rooms-button");
+  const multiplayerStatus = getElement<HTMLElement>("multiplayer-status");
+  const multiplayerContent = getElement<HTMLElement>("multiplayer-content");
+  const publicRoomsList = getElement<HTMLElement>("public-rooms-list");
+
+  const lobbyLeaveButton = getElement<HTMLButtonElement>("lobby-leave-button");
+  const lobbyRefreshButton = getElement<HTMLButtonElement>("lobby-refresh-button");
+  const lobbyReadyButton = getElement<HTMLButtonElement>("lobby-ready-button");
+  const lobbyStartButton = getElement<HTMLButtonElement>("lobby-start-button");
+  const lobbyStatus = getElement<HTMLElement>("lobby-status");
+  const lobbyContent = getElement<HTMLElement>("lobby-content");
+  const lobbyHeading = getElement<HTMLElement>("lobby-heading");
+  const lobbyCode = getElement<HTMLElement>("lobby-code");
+  const lobbyVisibility = getElement<HTMLElement>("lobby-visibility");
+  const lobbyRoomStatus = getElement<HTMLElement>("lobby-room-status");
+  const lobbyMembers = getElement<HTMLElement>("lobby-members");
 
   const backToLandingButton = getElement<HTMLButtonElement>("back-to-landing-button");
   const backToSetupButton = getElement<HTMLButtonElement>("back-to-setup-button");
@@ -146,6 +176,7 @@ const mountApp = (): void => {
   let selectedBoard: BoardKind = initialSpinnyOn ? "ring" : DEFAULT_BOARD_KIND;
   let game: Game | null = null;
   let testGame: Game | null = null;
+  let currentRoomId: string | null = null;
   let settingsTestFocused = false;
   let paused = false;
   let gameplayBlocked = false;
@@ -227,6 +258,8 @@ const mountApp = (): void => {
   let settingsScreen: SettingsScreen | null = null;
   let playingScreen: PlayingScreen | null = null;
   let statsScreen: StatsScreen | null = null;
+  let multiplayerScreen: MultiplayerScreen | null = null;
+  let lobbyScreen: LobbyScreen | null = null;
 
   const navigate = (nextScreen: AppScreen): void => {
     appScreen = nextScreen;
@@ -236,6 +269,8 @@ const mountApp = (): void => {
     gameScreen.classList.toggle("screen--active", nextScreen === "playing");
     settingsScreenEl.classList.toggle("screen--active", nextScreen === "settings");
     statsScreenEl.classList.toggle("screen--active", nextScreen === "stats");
+    multiplayerScreenEl.classList.toggle("screen--active", nextScreen === "multiplayer");
+    lobbyScreenEl.classList.toggle("screen--active", nextScreen === "lobby");
 
     if (nextScreen !== "playing") {
       paused = true;
@@ -250,6 +285,14 @@ const mountApp = (): void => {
 
     if (nextScreen === "stats") {
       statsScreen?.enter();
+    }
+
+    if (nextScreen === "multiplayer") {
+      multiplayerScreen?.enter();
+    }
+
+    if (nextScreen === "lobby") {
+      lobbyScreen?.enter();
     }
 
     syncInputControllerState();
@@ -366,6 +409,47 @@ const mountApp = (): void => {
     openAuthLogin: authScreen.openLogin,
   });
 
+  multiplayerScreen = initMultiplayerScreen({
+    multiplayerBackButton,
+    multiplayerSignInButton,
+    createPublicRoomButton,
+    createPrivateRoomButton,
+    joinCodeInput,
+    joinCodeButton,
+    refreshRoomsButton,
+    multiplayerStatus,
+    multiplayerContent,
+    publicRoomsList,
+    supabase,
+    session,
+    navigate,
+    openAuthLogin: authScreen.openLogin,
+    setCurrentRoomId: (roomId) => {
+      currentRoomId = roomId;
+    },
+  });
+
+  lobbyScreen = initLobbyScreen({
+    lobbyLeaveButton,
+    lobbyRefreshButton,
+    lobbyReadyButton,
+    lobbyStartButton,
+    lobbyStatus,
+    lobbyContent,
+    lobbyHeading,
+    lobbyCode,
+    lobbyVisibility,
+    lobbyRoomStatus,
+    lobbyMembers,
+    supabase,
+    session,
+    navigate,
+    getCurrentRoomId: () => currentRoomId,
+    setCurrentRoomId: (roomId) => {
+      currentRoomId = roomId;
+    },
+  });
+
   initLandingScreen({
     soloButton,
     authButton,
@@ -373,6 +457,7 @@ const mountApp = (): void => {
     authSummaryText,
     settingsButton,
     statsButton,
+    multiplayerButton,
     supabase,
     session,
     navigate,

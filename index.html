@@ -51,7 +51,7 @@
             </div>
             <button id="solo-button" class="menu-button menu-button--primary" type="button">Solo</button>
             <button id="stats-button" class="menu-button" type="button">My Stats</button>
-            <button class="menu-button" type="button" disabled>Multiplayer</button>
+            <button id="multiplayer-button" class="menu-button" type="button">Multiplayer</button>
             <button id="settings-button" class="menu-button" type="button">Settings</button>
           </div>
         </div>
@@ -136,6 +136,80 @@
             <button id="stats-sign-in-button" class="primary-button" type="button" hidden>Sign In</button>
             <button id="stats-setup-button" class="secondary-button" type="button" hidden>Start A Run</button>
           </div>
+        </div>
+      </section>
+
+      <section id="multiplayer-screen" class="screen">
+        <div class="setup-header">
+          <div>
+            <p class="eyebrow">Multiplayer</p>
+            <h1>Rooms</h1>
+          </div>
+          <button id="multiplayer-back-button" class="secondary-button setup-back-button" type="button">Back</button>
+        </div>
+        <div class="multiplayer-layout">
+          <p id="multiplayer-status" class="auth-status multiplayer-status" role="status" aria-live="polite"></p>
+          <div id="multiplayer-content" class="multiplayer-content">
+            <section class="multiplayer-panel">
+              <h2>Create</h2>
+              <div class="room-actions">
+                <button id="create-public-room-button" class="primary-button" type="button">Public Room</button>
+                <button id="create-private-room-button" class="secondary-button" type="button">Private Room</button>
+              </div>
+            </section>
+            <section class="multiplayer-panel">
+              <h2>Join</h2>
+              <div class="join-code-row">
+                <input id="join-code-input" type="text" autocomplete="off" inputmode="text" maxlength="12" placeholder="Code" />
+                <button id="join-code-button" class="secondary-button" type="button">Join</button>
+              </div>
+            </section>
+            <section class="multiplayer-panel">
+              <div class="panel-heading-row">
+                <h2>Public</h2>
+                <button id="refresh-rooms-button" class="secondary-button" type="button">Refresh</button>
+              </div>
+              <div id="public-rooms-list" class="room-list"></div>
+            </section>
+          </div>
+          <div class="stats-actions">
+            <button id="multiplayer-sign-in-button" class="primary-button" type="button" hidden>Sign In</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="lobby-screen" class="screen">
+        <div class="setup-header">
+          <div>
+            <p class="eyebrow">Room Lobby</p>
+            <h1 id="lobby-heading">Waiting</h1>
+          </div>
+          <button id="lobby-leave-button" class="secondary-button setup-back-button" type="button">Leave</button>
+        </div>
+        <div class="lobby-layout">
+          <p id="lobby-status" class="auth-status lobby-status" role="status" aria-live="polite"></p>
+          <section id="lobby-content" class="multiplayer-panel lobby-panel" hidden>
+            <div class="lobby-meta">
+              <div>
+                <span>Code</span>
+                <strong id="lobby-code">------</strong>
+              </div>
+              <div>
+                <span>Visibility</span>
+                <strong id="lobby-visibility">Public</strong>
+              </div>
+              <div>
+                <span>Status</span>
+                <strong id="lobby-room-status">Lobby</strong>
+              </div>
+            </div>
+            <div id="lobby-members" class="lobby-members"></div>
+            <div class="lobby-actions">
+              <button id="lobby-ready-button" class="primary-button" type="button">Ready</button>
+              <button id="lobby-start-button" class="secondary-button" type="button">Start</button>
+              <button id="lobby-refresh-button" class="secondary-button" type="button">Refresh</button>
+            </div>
+          </section>
         </div>
       </section>
 
