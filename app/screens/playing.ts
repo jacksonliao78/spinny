@@ -11,7 +11,7 @@ import type { createRenderer } from "../../render/renderer";
 import type { HudUpdater } from "../../render/hudPanels";
 import type { AppScreen } from "../constants";
 import { MODE_LABELS, RECTANGULAR_BOARD_CONFIG, SPRINT_TARGET_CLEARS } from "../constants";
-import { buildMultiplayerSnapshot, type MultiplayerSnapshotPayload } from "../multiplayer/snapshots";
+import { buildMultiplayerSnapshot, isMultiplayerCell, type MultiplayerSnapshotPayload } from "../multiplayer/snapshots";
 import { buildCoreRunInsert, buildRunInsert, isMissingRunColumnError } from "../persistence/runs";
 import { buildRunSummaryViewModel } from "../runSummary";
 import type { SessionController } from "../session";
@@ -266,7 +266,8 @@ const initPlayingScreen = ({
       (maybe.hold === null || isPieceType(maybe.hold)) &&
       Array.isArray(maybe.next) &&
       maybe.next.every(isPieceType) &&
-      Array.isArray(maybe.cells)
+      Array.isArray(maybe.cells) &&
+      maybe.cells.every(isMultiplayerCell)
     );
   };
 

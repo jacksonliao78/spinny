@@ -27,6 +27,23 @@ type MultiplayerSnapshotPayload = {
 
 const isBroadcastCell = (cell: BoardCell): cell is PieceType | "solid" => cell !== null;
 
+const isMultiplayerCell = (value: unknown): value is MultiplayerCell => {
+  if (!value || typeof value !== "object") return false;
+  const maybe = value as Partial<MultiplayerCell>;
+  return (
+    typeof maybe.x === "number" &&
+    typeof maybe.y === "number" &&
+    (maybe.value === "solid" ||
+      maybe.value === "I" ||
+      maybe.value === "J" ||
+      maybe.value === "L" ||
+      maybe.value === "O" ||
+      maybe.value === "S" ||
+      maybe.value === "T" ||
+      maybe.value === "Z")
+  );
+};
+
 const addCell = (
   cells: Map<string, MultiplayerCell>,
   x: number,
@@ -92,5 +109,5 @@ const buildMultiplayerSnapshot = (
   };
 };
 
-export { buildMultiplayerSnapshot };
+export { buildMultiplayerSnapshot, isMultiplayerCell };
 export type { MultiplayerCell, MultiplayerSnapshotPayload };

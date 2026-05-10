@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Piece } from "../../engine/piece";
-import { buildMultiplayerSnapshot } from "../../app/multiplayer/snapshots";
+import { buildMultiplayerSnapshot, isMultiplayerCell } from "../../app/multiplayer/snapshots";
 import type { GameSnapshot } from "../../engine/game";
 
 const makeSnapshot = (): GameSnapshot => ({
@@ -53,4 +53,11 @@ test("buildMultiplayerSnapshot exports visible cells and active piece", () => {
   assert(payload.cells.some((cell) => cell.x === 0 && cell.y === 0 && cell.value === "I"));
   assert(payload.cells.some((cell) => cell.x === 1 && cell.y === 1 && cell.value === "solid"));
   assert(payload.cells.some((cell) => cell.value === "T"));
+});
+
+test("isMultiplayerCell rejects malformed broadcast cells", () => {
+  assert.equal(isMultiplayerCell({ x: 1, y: 2, value: "T" }), true);
+  assert.equal(isMultiplayerCell(null), false);
+  assert.equal(isMultiplayerCell({ x: 1, y: 2, value: "bad" }), false);
+  assert.equal(isMultiplayerCell({ x: "1", y: 2, value: "T" }), false);
 });
