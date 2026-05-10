@@ -19,6 +19,8 @@ type MultiplayerSnapshotPayload = {
   score: number;
   lines: number;
   incomingGarbage: number;
+  hold: PieceType | null;
+  next: PieceType[];
   gameOver: boolean;
   cells: MultiplayerCell[];
 };
@@ -83,6 +85,8 @@ const buildMultiplayerSnapshot = (
     score: snap.score,
     lines: snap.linesClearedTotal,
     incomingGarbage: snap.incomingGarbage,
+    hold: snap.hold,
+    next: snap.next,
     gameOver: snap.gameOver,
     cells: [...cells.values()],
   };

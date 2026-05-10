@@ -294,52 +294,77 @@
           </div>
         </div>
         <div class="game-play-area">
-          <div class="game-sidebar game-sidebar--left">
-            <div class="game-box">
-              <h3 class="game-box__title">Hold</h3>
-              <canvas id="hold-canvas" width="100" height="80"></canvas>
+          <div class="player-station player-station--local">
+            <div class="game-sidebar game-sidebar--left">
+              <div class="game-box">
+                <h3 class="game-box__title">Hold</h3>
+                <canvas id="hold-canvas" width="100" height="80"></canvas>
+              </div>
+              <div id="stats-box" class="game-box">
+                <span id="stat-timer" class="stat-timer"></span>
+                <div id="stat-lines-row" class="stat-row">
+                  <span class="stat-label">Lines</span>
+                  <span id="stat-lines" class="stat-value"></span>
+                </div>
+                <div id="stat-score-row" class="stat-row">
+                  <span class="stat-label">Score</span>
+                  <span id="stat-score" class="stat-value"></span>
+                </div>
+                <div id="stat-level-row" class="stat-row">
+                  <span class="stat-label">Level</span>
+                  <span id="stat-level" class="stat-value"></span>
+                </div>
+                <div id="stat-combo-row" class="stat-row">
+                  <span class="stat-label">Combo</span>
+                  <span id="stat-combo" class="stat-value"></span>
+                </div>
+                <div id="stat-survival-row" class="stat-row" hidden>
+                  <span class="stat-label">Next garbage</span>
+                  <span id="stat-survival" class="stat-value"></span>
+                </div>
+              </div>
             </div>
-            <div id="stats-box" class="game-box">
-              <span id="stat-timer" class="stat-timer"></span>
-              <div id="stat-lines-row" class="stat-row">
-                <span class="stat-label">Lines</span>
-                <span id="stat-lines" class="stat-value"></span>
-              </div>
-              <div id="stat-score-row" class="stat-row">
-                <span class="stat-label">Score</span>
-                <span id="stat-score" class="stat-value"></span>
-              </div>
-              <div id="stat-level-row" class="stat-row">
-                <span class="stat-label">Level</span>
-                <span id="stat-level" class="stat-value"></span>
-              </div>
-              <div id="stat-combo-row" class="stat-row">
-                <span class="stat-label">Combo</span>
-                <span id="stat-combo" class="stat-value"></span>
-              </div>
-              <div id="stat-survival-row" class="stat-row" hidden>
-                <span class="stat-label">Next garbage</span>
-                <span id="stat-survival" class="stat-value"></span>
+            <div class="game-board-slot">
+              <canvas id="game" width="320" height="640" tabindex="0"></canvas>
+              <div id="run-countdown" class="run-countdown" aria-live="polite" hidden></div>
+            </div>
+            <div class="game-sidebar game-sidebar--right">
+              <div class="game-box">
+                <h3 class="game-box__title">Next</h3>
+                <canvas id="next-canvas" width="100" height="440"></canvas>
               </div>
             </div>
           </div>
-          <div class="game-board-slot">
-            <canvas id="game" width="320" height="640" tabindex="0"></canvas>
-            <div id="run-countdown" class="run-countdown" aria-live="polite" hidden></div>
-          </div>
-          <div class="game-sidebar game-sidebar--right">
-            <div id="mp-opponent-panel" class="game-box opponent-panel" hidden>
-              <h3 class="game-box__title">Opponent</h3>
+          <div id="mp-opponent-panel" class="player-station player-station--opponent" hidden>
+            <div class="game-sidebar game-sidebar--left">
+              <div class="game-box">
+                <h3 class="game-box__title">Hold</h3>
+                <div id="mp-opponent-hold" class="opponent-piece-slot"></div>
+              </div>
+              <div class="game-box">
+                <span id="mp-opponent-status" class="stat-timer opponent-name">Waiting</span>
+                <div class="stat-row">
+                  <span class="stat-label">Lines</span>
+                  <span id="mp-opponent-lines" class="stat-value">0</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-label">Score</span>
+                  <span id="mp-opponent-score" class="stat-value">0</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-label">Incoming</span>
+                  <span id="mp-opponent-garbage" class="stat-value">0</span>
+                </div>
+              </div>
+            </div>
+            <div class="opponent-board-slot">
               <div id="mp-opponent-board" class="opponent-board"></div>
-              <div id="mp-opponent-status" class="opponent-status">Waiting for board</div>
-              <div class="opponent-stats">
-                <span id="mp-opponent-lines">0 lines</span>
-                <span id="mp-opponent-garbage">0 incoming</span>
-              </div>
             </div>
-            <div class="game-box">
-              <h3 class="game-box__title">Next</h3>
-              <canvas id="next-canvas" width="100" height="440"></canvas>
+            <div class="game-sidebar game-sidebar--right">
+              <div class="game-box">
+                <h3 class="game-box__title">Next</h3>
+                <div id="mp-opponent-next" class="opponent-next"></div>
+              </div>
             </div>
           </div>
           <div id="run-summary" class="run-summary" tabindex="-1" hidden>

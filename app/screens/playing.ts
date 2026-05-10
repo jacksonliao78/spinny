@@ -3,6 +3,7 @@ import type { BoardKind } from "@game/board/factory";
 import { Game, type RunSummary } from "@game/game";
 import { GAME_MODE_POLICIES } from "@game/game/rules";
 import type { GameConfigOverrides, GameMode } from "@game/game/rules";
+import { Piece, type PieceType } from "@game/piece";
 import { createSeededRandom } from "@game/random";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import type { InputController } from "../../input/controller";
@@ -29,7 +30,10 @@ type PlayingScreenOptions = {
   multiplayerOpponentPanel: HTMLElement;
   multiplayerOpponentBoard: HTMLElement;
   multiplayerOpponentStatus: HTMLElement;
+  multiplayerOpponentHold: HTMLElement;
+  multiplayerOpponentNext: HTMLElement;
   multiplayerOpponentLines: HTMLElement;
+  multiplayerOpponentScore: HTMLElement;
   multiplayerOpponentGarbage: HTMLElement;
   countdownEl: HTMLElement;
   runSummaryEl: HTMLElement;
@@ -81,7 +85,10 @@ const initPlayingScreen = ({
   multiplayerOpponentPanel,
   multiplayerOpponentBoard,
   multiplayerOpponentStatus,
+  multiplayerOpponentHold,
+  multiplayerOpponentNext,
   multiplayerOpponentLines,
+  multiplayerOpponentScore,
   multiplayerOpponentGarbage,
   countdownEl,
   runSummaryEl,
@@ -232,16 +239,40 @@ const initPlayingScreen = ({
     multiplayerOpponentBoard.replaceChildren();
     multiplayerOpponentBoard.style.removeProperty("grid-template-columns");
     multiplayerOpponentBoard.style.removeProperty("grid-template-rows");
+    multiplayerOpponentHold.replaceChildren();
+    multiplayerOpponentNext.replaceChildren();
     multiplayerOpponentStatus.textContent = "Waiting for board";
-    multiplayerOpponentLines.textContent = "0 lines";
-    multiplayerOpponentGarbage.textContent = "0 incoming";
+    multiplayerOpponentLines.textContent = "0";
+    multiplayerOpponentScore.textContent = "0";
+    multiplayerOpponentGarbage.textContent = "0";
+  };
+
+  const renderOpponentPiece = (type: PieceType | null): HTMLElement => {
+    const pieceEl = document.createElement("div");
+    pieceEl.className = "opponent-piece";
+    pieceEl.setAttribute("aria-label", type ?? "Empty");
+    if (!type) return pieceEl;
+
+    const shape = new Piece(type, 0, 0).getShape(0);
+    for (const row of shape) {
+      for (const occupied of row) {
+        const cell = document.createElement("div");
+        cell.className = "opponent-piece-cell";
+        if (occupied) cell.dataset.value = type;
+        pieceEl.append(cell);
+      }
+    }
+    return pieceEl;
   };
 
   const renderOpponentSnapshot = (payload: MultiplayerSnapshotPayload): void => {
     opponentLastSeenMs = performance.now();
     multiplayerOpponentStatus.textContent = payload.gameOver ? `${payload.username} out` : payload.username;
-    multiplayerOpponentLines.textContent = `${payload.lines} lines`;
-    multiplayerOpponentGarbage.textContent = `${payload.incomingGarbage} incoming`;
+    multiplayerOpponentLines.textContent = String(payload.lines);
+    multiplayerOpponentScore.textContent = String(payload.score);
+    multiplayerOpponentGarbage.textContent = String(payload.incomingGarbage);
+    multiplayerOpponentHold.replaceChildren(renderOpponentPiece(payload.hold));
+    multiplayerOpponentNext.replaceChildren(...payload.next.map(renderOpponentPiece));
     multiplayerOpponentBoard.style.gridTemplateColumns = `repeat(${payload.width}, minmax(0, 1fr))`;
     multiplayerOpponentBoard.style.gridTemplateRows = `repeat(${payload.height}, minmax(0, 1fr))`;
 
@@ -372,6 +403,9 @@ const initPlayingScreen = ({
     backToSetupButton.textContent = origin === "multiplayer" ? "Back To Rooms" : "Back To Setup";
     runSummarySetupButton.textContent = origin === "multiplayer" ? "Back To Rooms" : "Back To Menu";
     multiplayerOpponentPanel.hidden = origin !== "multiplayer";
+    if (gamePlayArea instanceof HTMLElement) {
+      gamePlayArea.classList.toggle("game-play-area--multiplayer", origin === "multiplayer");
+    }
     hudUpdater.configure(mode, SPRINT_TARGET_CLEARS[boardKind]);
     navigate("playing");
     renderer.syncGameConfig(game);

@@ -47,6 +47,8 @@ test("buildMultiplayerSnapshot exports visible cells and active piece", () => {
   assert.equal(payload.height, 4);
   assert.equal(payload.lines, 3);
   assert.equal(payload.incomingGarbage, 2);
+  assert.equal(payload.hold, null);
+  assert.deepEqual(payload.next, ["I", "O", "T", "S", "Z"]);
   assert.equal(payload.sentAt, 123);
   assert(payload.cells.some((cell) => cell.x === 0 && cell.y === 0 && cell.value === "I"));
   assert(payload.cells.some((cell) => cell.x === 1 && cell.y === 1 && cell.value === "solid"));

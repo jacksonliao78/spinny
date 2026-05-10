@@ -199,6 +199,10 @@ select {
   overflow: visible;
 }
 
+.app:has(#game-screen.screen--active) {
+  width: min(1440px, 100%);
+}
+
 .screen {
   display: none;
 }
@@ -1094,6 +1098,33 @@ select {
   overflow: auto;
 }
 
+.player-station {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 0;
+}
+
+.game-play-area--multiplayer {
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.game-play-area--multiplayer .player-station {
+  flex: 1 1 0;
+}
+
+.game-play-area--multiplayer .player-station--local {
+  justify-content: flex-end;
+}
+
+.game-play-area--multiplayer .player-station--opponent {
+  justify-content: flex-start;
+}
+
 .game-board-slot {
   position: relative;
   flex: 0 1 auto;
@@ -1264,9 +1295,19 @@ select {
   height: auto;
 }
 
+.opponent-board-slot {
+  width: min(320px, 34vw);
+  min-width: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .opponent-board {
   display: grid;
   gap: 1px;
+  width: 100%;
+  max-height: calc(100dvh - 10rem);
   border: 1px solid rgba(255, 210, 226, 0.1);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
@@ -1275,59 +1316,76 @@ select {
   overflow: hidden;
 }
 
+.opponent-piece-slot,
+.opponent-next {
+  display: grid;
+  gap: 0.4rem;
+  justify-items: center;
+}
+
+.opponent-piece {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 1px;
+}
+
+.opponent-piece-cell {
+  min-width: 0;
+  min-height: 0;
+}
+
 .opponent-cell {
   min-width: 0;
   min-height: 0;
   background: rgba(15, 23, 40, 0.7);
 }
 
+.opponent-piece-cell[data-value],
 .opponent-cell[data-value="solid"] {
   background: #6b7280;
 }
 
+.opponent-piece-cell[data-value="I"],
 .opponent-cell[data-value="I"] {
   background: #7ed7ef;
 }
 
+.opponent-piece-cell[data-value="J"],
 .opponent-cell[data-value="J"] {
   background: #6f7ddb;
 }
 
+.opponent-piece-cell[data-value="L"],
 .opponent-cell[data-value="L"] {
   background: #bf8a69;
 }
 
+.opponent-piece-cell[data-value="O"],
 .opponent-cell[data-value="O"] {
   background: #f7dc83;
 }
 
+.opponent-piece-cell[data-value="S"],
 .opponent-cell[data-value="S"] {
   background: #72d89d;
 }
 
+.opponent-piece-cell[data-value="T"],
 .opponent-cell[data-value="T"] {
   background: #a276d9;
 }
 
+.opponent-piece-cell[data-value="Z"],
 .opponent-cell[data-value="Z"] {
   background: #de7ea0;
 }
 
-.opponent-status,
-.opponent-stats {
-  margin-top: 0.45rem;
-  color: var(--muted-text);
-  font-size: 0.78rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-align: center;
-  text-transform: uppercase;
-}
-
-.opponent-stats {
-  display: grid;
-  gap: 0.25rem;
-  font-size: 0.7rem;
+.opponent-name {
+  font-size: 1rem;
+  overflow-wrap: anywhere;
 }
 
 .stat-timer {
@@ -1543,6 +1601,21 @@ input[type="range"] {
 
   .game-play-area {
     flex-wrap: wrap;
+  }
+
+  .player-station {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .game-play-area--multiplayer .player-station {
+    flex-basis: 100%;
+  }
+
+  .opponent-board-slot {
+    order: 2;
+    width: 100%;
+    max-width: 320px;
   }
 
   .game-board-slot {
