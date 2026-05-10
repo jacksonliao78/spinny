@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppScreen } from "../constants";
 import {
   fetchRoom,
+  getServerTime,
   leaveRoom,
   setReady,
   startRoom,
@@ -28,11 +29,12 @@ type LobbyScreenOptions = {
   navigate: (screen: AppScreen) => void;
   getCurrentRoomId: () => string | null;
   setCurrentRoomId: (roomId: string | null) => void;
-  startMultiplayerGame: (room: RoomWithMembers["room"]) => void;
+  startMultiplayerGame: (room: RoomWithMembers["room"], serverNowMs?: number) => void;
 };
 
 type LobbyScreen = {
   enter: () => void;
+  leave: () => void;
 };
 
 const statusLabel = (value: string): string => value.charAt(0).toUpperCase() + value.slice(1);
@@ -82,6 +84,8 @@ const initLobbyScreen = ({
 }: LobbyScreenOptions): LobbyScreen => {
   let currentRoom: RoomWithMembers | null = null;
   let loadEpoch = 0;
+  let pollTimer: number | null = null;
+  let loadInFlight = false;
 
   const setStatus = (message: string, kind = ""): void => {
     lobbyStatus.textContent = message;
@@ -124,7 +128,13 @@ const initLobbyScreen = ({
     Boolean(room.room.seed) &&
     Boolean(room.room.countdownStartsAt);
 
+  const startLocalGameFromRoom = async (room: RoomWithMembers["room"]): Promise<void> => {
+    const serverTime = supabase ? Date.parse(await getServerTime(supabase)) : NaN;
+    startMultiplayerGame(room, Number.isFinite(serverTime) ? serverTime : undefined);
+  };
+
   const loadRoom = async (silent = false): Promise<void> => {
+    if (loadInFlight) return;
     const roomId = getCurrentRoomId();
     const user = session.getCurrentUser();
     if (!roomId || !user || session.isGuestMode()) {
@@ -141,6 +151,7 @@ const initLobbyScreen = ({
     }
 
     const myEpoch = ++loadEpoch;
+    loadInFlight = true;
     if (!silent) setStatus("Loading lobby...", "");
     lobbyRefreshButton.disabled = true;
     try {
@@ -150,7 +161,7 @@ const initLobbyScreen = ({
       currentRoom = room;
       render(room);
       if (shouldStartLocalGame(room)) {
-        startMultiplayerGame(room.room);
+        await startLocalGameFromRoom(room.room);
         return;
       }
       setStatus("", "");
@@ -160,6 +171,7 @@ const initLobbyScreen = ({
       lobbyContent.hidden = true;
       setStatus(error instanceof Error ? error.message : "Could not load lobby.", "error");
     } finally {
+      loadInFlight = false;
       if (myEpoch === loadEpoch) lobbyRefreshButton.disabled = false;
     }
   };
@@ -212,11 +224,10 @@ const initLobbyScreen = ({
     setButtonsBusy(true);
     setStatus("Starting room...", "");
     try {
-      const countdownStartsAt = new Date(Date.now() + 3_000).toISOString();
-      const started = await startRoom(supabase, room.room.id, room.room.settings, createSeed(), countdownStartsAt);
+      const started = await startRoom(supabase, room.room.id, room.room.settings, createSeed(), 3_000);
       currentRoom = { ...room, room: started };
       render(currentRoom);
-      startMultiplayerGame(started);
+      await startLocalGameFromRoom(started);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not start room.", "error");
     } finally {
@@ -228,7 +239,16 @@ const initLobbyScreen = ({
   const enter = (): void => {
     setStatus("", "");
     lobbyContent.hidden = true;
+    if (pollTimer !== null) window.clearInterval(pollTimer);
+    pollTimer = window.setInterval(() => void loadRoom(true), 1_000);
     void loadRoom();
+  };
+
+  const leave = (): void => {
+    if (pollTimer !== null) {
+      window.clearInterval(pollTimer);
+      pollTimer = null;
+    }
   };
 
   lobbyLeaveButton.addEventListener("click", () => void leaveCurrentRoom());
@@ -236,7 +256,7 @@ const initLobbyScreen = ({
   lobbyReadyButton.addEventListener("click", () => void toggleReady());
   lobbyStartButton.addEventListener("click", () => void startCurrentRoom());
 
-  return { enter };
+  return { enter, leave };
 };
 
 export { initLobbyScreen };

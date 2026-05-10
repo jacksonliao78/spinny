@@ -14,6 +14,7 @@ import { createRenderer } from "../render/renderer";
 import { getSupabase, isSupabaseConfigured } from "../supabase/client";
 import { DEFAULT_BOARD_KIND, DEFAULT_GAME_MODE, SPINNY_BOARD_PREF_KEY, type AppScreen } from "./constants";
 import { getElement } from "./dom";
+import { leaveRoom } from "./multiplayer/rooms";
 import { createSessionController } from "./session";
 import { initAuthScreen } from "./screens/auth";
 import type { AuthScreen } from "./screens/auth";
@@ -294,6 +295,8 @@ const mountApp = (): void => {
 
     if (nextScreen === "lobby") {
       lobbyScreen?.enter();
+    } else {
+      lobbyScreen?.leave();
     }
 
     syncInputControllerState();
@@ -361,6 +364,12 @@ const mountApp = (): void => {
     },
     shouldBlockGameplayKey,
     blockHandledKeys,
+    leaveMultiplayerRoom: async () => {
+      if (currentRoomId && supabase) {
+        await leaveRoom(supabase, currentRoomId);
+      }
+      currentRoomId = null;
+    },
   });
 
   settingsScreen = initSettingsScreen({
@@ -450,8 +459,8 @@ const mountApp = (): void => {
     setCurrentRoomId: (roomId) => {
       currentRoomId = roomId;
     },
-    startMultiplayerGame: (room) => {
-      playingScreen?.startMultiplayerGame(room);
+    startMultiplayerGame: (room, serverNowMs) => {
+      playingScreen?.startMultiplayerGame(room, serverNowMs);
     },
   });
 

@@ -53,11 +53,12 @@ type PlayingScreenOptions = {
   setGameplayBlocked: (blocked: boolean) => void;
   shouldBlockGameplayKey: () => boolean;
   blockHandledKeys: (e: KeyboardEvent) => void;
+  leaveMultiplayerRoom: () => Promise<void>;
 };
 
 type PlayingScreen = {
   startGame: (countdownSeconds?: number) => void;
-  startMultiplayerGame: (room: MultiplayerRoom) => void;
+  startMultiplayerGame: (room: MultiplayerRoom, serverNowMs?: number) => void;
   resetGame: () => void;
   setTipsOpen: (open: boolean) => void;
   stepFrame: (dtMs: number) => void;
@@ -100,6 +101,7 @@ const initPlayingScreen = ({
   setGameplayBlocked,
   shouldBlockGameplayKey,
   blockHandledKeys,
+  leaveMultiplayerRoom,
 }: PlayingScreenOptions): PlayingScreen => {
   let runDurationMs = 0;
   let completedRunSaveStarted = false;
@@ -325,14 +327,14 @@ const initPlayingScreen = ({
     });
   };
 
-  const startMultiplayerGame = (room: MultiplayerRoom): void => {
+  const startMultiplayerGame = (room: MultiplayerRoom, serverNowMs?: number): void => {
     const startsAtMs = Date.parse(room.countdownStartsAt ?? "");
     startConfiguredGame({
       mode: "versus",
       boardKind: room.settings.boardKind,
       origin: "multiplayer",
       seed: room.seed ?? room.id,
-      countdownMs: Number.isFinite(startsAtMs) ? Math.max(0, startsAtMs - Date.now()) : 0,
+      countdownMs: Number.isFinite(startsAtMs) ? Math.max(0, startsAtMs - (serverNowMs ?? Date.now())) : 0,
     });
   };
 
@@ -370,17 +372,40 @@ const initPlayingScreen = ({
     return false;
   };
 
+  const leaveMultiplayerGame = (): void => {
+    const leave = async (): Promise<void> => {
+      try {
+        await leaveMultiplayerRoom();
+      } catch (error) {
+        console.warn("Could not leave room", error);
+        return;
+      }
+      clearCountdown();
+      hideRunSummary();
+      navigate("multiplayer");
+    };
+    void leave();
+  };
+
   canvas.addEventListener("click", () => canvas.focus());
   backToSetupButton.addEventListener("click", () => {
+    if (activeOrigin === "multiplayer") {
+      leaveMultiplayerGame();
+      return;
+    }
     clearCountdown();
     hideRunSummary();
-    navigate(activeOrigin === "multiplayer" ? "multiplayer" : "setup");
+    navigate("setup");
   });
   runSummaryRestartButton.addEventListener("click", () => resetGame());
   runSummarySetupButton.addEventListener("click", () => {
+    if (activeOrigin === "multiplayer") {
+      leaveMultiplayerGame();
+      return;
+    }
     clearCountdown();
     hideRunSummary();
-    navigate(activeOrigin === "multiplayer" ? "multiplayer" : "setup");
+    navigate("setup");
   });
   tipsButton.addEventListener("click", () => setTipsOpen(!!tipsPopover.hidden));
   document.addEventListener("click", (e) => {

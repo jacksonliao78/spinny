@@ -213,6 +213,12 @@ const leaveRoom = async (supabase: SupabaseClient, roomId: string): Promise<void
   if (error) throw error;
 };
 
+const getServerTime = async (supabase: SupabaseClient): Promise<string> => {
+  const { data, error } = await supabase.rpc("get_server_time");
+  if (error) throw error;
+  return String(data);
+};
+
 const setReady = async (supabase: SupabaseClient, roomId: string, userId: string, ready: boolean): Promise<void> => {
   const { error } = await supabase
     .from("room_members")
@@ -236,13 +242,13 @@ const startRoom = async (
   roomId: string,
   settings: MultiplayerRoomSettings,
   seed: string,
-  countdownStartsAt: string,
+  countdownDelayMs: number,
 ): Promise<MultiplayerRoom> => {
   const { data, error } = await supabase.rpc("start_room", {
     target_room_id: roomId,
     next_settings: settings,
     next_seed: seed,
-    next_countdown_starts_at: countdownStartsAt,
+    next_countdown_delay_ms: Math.max(0, Math.floor(countdownDelayMs)),
   });
   if (error) throw error;
   return roomFromRow(data);
@@ -254,6 +260,7 @@ export {
   createJoinCode,
   createRoom,
   fetchRoom,
+  getServerTime,
   joinPrivateRoomByCode,
   joinPublicRoom,
   leaveRoom,

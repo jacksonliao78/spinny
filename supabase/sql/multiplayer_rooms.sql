@@ -304,6 +304,18 @@ $$;
 REVOKE ALL ON FUNCTION public.list_public_rooms() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.list_public_rooms() TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.get_server_time()
+RETURNS timestamptz
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT now();
+$$;
+
+REVOKE ALL ON FUNCTION public.get_server_time() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_server_time() TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.leave_room(target_room_id uuid)
 RETURNS void
 LANGUAGE plpgsql
@@ -365,11 +377,13 @@ $$;
 REVOKE ALL ON FUNCTION public.leave_room(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.leave_room(uuid) TO authenticated;
 
+DROP FUNCTION IF EXISTS public.start_room(uuid, jsonb, text, timestamptz);
+
 CREATE OR REPLACE FUNCTION public.start_room(
   target_room_id uuid,
   next_settings jsonb,
   next_seed text,
-  next_countdown_starts_at timestamptz
+  next_countdown_delay_ms int
 )
 RETURNS public.rooms
 LANGUAGE plpgsql
@@ -423,7 +437,7 @@ BEGIN
     status = 'countdown',
     settings = coalesce(next_settings, '{}'::jsonb),
     seed = next_seed,
-    countdown_starts_at = next_countdown_starts_at
+    countdown_starts_at = now() + greatest(0, coalesce(next_countdown_delay_ms, 0)) * interval '1 millisecond'
   WHERE id = target_room_id
   RETURNING * INTO started_room;
 
@@ -431,8 +445,8 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.start_room(uuid, jsonb, text, timestamptz) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.start_room(uuid, jsonb, text, timestamptz) TO authenticated;
+REVOKE ALL ON FUNCTION public.start_room(uuid, jsonb, text, int) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.start_room(uuid, jsonb, text, int) TO authenticated;
 
 ALTER TABLE public.rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.room_members ENABLE ROW LEVEL SECURITY;
