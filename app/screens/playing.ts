@@ -247,6 +247,29 @@ const initPlayingScreen = ({
     multiplayerOpponentGarbage.textContent = "0";
   };
 
+  const isPieceType = (value: unknown): value is PieceType =>
+    value === "I" || value === "J" || value === "L" || value === "O" || value === "S" || value === "T" || value === "Z";
+
+  const isSnapshotPayload = (payload: unknown, roomId: string): payload is MultiplayerSnapshotPayload => {
+    if (!payload || typeof payload !== "object") return false;
+    const maybe = payload as Partial<MultiplayerSnapshotPayload>;
+    return (
+      maybe.version === 2 &&
+      maybe.roomId === roomId &&
+      typeof maybe.userId === "string" &&
+      typeof maybe.username === "string" &&
+      typeof maybe.width === "number" &&
+      typeof maybe.height === "number" &&
+      typeof maybe.score === "number" &&
+      typeof maybe.lines === "number" &&
+      typeof maybe.incomingGarbage === "number" &&
+      (maybe.hold === null || isPieceType(maybe.hold)) &&
+      Array.isArray(maybe.next) &&
+      maybe.next.every(isPieceType) &&
+      Array.isArray(maybe.cells)
+    );
+  };
+
   const renderOpponentPiece = (type: PieceType | null): HTMLElement => {
     const pieceEl = document.createElement("div");
     pieceEl.className = "opponent-piece";
@@ -305,9 +328,10 @@ const initPlayingScreen = ({
     multiplayerChannel = supabase
       .channel(`room:${roomId}`)
       .on("broadcast", { event: "snapshot" }, ({ payload }) => {
-        const remote = payload as MultiplayerSnapshotPayload;
+        if (!isSnapshotPayload(payload, roomId)) return;
+        const remote = payload;
         const currentUser = session.getCurrentUser();
-        if (remote.version !== 1 || remote.roomId !== roomId || remote.userId === currentUser?.id) return;
+        if (remote.userId === currentUser?.id) return;
         renderOpponentSnapshot(remote);
       })
       .subscribe();

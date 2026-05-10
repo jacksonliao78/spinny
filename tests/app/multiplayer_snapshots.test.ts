@@ -41,7 +41,7 @@ const makeSnapshot = (): GameSnapshot => ({
 test("buildMultiplayerSnapshot exports visible cells and active piece", () => {
   const payload = buildMultiplayerSnapshot("room-1", "user-1", "player", makeSnapshot(), 123);
 
-  assert.equal(payload.version, 1);
+  assert.equal(payload.version, 2);
   assert.equal(payload.roomId, "room-1");
   assert.equal(payload.width, 4);
   assert.equal(payload.height, 4);

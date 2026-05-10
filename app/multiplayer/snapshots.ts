@@ -9,7 +9,7 @@ type MultiplayerCell = {
 };
 
 type MultiplayerSnapshotPayload = {
-  version: 1;
+  version: 2;
   roomId: string;
   userId: string;
   username: string;
@@ -75,7 +75,7 @@ const buildMultiplayerSnapshot = (
   }
 
   return {
-    version: 1,
+    version: 2,
     roomId,
     userId,
     username,
