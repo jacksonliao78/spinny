@@ -101,6 +101,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.room_has_open_slot(target_room_id uuid)
 RETURNS boolean
 LANGUAGE sql
+SECURITY DEFINER
 SET search_path = public
 AS $$
   SELECT EXISTS (
@@ -108,6 +109,7 @@ AS $$
     FROM public.rooms r
     WHERE r.id = target_room_id
       AND r.status = 'lobby'
+      AND (r.visibility = 'public' OR r.host_user_id = auth.uid())
       AND (
         SELECT count(*)
         FROM public.room_members m
