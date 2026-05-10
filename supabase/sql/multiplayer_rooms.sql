@@ -101,7 +101,6 @@ $$;
 CREATE OR REPLACE FUNCTION public.room_has_open_slot(target_room_id uuid)
 RETURNS boolean
 LANGUAGE sql
-SECURITY DEFINER
 SET search_path = public
 AS $$
   SELECT EXISTS (
@@ -257,12 +256,33 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "room_members_update_self" ON public.room_members;
-CREATE POLICY "room_members_update_self"
+DROP POLICY IF EXISTS "room_members_update_self_presence" ON public.room_members;
+CREATE POLICY "room_members_update_self_presence"
 ON public.room_members
 FOR UPDATE
 TO authenticated
 USING (user_id = auth.uid())
-WITH CHECK (user_id = auth.uid());
+WITH CHECK (
+  user_id = auth.uid()
+  AND room_id = (
+    SELECT old_member.room_id
+    FROM public.room_members AS old_member
+    WHERE old_member.room_id = room_members.room_id
+      AND old_member.user_id = auth.uid()
+  )
+  AND slot = (
+    SELECT old_member.slot
+    FROM public.room_members AS old_member
+    WHERE old_member.room_id = room_members.room_id
+      AND old_member.user_id = auth.uid()
+  )
+  AND username = (
+    SELECT old_member.username
+    FROM public.room_members AS old_member
+    WHERE old_member.room_id = room_members.room_id
+      AND old_member.user_id = auth.uid()
+  )
+);
 
 DROP POLICY IF EXISTS "room_members_delete_self_or_host" ON public.room_members;
 CREATE POLICY "room_members_delete_self_or_host"
@@ -289,9 +309,3 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "room_results_update_self" ON public.room_results;
-CREATE POLICY "room_results_update_self"
-ON public.room_results
-FOR UPDATE
-TO authenticated
-USING (user_id = auth.uid())
-WITH CHECK (user_id = auth.uid());
