@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppScreen } from "../constants";
 import { buildPlayerStatsViewModel, type PlayerBest, type PlayerStat, type SavedRunRow } from "../playerStats";
+import { isMissingRunColumnError } from "../persistence/runs";
 import type { SessionController } from "../session";
 
 type StatsScreenOptions = {
@@ -24,13 +25,18 @@ type StatsScreen = {
   enter: () => void;
 };
 
-const RUN_STATS_SELECT = [
+const CORE_RUN_STATS_SELECT = [
+  "finished_at",
   "mode",
   "score",
   "lines",
   "level",
   "duration_ms",
   "board_type",
+].join(",");
+
+const RUN_STATS_SELECT = [
+  CORE_RUN_STATS_SELECT,
   "pieces",
   "holds",
   "hard_drop_cells",
@@ -129,7 +135,20 @@ const initStatsScreen = ({
 
     const load = async (): Promise<void> => {
       setStatus("Loading stats...", "");
-      const { data, error } = await supabase.from("runs").select(RUN_STATS_SELECT).eq("user_id", user.id);
+      let { data, error } = await supabase
+        .from("runs")
+        .select(RUN_STATS_SELECT)
+        .eq("user_id", user.id)
+        .order("finished_at", { ascending: false });
+      if (error && isMissingRunColumnError(error)) {
+        const fallback = await supabase
+          .from("runs")
+          .select(CORE_RUN_STATS_SELECT)
+          .eq("user_id", user.id)
+          .order("finished_at", { ascending: false });
+        data = fallback.data;
+        error = fallback.error;
+      }
       if (myEpoch !== loadEpoch) return;
 
       if (error) {

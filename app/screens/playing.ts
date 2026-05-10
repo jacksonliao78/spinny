@@ -9,7 +9,7 @@ import type { createRenderer } from "../../render/renderer";
 import type { HudUpdater } from "../../render/hudPanels";
 import type { AppScreen } from "../constants";
 import { MODE_LABELS, RECTANGULAR_BOARD_CONFIG, SPRINT_TARGET_CLEARS } from "../constants";
-import { buildRunInsert } from "../persistence/runs";
+import { buildCoreRunInsert, buildRunInsert, isMissingRunColumnError } from "../persistence/runs";
 import { buildRunSummaryViewModel } from "../runSummary";
 import type { SessionController } from "../session";
 import { logicalCanvasHeightFromSnap, viewportLogicalYRange } from "../../render/boardCanvasLayout";
@@ -214,8 +214,23 @@ const initPlayingScreen = ({
       return;
     }
 
-    const payload = buildRunInsert(currentUser.id, summary, durationMs, getSelectedBoard());
+    const board = getSelectedBoard();
+    const finishedAt = new Date();
+    const payload = buildRunInsert(currentUser.id, summary, durationMs, board, finishedAt);
     const { error } = await supabase.from("runs").insert(payload);
+    if (error && isMissingRunColumnError(error)) {
+      const fallbackPayload = buildCoreRunInsert(currentUser.id, summary, durationMs, board, finishedAt);
+      const { error: fallbackError } = await supabase.from("runs").insert(fallbackPayload);
+      if (!fallbackError) return;
+      console.warn("Could not save run", {
+        message: fallbackError.message,
+        details: (fallbackError as any).details,
+        hint: (fallbackError as any).hint,
+        code: (fallbackError as any).code,
+        payloadKeys: Object.keys(fallbackPayload),
+      });
+      return;
+    }
     if (error) {
       console.warn("Could not save run", {
         message: error.message,

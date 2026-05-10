@@ -4,22 +4,23 @@ import { MODE_LABELS } from "./constants";
 
 type SavedRunRow = {
   mode: GameMode | string | null;
-  score: number | null;
-  lines: number | null;
-  level: number | null;
-  duration_ms: number | null;
+  finished_at?: string | null;
+  score?: number | null;
+  lines?: number | null;
+  level?: number | null;
+  duration_ms?: number | null;
   board_type: BoardKind | string | null;
-  pieces: number | null;
-  holds: number | null;
-  hard_drop_cells: number | null;
-  soft_drop_cells: number | null;
-  max_combo: number | null;
-  quads: number | null;
-  tspin_minis: number | null;
-  tspin_singles: number | null;
-  tspin_doubles: number | null;
-  tspin_triples: number | null;
-  allspins: number | null;
+  pieces?: number | null;
+  holds?: number | null;
+  hard_drop_cells?: number | null;
+  soft_drop_cells?: number | null;
+  max_combo?: number | null;
+  quads?: number | null;
+  tspin_minis?: number | null;
+  tspin_singles?: number | null;
+  tspin_doubles?: number | null;
+  tspin_triples?: number | null;
+  allspins?: number | null;
 };
 
 type PlayerAccountInfo = {

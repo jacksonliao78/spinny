@@ -1,8 +1,15 @@
 import type { BoardKind } from "@game/board/factory";
 import type { RunSummary } from "@game/game";
 
-const buildRunInsert = (userId: string, summary: RunSummary, durationMs: number, boardType: BoardKind) => ({
+const buildRunInsert = (
+  userId: string,
+  summary: RunSummary,
+  durationMs: number,
+  boardType: BoardKind,
+  finishedAt = new Date(),
+) => ({
   user_id: userId,
+  finished_at: finishedAt.toISOString(),
   mode: summary.gameMode,
   score: summary.score,
   lines: summary.linesClearedTotal,
@@ -33,4 +40,37 @@ const buildRunInsert = (userId: string, summary: RunSummary, durationMs: number,
   allspins: summary.stats.allSpinCount,
 });
 
-export { buildRunInsert };
+const buildCoreRunInsert = (
+  userId: string,
+  summary: RunSummary,
+  durationMs: number,
+  boardType: BoardKind,
+  finishedAt = new Date(),
+) => ({
+  user_id: userId,
+  finished_at: finishedAt.toISOString(),
+  mode: summary.gameMode,
+  score: summary.score,
+  lines: summary.linesClearedTotal,
+  level: summary.level,
+  duration_ms: Math.max(0, Math.round(durationMs)),
+  board_width: summary.width,
+  board_height: summary.height,
+  board_type: boardType,
+});
+
+const isMissingRunColumnError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") return false;
+  const maybeError = error as { code?: unknown; message?: unknown; details?: unknown };
+  const code = typeof maybeError.code === "string" ? maybeError.code : "";
+  const message = typeof maybeError.message === "string" ? maybeError.message.toLowerCase() : "";
+  const details = typeof maybeError.details === "string" ? maybeError.details.toLowerCase() : "";
+  return (
+    code === "42703" ||
+    code === "PGRST204" ||
+    message.includes("column") ||
+    details.includes("column")
+  );
+};
+
+export { buildCoreRunInsert, buildRunInsert, isMissingRunColumnError };
