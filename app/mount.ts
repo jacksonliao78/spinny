@@ -119,6 +119,7 @@ const mountApp = (): void => {
   const tipsPopover = getElement<HTMLElement>("tips-popover");
   const gameActions = getElement<HTMLElement>("game-actions");
   const gameTitle = getElement<HTMLElement>("game-title");
+  const multiplayerOpponentPanel = getElement<HTMLElement>("mp-opponent-panel");
   const countdownEl = getElement<HTMLElement>("run-countdown");
   const runSummaryEl = getElement<HTMLElement>("run-summary");
   const runSummaryHeadline = getElement<HTMLElement>("run-summary-headline");
@@ -323,6 +324,7 @@ const mountApp = (): void => {
     tipsPopover,
     gameActions,
     gameTitle,
+    multiplayerOpponentPanel,
     countdownEl,
     runSummaryEl,
     runSummaryHeadline,
@@ -447,6 +449,9 @@ const mountApp = (): void => {
     getCurrentRoomId: () => currentRoomId,
     setCurrentRoomId: (roomId) => {
       currentRoomId = roomId;
+    },
+    startMultiplayerGame: (room) => {
+      playingScreen?.startMultiplayerGame(room);
     },
   });
 

@@ -28,6 +28,7 @@ type LobbyScreenOptions = {
   navigate: (screen: AppScreen) => void;
   getCurrentRoomId: () => string | null;
   setCurrentRoomId: (roomId: string | null) => void;
+  startMultiplayerGame: (room: RoomWithMembers["room"]) => void;
 };
 
 type LobbyScreen = {
@@ -77,6 +78,7 @@ const initLobbyScreen = ({
   navigate,
   getCurrentRoomId,
   setCurrentRoomId,
+  startMultiplayerGame,
 }: LobbyScreenOptions): LobbyScreen => {
   let currentRoom: RoomWithMembers | null = null;
   let loadEpoch = 0;
@@ -117,6 +119,11 @@ const initLobbyScreen = ({
     lobbyContent.hidden = false;
   };
 
+  const shouldStartLocalGame = (room: RoomWithMembers): boolean =>
+    (room.room.status === "countdown" || room.room.status === "playing") &&
+    Boolean(room.room.seed) &&
+    Boolean(room.room.countdownStartsAt);
+
   const loadRoom = async (silent = false): Promise<void> => {
     const roomId = getCurrentRoomId();
     const user = session.getCurrentUser();
@@ -142,6 +149,10 @@ const initLobbyScreen = ({
       if (myEpoch !== loadEpoch) return;
       currentRoom = room;
       render(room);
+      if (shouldStartLocalGame(room)) {
+        startMultiplayerGame(room.room);
+        return;
+      }
       setStatus("", "");
     } catch (error) {
       if (myEpoch !== loadEpoch) return;
@@ -205,7 +216,7 @@ const initLobbyScreen = ({
       const started = await startRoom(supabase, room.room.id, room.room.settings, createSeed(), countdownStartsAt);
       currentRoom = { ...room, room: started };
       render(currentRoom);
-      setStatus("Start locked in. Multiplayer play is next.", "");
+      startMultiplayerGame(started);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not start room.", "error");
     } finally {

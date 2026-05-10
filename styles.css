@@ -1264,6 +1264,21 @@ select {
   height: auto;
 }
 
+.opponent-placeholder {
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 210, 226, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted-text);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .stat-timer {
   display: block;
   color: var(--heading-text);

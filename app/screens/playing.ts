@@ -3,6 +3,7 @@ import type { BoardKind } from "@game/board/factory";
 import { Game, type RunSummary } from "@game/game";
 import { GAME_MODE_POLICIES } from "@game/game/rules";
 import type { GameConfigOverrides, GameMode } from "@game/game/rules";
+import { createSeededRandom } from "@game/random";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { InputController } from "../../input/controller";
 import type { createRenderer } from "../../render/renderer";
@@ -13,6 +14,7 @@ import { buildCoreRunInsert, buildRunInsert, isMissingRunColumnError } from "../
 import { buildRunSummaryViewModel } from "../runSummary";
 import type { SessionController } from "../session";
 import { logicalCanvasHeightFromSnap, viewportLogicalYRange } from "../../render/boardCanvasLayout";
+import type { MultiplayerRoom } from "../multiplayer/rooms";
 
 type Renderer = ReturnType<typeof createRenderer>;
 
@@ -23,6 +25,7 @@ type PlayingScreenOptions = {
   tipsPopover: HTMLElement;
   gameActions: HTMLElement;
   gameTitle: HTMLElement;
+  multiplayerOpponentPanel: HTMLElement;
   countdownEl: HTMLElement;
   runSummaryEl: HTMLElement;
   runSummaryHeadline: HTMLElement;
@@ -54,6 +57,7 @@ type PlayingScreenOptions = {
 
 type PlayingScreen = {
   startGame: (countdownSeconds?: number) => void;
+  startMultiplayerGame: (room: MultiplayerRoom) => void;
   resetGame: () => void;
   setTipsOpen: (open: boolean) => void;
   stepFrame: (dtMs: number) => void;
@@ -68,6 +72,7 @@ const initPlayingScreen = ({
   tipsPopover,
   gameActions,
   gameTitle,
+  multiplayerOpponentPanel,
   countdownEl,
   runSummaryEl,
   runSummaryHeadline,
@@ -99,9 +104,25 @@ const initPlayingScreen = ({
   let runDurationMs = 0;
   let completedRunSaveStarted = false;
   let countdownRemainingMs = 0;
+  let countdownEndsAtMs: number | null = null;
+  let activeMode: GameMode = getSelectedMode();
+  let activeBoard: BoardKind = getSelectedBoard();
+  let activeOrigin: "solo" | "multiplayer" = "solo";
+  let activeSeed: string | null = null;
   const gamePlayArea = canvas.closest(".game-play-area");
 
-  const countdownActive = (): boolean => countdownRemainingMs > 0;
+  const syncCountdownRemaining = (): void => {
+    if (countdownEndsAtMs === null) return;
+    countdownRemainingMs = Math.max(0, countdownEndsAtMs - performance.now());
+    if (countdownRemainingMs <= 0) countdownEndsAtMs = null;
+  };
+
+  const countdownActive = (): boolean => {
+    syncCountdownRemaining();
+    return countdownRemainingMs > 0;
+  };
+
+  const countdownPending = (): boolean => countdownRemainingMs > 0 || countdownEndsAtMs !== null;
 
   const renderCountdown = (): void => {
     if (!countdownActive()) {
@@ -113,8 +134,9 @@ const initPlayingScreen = ({
     countdownEl.textContent = String(Math.max(1, Math.ceil(countdownRemainingMs / 1000)));
   };
 
-  const beginCountdown = (seconds: number): void => {
-    countdownRemainingMs = Math.max(0, seconds * 1000);
+  const beginCountdownMs = (durationMs: number): void => {
+    countdownRemainingMs = Math.max(0, durationMs);
+    countdownEndsAtMs = countdownRemainingMs > 0 ? performance.now() + countdownRemainingMs : null;
     setGameplayBlocked(countdownActive());
     setPaused(false);
     renderCountdown();
@@ -123,6 +145,7 @@ const initPlayingScreen = ({
 
   const clearCountdown = (): void => {
     countdownRemainingMs = 0;
+    countdownEndsAtMs = null;
     setGameplayBlocked(false);
     renderCountdown();
     syncInputControllerState();
@@ -187,13 +210,12 @@ const initPlayingScreen = ({
     tipsButton.setAttribute("aria-expanded", String(open));
   };
 
-  const makeGameConfig = (): GameConfigOverrides => {
-    const mode = getSelectedMode();
+  const makeGameConfig = (mode: GameMode, boardKind: BoardKind): GameConfigOverrides => {
     const base: GameConfigOverrides = {
-      ...(getSelectedBoard() === "rectangular" ? { board: RECTANGULAR_BOARD_CONFIG } : {}),
+      ...(boardKind === "rectangular" ? { board: RECTANGULAR_BOARD_CONFIG } : {}),
       mode: {
         kind: mode,
-        sprintTargetClears: SPRINT_TARGET_CLEARS[getSelectedBoard()],
+        sprintTargetClears: SPRINT_TARGET_CLEARS[boardKind],
       },
     };
     return base;
@@ -214,7 +236,7 @@ const initPlayingScreen = ({
       return;
     }
 
-    const board = getSelectedBoard();
+    const board = activeBoard;
     const finishedAt = new Date();
     const payload = buildRunInsert(currentUser.id, summary, durationMs, board, finishedAt);
     const { error } = await supabase.from("runs").insert(payload);
@@ -242,19 +264,39 @@ const initPlayingScreen = ({
     }
   };
 
-  const startGame = (countdownSeconds = 3): void => {
-    const selectedBoard = getSelectedBoard();
+  const startConfiguredGame = ({
+    mode,
+    boardKind,
+    origin,
+    seed,
+    countdownMs,
+  }: {
+    mode: GameMode;
+    boardKind: BoardKind;
+    origin: "solo" | "multiplayer";
+    seed: string | null;
+    countdownMs: number;
+  }): void => {
+    activeMode = mode;
+    activeBoard = boardKind;
+    activeOrigin = origin;
+    activeSeed = seed;
+    const random = seed ? createSeededRandom(seed) : undefined;
     const game = new Game({
-      boardFactory: (width, height, random) => createBoard(selectedBoard, width, height, random),
-      config: makeGameConfig(),
+      boardFactory: (width, height, boardRandom) => createBoard(boardKind, width, height, boardRandom),
+      config: makeGameConfig(mode, boardKind),
+      random,
       deferFirstSpawn: true,
     });
     setGame(game);
     runDurationMs = 0;
     completedRunSaveStarted = false;
     hideRunSummary();
-    gameTitle.textContent = `Solo / ${MODE_LABELS[getSelectedMode()]}`;
-    hudUpdater.configure(getSelectedMode(), SPRINT_TARGET_CLEARS[getSelectedBoard()]);
+    gameTitle.textContent = `${origin === "multiplayer" ? "Multiplayer" : "Solo"} / ${MODE_LABELS[mode]}`;
+    backToSetupButton.textContent = origin === "multiplayer" ? "Back To Rooms" : "Back To Setup";
+    runSummarySetupButton.textContent = origin === "multiplayer" ? "Back To Rooms" : "Back To Menu";
+    multiplayerOpponentPanel.hidden = origin !== "multiplayer";
+    hudUpdater.configure(mode, SPRINT_TARGET_CLEARS[boardKind]);
     navigate("playing");
     renderer.syncGameConfig(game);
     updateSidebarAlignment(game);
@@ -263,12 +305,48 @@ const initPlayingScreen = ({
       updateSidebarAlignment(game);
     });
     renderer.reset(game.getSnapshot().boardRotation);
-    beginCountdown(countdownSeconds);
+    beginCountdownMs(countdownMs);
+    if (!countdownActive()) {
+      game.beginRun();
+      setGameplayBlocked(false);
+      syncInputControllerState();
+    }
     resetLastFrameTime();
     canvas.focus();
   };
 
+  const startGame = (countdownSeconds = 3): void => {
+    startConfiguredGame({
+      mode: getSelectedMode(),
+      boardKind: getSelectedBoard(),
+      origin: "solo",
+      seed: null,
+      countdownMs: countdownSeconds * 1000,
+    });
+  };
+
+  const startMultiplayerGame = (room: MultiplayerRoom): void => {
+    const startsAtMs = Date.parse(room.countdownStartsAt ?? "");
+    startConfiguredGame({
+      mode: "versus",
+      boardKind: room.settings.boardKind,
+      origin: "multiplayer",
+      seed: room.seed ?? room.id,
+      countdownMs: Number.isFinite(startsAtMs) ? Math.max(0, startsAtMs - Date.now()) : 0,
+    });
+  };
+
   const resetGame = (): void => {
+    if (activeOrigin === "multiplayer") {
+      startConfiguredGame({
+        mode: "versus",
+        boardKind: activeBoard,
+        origin: "multiplayer",
+        seed: activeSeed,
+        countdownMs: 2000,
+      });
+      return;
+    }
     startGame(2);
   };
 
@@ -279,7 +357,7 @@ const initPlayingScreen = ({
       return true;
     }
     if (getAppScreen() !== "playing") return false;
-    if (e.code === "KeyP" && getSelectedMode() === "zen") {
+    if (e.code === "KeyP" && activeMode === "zen") {
       if (!countdownActive()) setPaused(!getPaused());
       e.preventDefault();
       return true;
@@ -296,13 +374,13 @@ const initPlayingScreen = ({
   backToSetupButton.addEventListener("click", () => {
     clearCountdown();
     hideRunSummary();
-    navigate("setup");
+    navigate(activeOrigin === "multiplayer" ? "multiplayer" : "setup");
   });
   runSummaryRestartButton.addEventListener("click", () => resetGame());
   runSummarySetupButton.addEventListener("click", () => {
     clearCountdown();
     hideRunSummary();
-    navigate("setup");
+    navigate(activeOrigin === "multiplayer" ? "multiplayer" : "setup");
   });
   tipsButton.addEventListener("click", () => setTipsOpen(!!tipsPopover.hidden));
   document.addEventListener("click", (e) => {
@@ -330,8 +408,8 @@ const initPlayingScreen = ({
 
   const stepFrame = (dtMs: number): void => {
     const game = getGame();
-    if (getAppScreen() === "playing" && game && countdownActive()) {
-      countdownRemainingMs = Math.max(0, countdownRemainingMs - dtMs);
+    if (getAppScreen() === "playing" && game && countdownPending()) {
+      syncCountdownRemaining();
       if (!countdownActive()) {
         game.beginRun();
         setPaused(false);
@@ -361,7 +439,7 @@ const initPlayingScreen = ({
     const summary = game.getRunSummary(runDurationMs);
     if (summary.gameOver && !completedRunSaveStarted) {
       completedRunSaveStarted = true;
-      showRunSummary(summary, runDurationMs, getSelectedBoard());
+      showRunSummary(summary, runDurationMs, activeBoard);
       void persistCompletedRun(summary, runDurationMs);
     }
   };
@@ -377,6 +455,7 @@ const initPlayingScreen = ({
 
   return {
     startGame,
+    startMultiplayerGame,
     resetGame,
     setTipsOpen,
     stepFrame,
