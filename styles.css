@@ -199,7 +199,7 @@ select {
   overflow: visible;
 }
 
-.app:has(#game-screen.screen--active) {
+.app:has(#mp-game-screen.screen--active) {
   width: min(1440px, 100%);
 }
 
@@ -1008,7 +1008,8 @@ select {
   line-height: 1.35;
 }
 
-#game-screen.screen--active {
+#game-screen.screen--active,
+#mp-game-screen.screen--active {
   display: flex;
   flex-direction: column;
   min-height: calc(100dvh - 3rem);
@@ -1122,6 +1123,30 @@ select {
 }
 
 .game-play-area--multiplayer .player-station--opponent {
+  justify-content: flex-start;
+}
+
+.mp-play-area {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  justify-items: stretch;
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.mp-play-area .player-station {
+  width: 100%;
+}
+
+.mp-play-area .player-station--local {
+  justify-content: flex-end;
+}
+
+.mp-play-area .player-station--opponent {
   justify-content: flex-start;
 }
 
@@ -1295,24 +1320,14 @@ select {
   height: auto;
 }
 
-.opponent-board-slot {
-  width: min(320px, 34vw);
-  min-width: 160px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .opponent-board {
   display: grid;
-  gap: 1px;
-  width: 100%;
-  max-height: calc(100dvh - 10rem);
-  border: 1px solid rgba(255, 210, 226, 0.1);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 3px;
-  aspect-ratio: 1 / 2;
+  box-sizing: border-box;
+  gap: 0;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  background: rgba(17, 26, 42, 0.58);
   overflow: hidden;
 }
 
@@ -1324,12 +1339,13 @@ select {
 }
 
 .opponent-piece {
-  width: 58px;
-  height: 58px;
+  box-sizing: border-box;
+  width: calc(4 * var(--mp-board-cell, 13px));
+  height: calc(4 * var(--mp-board-cell, 13px));
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(4, 1fr);
-  gap: 1px;
+  gap: max(1px, calc(var(--mp-board-cell, 13px) * 0.04));
 }
 
 .opponent-piece-cell {
@@ -1341,6 +1357,8 @@ select {
   min-width: 0;
   min-height: 0;
   background: rgba(15, 23, 40, 0.7);
+  border-right: 1px solid rgba(214, 228, 255, 0.08);
+  border-bottom: 1px solid rgba(214, 228, 255, 0.08);
 }
 
 .opponent-piece-cell[data-value],
@@ -1348,39 +1366,11 @@ select {
   background: #6b7280;
 }
 
-.opponent-piece-cell[data-value="I"],
-.opponent-cell[data-value="I"] {
-  background: #7ed7ef;
-}
-
-.opponent-piece-cell[data-value="J"],
-.opponent-cell[data-value="J"] {
-  background: #6f7ddb;
-}
-
-.opponent-piece-cell[data-value="L"],
-.opponent-cell[data-value="L"] {
-  background: #bf8a69;
-}
-
-.opponent-piece-cell[data-value="O"],
-.opponent-cell[data-value="O"] {
-  background: #f7dc83;
-}
-
-.opponent-piece-cell[data-value="S"],
-.opponent-cell[data-value="S"] {
-  background: #72d89d;
-}
-
-.opponent-piece-cell[data-value="T"],
-.opponent-cell[data-value="T"] {
-  background: #a276d9;
-}
-
-.opponent-piece-cell[data-value="Z"],
-.opponent-cell[data-value="Z"] {
-  background: #de7ea0;
+.opponent-piece-cell[data-value]:not([data-value="solid"]),
+.opponent-cell[data-value]:not([data-value="solid"]) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), var(--piece-fill) 30%, var(--piece-edge));
+  border: 1px solid rgba(236, 244, 255, 0.48);
+  box-shadow: 0 0 8px var(--piece-glow);
 }
 
 .opponent-name {
@@ -1435,7 +1425,8 @@ select {
   font-weight: 900;
 }
 
-#game {
+#game,
+#mp-game {
   display: block;
   background: transparent;
   flex-shrink: 1;
@@ -1603,6 +1594,10 @@ input[type="range"] {
     flex-wrap: wrap;
   }
 
+  .mp-play-area {
+    grid-template-columns: 1fr;
+  }
+
   .player-station {
     flex-wrap: wrap;
     width: 100%;
@@ -1615,7 +1610,6 @@ input[type="range"] {
   .opponent-board-slot {
     order: 2;
     width: 100%;
-    max-width: 320px;
   }
 
   .game-board-slot {

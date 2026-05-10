@@ -30,6 +30,7 @@ type LobbyScreenOptions = {
   getCurrentRoomId: () => string | null;
   setCurrentRoomId: (roomId: string | null) => void;
   startMultiplayerGame: (room: RoomWithMembers["room"], serverNowMs?: number) => void;
+  canAutoStartRoom: () => boolean;
 };
 
 type LobbyScreen = {
@@ -81,6 +82,7 @@ const initLobbyScreen = ({
   getCurrentRoomId,
   setCurrentRoomId,
   startMultiplayerGame,
+  canAutoStartRoom,
 }: LobbyScreenOptions): LobbyScreen => {
   let currentRoom: RoomWithMembers | null = null;
   let loadEpoch = 0;
@@ -161,7 +163,7 @@ const initLobbyScreen = ({
       if (myEpoch !== loadEpoch) return;
       currentRoom = room;
       render(room);
-      if (shouldStartLocalGame(room)) {
+      if (shouldStartLocalGame(room) && canAutoStartRoom()) {
         await startLocalGameFromRoom(room.room, myEpoch);
         return;
       }

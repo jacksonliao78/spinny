@@ -3,20 +3,16 @@ import type { BoardKind } from "@game/board/factory";
 import { Game, type RunSummary } from "@game/game";
 import { GAME_MODE_POLICIES } from "@game/game/rules";
 import type { GameConfigOverrides, GameMode } from "@game/game/rules";
-import { Piece, type PieceType } from "@game/piece";
-import { createSeededRandom } from "@game/random";
-import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { InputController } from "../../input/controller";
 import type { createRenderer } from "../../render/renderer";
 import type { HudUpdater } from "../../render/hudPanels";
 import type { AppScreen } from "../constants";
 import { MODE_LABELS, RECTANGULAR_BOARD_CONFIG, SPRINT_TARGET_CLEARS } from "../constants";
-import { buildMultiplayerSnapshot, isMultiplayerCell, type MultiplayerSnapshotPayload } from "../multiplayer/snapshots";
 import { buildCoreRunInsert, buildRunInsert, isMissingRunColumnError } from "../persistence/runs";
 import { buildRunSummaryViewModel } from "../runSummary";
 import type { SessionController } from "../session";
 import { logicalCanvasHeightFromSnap, viewportLogicalYRange } from "../../render/boardCanvasLayout";
-import type { MultiplayerRoom } from "../multiplayer/rooms";
 
 type Renderer = ReturnType<typeof createRenderer>;
 
@@ -27,14 +23,6 @@ type PlayingScreenOptions = {
   tipsPopover: HTMLElement;
   gameActions: HTMLElement;
   gameTitle: HTMLElement;
-  multiplayerOpponentPanel: HTMLElement;
-  multiplayerOpponentBoard: HTMLElement;
-  multiplayerOpponentStatus: HTMLElement;
-  multiplayerOpponentHold: HTMLElement;
-  multiplayerOpponentNext: HTMLElement;
-  multiplayerOpponentLines: HTMLElement;
-  multiplayerOpponentScore: HTMLElement;
-  multiplayerOpponentGarbage: HTMLElement;
   countdownEl: HTMLElement;
   runSummaryEl: HTMLElement;
   runSummaryHeadline: HTMLElement;
@@ -62,12 +50,10 @@ type PlayingScreenOptions = {
   setGameplayBlocked: (blocked: boolean) => void;
   shouldBlockGameplayKey: () => boolean;
   blockHandledKeys: (e: KeyboardEvent) => void;
-  leaveMultiplayerRoom: () => Promise<void>;
 };
 
 type PlayingScreen = {
   startGame: (countdownSeconds?: number) => void;
-  startMultiplayerGame: (room: MultiplayerRoom, serverNowMs?: number) => void;
   resetGame: () => void;
   setTipsOpen: (open: boolean) => void;
   stepFrame: (dtMs: number) => void;
@@ -82,14 +68,6 @@ const initPlayingScreen = ({
   tipsPopover,
   gameActions,
   gameTitle,
-  multiplayerOpponentPanel,
-  multiplayerOpponentBoard,
-  multiplayerOpponentStatus,
-  multiplayerOpponentHold,
-  multiplayerOpponentNext,
-  multiplayerOpponentLines,
-  multiplayerOpponentScore,
-  multiplayerOpponentGarbage,
   countdownEl,
   runSummaryEl,
   runSummaryHeadline,
@@ -117,7 +95,6 @@ const initPlayingScreen = ({
   setGameplayBlocked,
   shouldBlockGameplayKey,
   blockHandledKeys,
-  leaveMultiplayerRoom,
 }: PlayingScreenOptions): PlayingScreen => {
   let runDurationMs = 0;
   let completedRunSaveStarted = false;
@@ -125,15 +102,7 @@ const initPlayingScreen = ({
   let countdownEndsAtMs: number | null = null;
   let activeMode: GameMode = getSelectedMode();
   let activeBoard: BoardKind = getSelectedBoard();
-  let activeOrigin: "solo" | "multiplayer" = "solo";
-  let activeSeed: string | null = null;
-  let activeRoomId: string | null = null;
-  let multiplayerChannel: RealtimeChannel | null = null;
-  let lastSnapshotBroadcastMs = 0;
-  let opponentLastSeenMs = 0;
   const gamePlayArea = canvas.closest(".game-play-area");
-  const SNAPSHOT_BROADCAST_INTERVAL_MS = 150;
-  const OPPONENT_STALE_MS = 3_000;
 
   const syncCountdownRemaining = (): void => {
     if (countdownEndsAtMs === null) return;
@@ -200,6 +169,8 @@ const initPlayingScreen = ({
       }),
     );
     runSummaryEl.hidden = false;
+    runSummaryRestartButton.hidden = false;
+    runSummarySetupButton.textContent = "Back To Menu";
     runSummaryEl.focus();
     setGameplayBlocked(true);
     syncInputControllerState();
@@ -232,110 +203,6 @@ const initPlayingScreen = ({
   const setTipsOpen = (open: boolean): void => {
     tipsPopover.hidden = !open;
     tipsButton.setAttribute("aria-expanded", String(open));
-  };
-
-  const resetOpponentPanel = (): void => {
-    opponentLastSeenMs = 0;
-    multiplayerOpponentBoard.replaceChildren();
-    multiplayerOpponentBoard.style.removeProperty("grid-template-columns");
-    multiplayerOpponentBoard.style.removeProperty("grid-template-rows");
-    multiplayerOpponentHold.replaceChildren();
-    multiplayerOpponentNext.replaceChildren();
-    multiplayerOpponentStatus.textContent = "Waiting for board";
-    multiplayerOpponentLines.textContent = "0";
-    multiplayerOpponentScore.textContent = "0";
-    multiplayerOpponentGarbage.textContent = "0";
-  };
-
-  const isPieceType = (value: unknown): value is PieceType =>
-    value === "I" || value === "J" || value === "L" || value === "O" || value === "S" || value === "T" || value === "Z";
-
-  const isSnapshotPayload = (payload: unknown, roomId: string): payload is MultiplayerSnapshotPayload => {
-    if (!payload || typeof payload !== "object") return false;
-    const maybe = payload as Partial<MultiplayerSnapshotPayload>;
-    return (
-      maybe.version === 2 &&
-      maybe.roomId === roomId &&
-      typeof maybe.userId === "string" &&
-      typeof maybe.username === "string" &&
-      typeof maybe.width === "number" &&
-      typeof maybe.height === "number" &&
-      typeof maybe.score === "number" &&
-      typeof maybe.lines === "number" &&
-      typeof maybe.incomingGarbage === "number" &&
-      (maybe.hold === null || isPieceType(maybe.hold)) &&
-      Array.isArray(maybe.next) &&
-      maybe.next.every(isPieceType) &&
-      Array.isArray(maybe.cells) &&
-      maybe.cells.every(isMultiplayerCell)
-    );
-  };
-
-  const renderOpponentPiece = (type: PieceType | null): HTMLElement => {
-    const pieceEl = document.createElement("div");
-    pieceEl.className = "opponent-piece";
-    pieceEl.setAttribute("aria-label", type ?? "Empty");
-    if (!type) return pieceEl;
-
-    const shape = new Piece(type, 0, 0).getShape(0);
-    for (const row of shape) {
-      for (const occupied of row) {
-        const cell = document.createElement("div");
-        cell.className = "opponent-piece-cell";
-        if (occupied) cell.dataset.value = type;
-        pieceEl.append(cell);
-      }
-    }
-    return pieceEl;
-  };
-
-  const renderOpponentSnapshot = (payload: MultiplayerSnapshotPayload): void => {
-    opponentLastSeenMs = performance.now();
-    multiplayerOpponentStatus.textContent = payload.gameOver ? `${payload.username} out` : payload.username;
-    multiplayerOpponentLines.textContent = String(payload.lines);
-    multiplayerOpponentScore.textContent = String(payload.score);
-    multiplayerOpponentGarbage.textContent = String(payload.incomingGarbage);
-    multiplayerOpponentHold.replaceChildren(renderOpponentPiece(payload.hold));
-    multiplayerOpponentNext.replaceChildren(...payload.next.map(renderOpponentPiece));
-    multiplayerOpponentBoard.style.gridTemplateColumns = `repeat(${payload.width}, minmax(0, 1fr))`;
-    multiplayerOpponentBoard.style.gridTemplateRows = `repeat(${payload.height}, minmax(0, 1fr))`;
-
-    const cellValues = new Map(payload.cells.map((cell) => [`${cell.x},${cell.y}`, cell.value]));
-    const cells: HTMLElement[] = [];
-    for (let y = 0; y < payload.height; y += 1) {
-      for (let x = 0; x < payload.width; x += 1) {
-        const cell = document.createElement("div");
-        cell.className = "opponent-cell";
-        const value = cellValues.get(`${x},${y}`);
-        if (value) cell.dataset.value = value;
-        cells.push(cell);
-      }
-    }
-    multiplayerOpponentBoard.replaceChildren(...cells);
-  };
-
-  const teardownMultiplayerChannel = (): void => {
-    if (multiplayerChannel && supabase) {
-      void supabase.removeChannel(multiplayerChannel);
-    }
-    multiplayerChannel = null;
-    lastSnapshotBroadcastMs = 0;
-    resetOpponentPanel();
-  };
-
-  const setupMultiplayerChannel = (roomId: string): void => {
-    if (!supabase) return;
-    teardownMultiplayerChannel();
-    multiplayerChannel = supabase
-      .channel(`room:${roomId}`)
-      .on("broadcast", { event: "snapshot" }, ({ payload }) => {
-        if (!isSnapshotPayload(payload, roomId)) return;
-        const remote = payload;
-        const currentUser = session.getCurrentUser();
-        if (remote.userId === currentUser?.id) return;
-        renderOpponentSnapshot(remote);
-      })
-      .subscribe();
   };
 
   const makeGameConfig = (mode: GameMode, boardKind: BoardKind): GameConfigOverrides => {
@@ -392,44 +259,24 @@ const initPlayingScreen = ({
     }
   };
 
-  const startConfiguredGame = ({
-    mode,
-    boardKind,
-    origin,
-    seed,
-    countdownMs,
-  }: {
-    mode: GameMode;
-    boardKind: BoardKind;
-    origin: "solo" | "multiplayer";
-    seed: string | null;
-    countdownMs: number;
-  }): void => {
+  const startConfiguredGame = (mode: GameMode, boardKind: BoardKind, countdownMs: number): void => {
     activeMode = mode;
     activeBoard = boardKind;
-    activeOrigin = origin;
-    activeSeed = seed;
-    if (origin === "solo") {
-      activeRoomId = null;
-      teardownMultiplayerChannel();
-    }
-    const random = seed ? createSeededRandom(seed) : undefined;
     const game = new Game({
       boardFactory: (width, height, boardRandom) => createBoard(boardKind, width, height, boardRandom),
       config: makeGameConfig(mode, boardKind),
-      random,
       deferFirstSpawn: true,
     });
     setGame(game);
     runDurationMs = 0;
     completedRunSaveStarted = false;
     hideRunSummary();
-    gameTitle.textContent = `${origin === "multiplayer" ? "Multiplayer" : "Solo"} / ${MODE_LABELS[mode]}`;
-    backToSetupButton.textContent = origin === "multiplayer" ? "Back To Rooms" : "Back To Setup";
-    runSummarySetupButton.textContent = origin === "multiplayer" ? "Back To Rooms" : "Back To Menu";
-    multiplayerOpponentPanel.hidden = origin !== "multiplayer";
+    runSummaryRestartButton.hidden = false;
+    gameTitle.textContent = `Solo / ${MODE_LABELS[mode]}`;
+    backToSetupButton.textContent = "Back To Setup";
+    runSummarySetupButton.textContent = "Back To Menu";
     if (gamePlayArea instanceof HTMLElement) {
-      gamePlayArea.classList.toggle("game-play-area--multiplayer", origin === "multiplayer");
+      gamePlayArea.classList.remove("game-play-area--multiplayer");
     }
     hudUpdater.configure(mode, SPRINT_TARGET_CLEARS[boardKind]);
     navigate("playing");
@@ -451,39 +298,10 @@ const initPlayingScreen = ({
   };
 
   const startGame = (countdownSeconds = 3): void => {
-    startConfiguredGame({
-      mode: getSelectedMode(),
-      boardKind: getSelectedBoard(),
-      origin: "solo",
-      seed: null,
-      countdownMs: countdownSeconds * 1000,
-    });
-  };
-
-  const startMultiplayerGame = (room: MultiplayerRoom, serverNowMs?: number): void => {
-    const startsAtMs = Date.parse(room.countdownStartsAt ?? "");
-    startConfiguredGame({
-      mode: "versus",
-      boardKind: room.settings.boardKind,
-      origin: "multiplayer",
-      seed: room.seed ?? room.id,
-      countdownMs: Number.isFinite(startsAtMs) ? Math.max(0, startsAtMs - (serverNowMs ?? Date.now())) : 0,
-    });
-    activeRoomId = room.id;
-    setupMultiplayerChannel(room.id);
+    startConfiguredGame(getSelectedMode(), getSelectedBoard(), countdownSeconds * 1000);
   };
 
   const resetGame = (): void => {
-    if (activeOrigin === "multiplayer") {
-      startConfiguredGame({
-        mode: "versus",
-        boardKind: activeBoard,
-        origin: "multiplayer",
-        seed: activeSeed,
-        countdownMs: 2000,
-      });
-      return;
-    }
     startGame(2);
   };
 
@@ -507,38 +325,14 @@ const initPlayingScreen = ({
     return false;
   };
 
-  const leaveMultiplayerGame = (): void => {
-    const leave = async (): Promise<void> => {
-      try {
-        await leaveMultiplayerRoom();
-      } catch (error) {
-        console.warn("Could not leave room", error);
-        return;
-      }
-      clearCountdown();
-      hideRunSummary();
-      navigate("multiplayer");
-      teardownMultiplayerChannel();
-    };
-    void leave();
-  };
-
   canvas.addEventListener("click", () => canvas.focus());
   backToSetupButton.addEventListener("click", () => {
-    if (activeOrigin === "multiplayer") {
-      leaveMultiplayerGame();
-      return;
-    }
     clearCountdown();
     hideRunSummary();
     navigate("setup");
   });
   runSummaryRestartButton.addEventListener("click", () => resetGame());
   runSummarySetupButton.addEventListener("click", () => {
-    if (activeOrigin === "multiplayer") {
-      leaveMultiplayerGame();
-      return;
-    }
     clearCountdown();
     hideRunSummary();
     navigate("setup");
@@ -597,25 +391,6 @@ const initPlayingScreen = ({
     renderer.draw(game, getPaused());
     updateSidebarAlignment(game);
     hudUpdater.update(snap);
-    if (activeOrigin === "multiplayer" && activeRoomId && multiplayerChannel) {
-      const now = performance.now();
-      if (now - lastSnapshotBroadcastMs >= SNAPSHOT_BROADCAST_INTERVAL_MS) {
-        lastSnapshotBroadcastMs = now;
-        const user = session.getCurrentUser();
-        if (user) {
-          const payload = buildMultiplayerSnapshot(
-            activeRoomId,
-            user.id,
-            session.getCurrentUsername() ?? user.email ?? "player",
-            snap,
-          );
-          void multiplayerChannel.send({ type: "broadcast", event: "snapshot", payload });
-        }
-      }
-      if (opponentLastSeenMs > 0 && now - opponentLastSeenMs > OPPONENT_STALE_MS) {
-        multiplayerOpponentStatus.textContent = "Opponent stale";
-      }
-    }
     const summary = game.getRunSummary(runDurationMs);
     if (summary.gameOver && !completedRunSaveStarted) {
       completedRunSaveStarted = true;
@@ -635,7 +410,6 @@ const initPlayingScreen = ({
 
   return {
     startGame,
-    startMultiplayerGame,
     resetGame,
     setTipsOpen,
     stepFrame,

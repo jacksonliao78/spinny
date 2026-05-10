@@ -23,6 +23,8 @@ import { initLobbyScreen } from "./screens/lobby";
 import type { LobbyScreen } from "./screens/lobby";
 import { initMultiplayerScreen } from "./screens/multiplayer";
 import type { MultiplayerScreen } from "./screens/multiplayer";
+import { initMultiplayerPlayingScreen } from "./screens/multiplayerPlaying";
+import type { MultiplayerPlayingScreen } from "./screens/multiplayerPlaying";
 import { initPlayingScreen } from "./screens/playing";
 import type { PlayingScreen } from "./screens/playing";
 import { initSettingsScreen } from "./screens/settings";
@@ -57,6 +59,7 @@ const mountApp = (): void => {
   const statsScreenEl = getElement<HTMLElement>("stats-screen");
   const multiplayerScreenEl = getElement<HTMLElement>("multiplayer-screen");
   const lobbyScreenEl = getElement<HTMLElement>("lobby-screen");
+  const multiplayerPlayingScreenEl = getElement<HTMLElement>("mp-game-screen");
 
   const soloButton = getElement<HTMLButtonElement>("solo-button");
   const authButton = getElement<HTMLButtonElement>("auth-button");
@@ -120,7 +123,6 @@ const mountApp = (): void => {
   const tipsPopover = getElement<HTMLElement>("tips-popover");
   const gameActions = getElement<HTMLElement>("game-actions");
   const gameTitle = getElement<HTMLElement>("game-title");
-  const multiplayerOpponentPanel = getElement<HTMLElement>("mp-opponent-panel");
   const multiplayerOpponentBoard = getElement<HTMLElement>("mp-opponent-board");
   const multiplayerOpponentStatus = getElement<HTMLElement>("mp-opponent-status");
   const multiplayerOpponentHold = getElement<HTMLElement>("mp-opponent-hold");
@@ -137,11 +139,27 @@ const mountApp = (): void => {
   const runSummaryStats = getElement<HTMLElement>("run-summary-stats");
   const runSummaryRestartButton = getElement<HTMLButtonElement>("run-summary-restart");
   const runSummarySetupButton = getElement<HTMLButtonElement>("run-summary-setup");
+  const mpBackToLobbyButton = getElement<HTMLButtonElement>("mp-back-to-lobby-button");
+  const mpTipsButton = getElement<HTMLButtonElement>("mp-tips-button");
+  const mpTipsPopover = getElement<HTMLElement>("mp-tips-popover");
+  const mpGameActions = getElement<HTMLElement>("mp-game-actions");
+  const mpGameTitle = getElement<HTMLElement>("mp-game-title");
+  const mpCountdownEl = getElement<HTMLElement>("mp-run-countdown");
+  const mpRunSummaryEl = getElement<HTMLElement>("mp-run-summary");
+  const mpRunSummaryHeadline = getElement<HTMLElement>("mp-run-summary-headline");
+  const mpRunSummarySubhead = getElement<HTMLElement>("mp-run-summary-subhead");
+  const mpRunSummaryPrimaryLabel = getElement<HTMLElement>("mp-run-summary-primary-label");
+  const mpRunSummaryPrimaryValue = getElement<HTMLElement>("mp-run-summary-primary-value");
+  const mpRunSummaryStats = getElement<HTMLElement>("mp-run-summary-stats");
+  const mpRunSummaryLobbyButton = getElement<HTMLButtonElement>("mp-run-summary-lobby");
   const modeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".mode-button[data-mode]"));
   const spinnyToggleButton = getElement<HTMLButtonElement>("spinny-toggle");
   const canvas = getElement<HTMLCanvasElement>("game");
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
+  const mpCanvas = getElement<HTMLCanvasElement>("mp-game");
+  const mpCtx = mpCanvas.getContext("2d");
+  if (!mpCtx) return;
 
   const holdCanvas = getElement<HTMLCanvasElement>("hold-canvas");
   const nextCanvas = getElement<HTMLCanvasElement>("next-canvas");
@@ -156,6 +174,19 @@ const mountApp = (): void => {
   const statCombo = getElement<HTMLElement>("stat-combo");
   const statSurvivalRow = getElement<HTMLElement>("stat-survival-row");
   const statSurvival = getElement<HTMLElement>("stat-survival");
+  const mpHoldCanvas = getElement<HTMLCanvasElement>("mp-hold-canvas");
+  const mpNextCanvas = getElement<HTMLCanvasElement>("mp-next-canvas");
+  const mpStatTimer = getElement<HTMLElement>("mp-stat-timer");
+  const mpStatLinesRow = getElement<HTMLElement>("mp-stat-lines-row");
+  const mpStatLines = getElement<HTMLElement>("mp-stat-lines");
+  const mpStatScoreRow = getElement<HTMLElement>("mp-stat-score-row");
+  const mpStatScore = getElement<HTMLElement>("mp-stat-score");
+  const mpStatLevelRow = getElement<HTMLElement>("mp-stat-level-row");
+  const mpStatLevel = getElement<HTMLElement>("mp-stat-level");
+  const mpStatComboRow = getElement<HTMLElement>("mp-stat-combo-row");
+  const mpStatCombo = getElement<HTMLElement>("mp-stat-combo");
+  const mpStatSurvivalRow = getElement<HTMLElement>("mp-stat-survival-row");
+  const mpStatSurvival = getElement<HTMLElement>("mp-stat-survival");
 
   const settingsBackButton = getElement<HTMLButtonElement>("settings-back-button");
   const settingsCanvas = getElement<HTMLCanvasElement>("settings-test-board");
@@ -186,13 +217,16 @@ const mountApp = (): void => {
   let game: Game | null = null;
   let testGame: Game | null = null;
   let currentRoomId: string | null = null;
+  let lobbyAutoStartEnabled = true;
   let settingsTestFocused = false;
   let paused = false;
   let gameplayBlocked = false;
+  let multiplayerGameplayBlocked = false;
   let last = performance.now();
 
   const supabase = isSupabaseConfigured() ? getSupabase() : null;
   const renderer = createRenderer(canvas, ctx);
+  const multiplayerRenderer = createRenderer(mpCanvas, mpCtx);
   const hudUpdater = createHudUpdater({
     holdCanvas,
     nextCanvas,
@@ -207,6 +241,21 @@ const mountApp = (): void => {
     comboValue: statCombo,
     survivalRow: statSurvivalRow,
     survivalValue: statSurvival,
+  });
+  const multiplayerHudUpdater = createHudUpdater({
+    holdCanvas: mpHoldCanvas,
+    nextCanvas: mpNextCanvas,
+    timerEl: mpStatTimer,
+    linesRow: mpStatLinesRow,
+    linesValue: mpStatLines,
+    scoreRow: mpStatScoreRow,
+    scoreValue: mpStatScore,
+    levelRow: mpStatLevelRow,
+    levelValue: mpStatLevel,
+    comboRow: mpStatComboRow,
+    comboValue: mpStatCombo,
+    survivalRow: mpStatSurvivalRow,
+    survivalValue: mpStatSurvival,
   });
   const miniRenderer = createMiniBoardRenderer(settingsCanvas, settingsCtx);
 
@@ -224,32 +273,48 @@ const mountApp = (): void => {
     inputSettings,
   );
 
+  const multiplayerGameplayController = createInputController(
+    () => (game && !game.getSnapshot().gameOver ? gameplayCallbacksFor(game) : null),
+    inputSettings,
+  );
+
   const testController = createInputController(
     () => (testGame && !testGame.getSnapshot().gameOver ? gameplayCallbacksFor(testGame) : null),
     inputSettings,
   );
 
   gameplayController.attach(canvas);
+  multiplayerGameplayController.attach(mpCanvas);
   testController.attach(settingsCanvas);
 
   const applyInputSettings = (next: InputSettings): void => {
     inputSettings = clampInputSettings(next);
     saveInputSettings(inputSettings);
     gameplayController.setSettings(inputSettings);
+    multiplayerGameplayController.setSettings(inputSettings);
     testController.setSettings(inputSettings);
   };
 
   const spinBlocksInput = (): boolean => {
     if (appScreen === "playing") return renderer.isSpinAnimating();
+    if (appScreen === "multiplayer-playing") return multiplayerRenderer.isSpinAnimating();
     return false;
   };
 
   const syncInputControllerState = (): void => {
     const playing = appScreen === "playing";
+    const multiplayerPlaying = appScreen === "multiplayer-playing";
     const settings = appScreen === "settings";
 
     gameplayController.setEnabled(
       playing && !paused && !gameplayBlocked && !!game && !game.getSnapshot().gameOver && !spinBlocksInput(),
+    );
+    multiplayerGameplayController.setEnabled(
+      multiplayerPlaying &&
+        !multiplayerGameplayBlocked &&
+        !!game &&
+        !game.getSnapshot().gameOver &&
+        !spinBlocksInput(),
     );
     testController.setEnabled(settings && settingsTestFocused && !!testGame && !testGame.getSnapshot().gameOver);
   };
@@ -257,6 +322,9 @@ const mountApp = (): void => {
   const shouldBlockGameplayKey = (): boolean => {
     if (appScreen === "playing") {
       return !game || paused || gameplayBlocked || game.getSnapshot().gameOver || spinBlocksInput();
+    }
+    if (appScreen === "multiplayer-playing") {
+      return !game || multiplayerGameplayBlocked || game.getSnapshot().gameOver || spinBlocksInput();
     }
     if (appScreen === "settings") {
       return !testGame || testGame.getSnapshot().gameOver;
@@ -266,6 +334,7 @@ const mountApp = (): void => {
 
   let settingsScreen: SettingsScreen | null = null;
   let playingScreen: PlayingScreen | null = null;
+  let multiplayerPlayingScreen: MultiplayerPlayingScreen | null = null;
   let statsScreen: StatsScreen | null = null;
   let multiplayerScreen: MultiplayerScreen | null = null;
   let lobbyScreen: LobbyScreen | null = null;
@@ -280,10 +349,14 @@ const mountApp = (): void => {
     statsScreenEl.classList.toggle("screen--active", nextScreen === "stats");
     multiplayerScreenEl.classList.toggle("screen--active", nextScreen === "multiplayer");
     lobbyScreenEl.classList.toggle("screen--active", nextScreen === "lobby");
+    multiplayerPlayingScreenEl.classList.toggle("screen--active", nextScreen === "multiplayer-playing");
 
     if (nextScreen !== "playing") {
       paused = true;
       playingScreen?.setTipsOpen(false);
+    }
+    if (nextScreen !== "multiplayer-playing") {
+      multiplayerPlayingScreen?.setTipsOpen(false);
     }
 
     if (nextScreen === "settings") {
@@ -334,14 +407,6 @@ const mountApp = (): void => {
     tipsPopover,
     gameActions,
     gameTitle,
-    multiplayerOpponentPanel,
-    multiplayerOpponentBoard,
-    multiplayerOpponentStatus,
-    multiplayerOpponentHold,
-    multiplayerOpponentNext,
-    multiplayerOpponentLines,
-    multiplayerOpponentScore,
-    multiplayerOpponentGarbage,
     countdownEl,
     runSummaryEl,
     runSummaryHeadline,
@@ -378,11 +443,58 @@ const mountApp = (): void => {
     },
     shouldBlockGameplayKey,
     blockHandledKeys,
+  });
+
+  multiplayerPlayingScreen = initMultiplayerPlayingScreen({
+    canvas: mpCanvas,
+    backToLobbyButton: mpBackToLobbyButton,
+    tipsButton: mpTipsButton,
+    tipsPopover: mpTipsPopover,
+    gameActions: mpGameActions,
+    gameTitle: mpGameTitle,
+    opponentBoard: multiplayerOpponentBoard,
+    opponentStatus: multiplayerOpponentStatus,
+    opponentHold: multiplayerOpponentHold,
+    opponentNext: multiplayerOpponentNext,
+    opponentLines: multiplayerOpponentLines,
+    opponentScore: multiplayerOpponentScore,
+    opponentGarbage: multiplayerOpponentGarbage,
+    countdownEl: mpCountdownEl,
+    runSummaryEl: mpRunSummaryEl,
+    runSummaryHeadline: mpRunSummaryHeadline,
+    runSummarySubhead: mpRunSummarySubhead,
+    runSummaryPrimaryLabel: mpRunSummaryPrimaryLabel,
+    runSummaryPrimaryValue: mpRunSummaryPrimaryValue,
+    runSummaryStats: mpRunSummaryStats,
+    runSummaryLobbyButton: mpRunSummaryLobbyButton,
+    renderer: multiplayerRenderer,
+    hudUpdater: multiplayerHudUpdater,
+    gameplayController: multiplayerGameplayController,
+    supabase,
+    session,
+    getAppScreen: () => appScreen,
+    getGame: () => game,
+    setGame: (next) => {
+      game = next;
+    },
+    navigate,
+    resetLastFrameTime: () => {
+      last = performance.now();
+    },
+    syncInputControllerState,
+    setGameplayBlocked: (blocked) => {
+      multiplayerGameplayBlocked = blocked;
+    },
+    shouldBlockGameplayKey,
+    blockHandledKeys,
     leaveMultiplayerRoom: async () => {
       if (currentRoomId && supabase) {
         await leaveRoom(supabase, currentRoomId);
       }
       currentRoomId = null;
+    },
+    setLobbyAutoStartEnabled: (enabled) => {
+      lobbyAutoStartEnabled = enabled;
     },
   });
 
@@ -451,6 +563,7 @@ const mountApp = (): void => {
     openAuthLogin: authScreen.openLogin,
     setCurrentRoomId: (roomId) => {
       currentRoomId = roomId;
+      if (roomId) lobbyAutoStartEnabled = true;
     },
   });
 
@@ -472,10 +585,12 @@ const mountApp = (): void => {
     getCurrentRoomId: () => currentRoomId,
     setCurrentRoomId: (roomId) => {
       currentRoomId = roomId;
+      if (roomId) lobbyAutoStartEnabled = true;
     },
     startMultiplayerGame: (room, serverNowMs) => {
-      playingScreen?.startMultiplayerGame(room, serverNowMs);
+      multiplayerPlayingScreen?.startMultiplayerGame(room, serverNowMs);
     },
+    canAutoStartRoom: () => lobbyAutoStartEnabled,
   });
 
   initLandingScreen({
@@ -515,6 +630,7 @@ const mountApp = (): void => {
 
   const runLayoutResizeCallbacks = (): void => {
     playingScreen?.onResize();
+    multiplayerPlayingScreen?.onResize();
     settingsScreen?.onResize();
   };
 
@@ -538,6 +654,11 @@ const mountApp = (): void => {
     const boardSlotResizeObserver = new ResizeObserver(runLayoutResizeCallbacks);
     boardSlotResizeObserver.observe(boardSlot);
   }
+  const multiplayerBoardSlot = mpCanvas.parentElement;
+  if (multiplayerBoardSlot instanceof HTMLElement) {
+    const multiplayerBoardSlotResizeObserver = new ResizeObserver(runLayoutResizeCallbacks);
+    multiplayerBoardSlotResizeObserver.observe(multiplayerBoardSlot);
+  }
 
   const loop = (now: number) => {
     if (document.hidden) {
@@ -549,9 +670,11 @@ const mountApp = (): void => {
     const dt = Math.min(MAX_FRAME_DT_MS, now - last);
     last = now;
     playingScreen?.stepFrame(dt);
+    multiplayerPlayingScreen?.stepFrame(dt);
     settingsScreen?.stepFrame(dt);
     syncInputControllerState();
     playingScreen?.drawFrame(dt);
+    multiplayerPlayingScreen?.drawFrame(dt);
     settingsScreen?.drawFrame(dt);
     requestAnimationFrame(loop);
   };
