@@ -45,6 +45,10 @@ test("buildMultiplayerSnapshot exports visible cells and active piece", () => {
   assert.equal(payload.roomId, "room-1");
   assert.equal(payload.width, 4);
   assert.equal(payload.height, 4);
+  assert.equal(payload.fullWidth, 6);
+  assert.equal(payload.fullHeight, 6);
+  assert.equal(payload.viewOffsetX, 1);
+  assert.equal(payload.viewOffsetY, 1);
   assert.equal(payload.lines, 3);
   assert.equal(payload.incomingGarbage, 2);
   assert.equal(payload.hold, null);

@@ -3,9 +3,9 @@ import { SOLID_CELL } from "@game/board/types";
 import { Piece } from "@game/piece";
 import type { PieceType } from "@game/piece";
 import type { BoardCell } from "@game/board/types";
-import { PIECE_STYLES, type PieceStyle } from "./pieceStyles";
 import { getBoardBoundsFromLocked, isWithinBoard } from "./playfieldCoords";
 import { BOARD_PADDING, BOARD_CELL_SIZE } from "./boardCanvasLayout";
+import { drawPieceCell, drawSolidCell } from "./boardCellPainter";
 
 const CELL = BOARD_CELL_SIZE;
 const PADDING = BOARD_PADDING;
@@ -26,8 +26,6 @@ type LayoutMetrics = {
   viewW: number;
   viewH: number;
 };
-
-const OBSTACLE_COLOR = "#6b7280";
 
 type Renderer = {
   syncGameConfig: (game: Game) => void;
@@ -75,40 +73,6 @@ function getDisplayScale(canvas: HTMLCanvasElement, logicalWidth: number, logica
 
 function easeOutCubic(t: number): number {
   return 1 - (1 - t) ** 3;
-}
-
-function drawStyledCell(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  style: PieceStyle,
-  alpha = 1,
-): void {
-  const px = x * CELL;
-  const py = y * CELL;
-  const inset = 1.5;
-  const w = CELL - inset * 2;
-  const h = CELL - inset * 2;
-  const gradient = ctx.createLinearGradient(px, py, px, py + CELL);
-  gradient.addColorStop(0, "rgba(255,255,255,0.22)");
-  gradient.addColorStop(0.3, style.fill);
-  gradient.addColorStop(1, style.edge);
-
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = gradient;
-  ctx.shadowColor = style.glow;
-  ctx.shadowBlur = 8;
-  ctx.fillRect(px + inset, py + inset, w, h);
-  ctx.shadowBlur = 0;
-
-  ctx.strokeStyle = "rgba(236, 244, 255, 0.48)";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(px + inset + 0.5, py + inset + 0.5, w - 1, h - 1);
-
-  ctx.fillStyle = "rgba(255,255,255,0.11)";
-  ctx.fillRect(px + 4, py + 4, CELL - 8, 5);
-  ctx.restore();
 }
 
 /** Board-only canvas renderer: playfield, rotation animation, and overlays. */
@@ -186,7 +150,7 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
   ): void => {
     const layoutBounds = { width: layout.fullWidth, height: layout.fullHeight };
     const drawCell = (x: number, y: number, type: PieceType, alpha = 1, ghost = false) => {
-      drawStyledCell(ctx, x, y, PIECE_STYLES[type], alpha);
+      drawPieceCell(ctx, x, y, type, alpha);
       if (ghost) {
         ctx.fillStyle = "rgba(7, 13, 22, 0.35)";
         ctx.fillRect(x * CELL + 2, y * CELL + 2, CELL - 4, CELL - 4);
@@ -196,12 +160,9 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
       if (cell === null) return;
       ctx.globalAlpha = alpha;
       if (cell === SOLID_CELL) {
-        ctx.fillStyle = OBSTACLE_COLOR;
-        ctx.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
-        ctx.fillStyle = "rgba(0,0,0,0.18)";
-        ctx.fillRect(x * CELL + 3, y * CELL + 3, CELL - 6, 6);
+        drawSolidCell(ctx, x, y, alpha);
       } else {
-        drawStyledCell(ctx, x, y, PIECE_STYLES[cell], alpha);
+        drawPieceCell(ctx, x, y, cell, alpha);
       }
       ctx.globalAlpha = 1;
     };

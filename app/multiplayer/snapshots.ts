@@ -16,6 +16,10 @@ type MultiplayerSnapshotPayload = {
   sentAt: number;
   width: number;
   height: number;
+  fullWidth: number;
+  fullHeight: number;
+  viewOffsetX: number;
+  viewOffsetY: number;
   score: number;
   lines: number;
   incomingGarbage: number;
@@ -99,6 +103,10 @@ const buildMultiplayerSnapshot = (
     sentAt,
     width: snap.width,
     height: snap.height,
+    fullWidth: snap.locked[0]?.length ?? snap.width,
+    fullHeight: snap.locked.length,
+    viewOffsetX: snap.viewOffsetX,
+    viewOffsetY: snap.viewOffsetY,
     score: snap.score,
     lines: snap.linesClearedTotal,
     incomingGarbage: snap.incomingGarbage,

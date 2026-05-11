@@ -1321,14 +1321,10 @@ select {
 }
 
 .opponent-board {
-  display: grid;
-  box-sizing: border-box;
-  gap: 0;
+  display: block;
   min-width: 0;
   min-height: 0;
-  border: 0;
-  background: rgba(17, 26, 42, 0.58);
-  overflow: hidden;
+  background: transparent;
 }
 
 .opponent-piece-slot,
@@ -1336,41 +1332,6 @@ select {
   display: grid;
   gap: 0.4rem;
   justify-items: center;
-}
-
-.opponent-piece {
-  box-sizing: border-box;
-  width: calc(4 * var(--mp-board-cell, 13px));
-  height: calc(4 * var(--mp-board-cell, 13px));
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(4, 1fr);
-  gap: max(1px, calc(var(--mp-board-cell, 13px) * 0.04));
-}
-
-.opponent-piece-cell {
-  min-width: 0;
-  min-height: 0;
-}
-
-.opponent-cell {
-  min-width: 0;
-  min-height: 0;
-  background: rgba(15, 23, 40, 0.7);
-  border-right: 1px solid rgba(214, 228, 255, 0.08);
-  border-bottom: 1px solid rgba(214, 228, 255, 0.08);
-}
-
-.opponent-piece-cell[data-value],
-.opponent-cell[data-value="solid"] {
-  background: #6b7280;
-}
-
-.opponent-piece-cell[data-value]:not([data-value="solid"]),
-.opponent-cell[data-value]:not([data-value="solid"]) {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), var(--piece-fill) 30%, var(--piece-edge));
-  border: 1px solid rgba(236, 244, 255, 0.48);
-  box-shadow: 0 0 8px var(--piece-glow);
 }
 
 .opponent-name {
@@ -1426,7 +1387,8 @@ select {
 }
 
 #game,
-#mp-game {
+#mp-game,
+#mp-opponent-board {
   display: block;
   background: transparent;
   flex-shrink: 1;

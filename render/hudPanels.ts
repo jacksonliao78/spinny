@@ -2,8 +2,18 @@ import type { GameSnapshot } from "@game/game";
 import { GAME_MODE_POLICIES } from "@game/game/rules";
 import type { GameMode } from "@game/game/rules";
 import type { PieceType } from "@game/piece";
-import { PIECE_ROTATIONS } from "@game/piece";
-import { PIECE_STYLES, type PieceStyle } from "./pieceStyles";
+import {
+  HOLD_HEIGHT,
+  HOLD_WIDTH,
+  NEXT_COUNT,
+  NEXT_GAP,
+  NEXT_HEIGHT,
+  NEXT_SLOT_HEIGHT,
+  NEXT_WIDTH,
+  drawMiniPiece,
+  setupHoldCanvas,
+  setupNextCanvas,
+} from "./miniPiecePainter";
 
 type HudElements = {
   holdCanvas: HTMLCanvasElement;
@@ -26,68 +36,6 @@ type HudUpdater = {
   update: (snap: GameSnapshot) => void;
 };
 
-const HOLD_CELL = 10;
-const NEXT_CELL = 10;
-const NEXT_SLOT_H = 3 * NEXT_CELL;
-const NEXT_COUNT = 5;
-const NEXT_GAP = 4;
-
-function setupCanvas(canvas: HTMLCanvasElement, logicalW: number, logicalH: number): CanvasRenderingContext2D {
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.floor(logicalW * dpr);
-  canvas.height = Math.floor(logicalH * dpr);
-  canvas.style.aspectRatio = `${logicalW} / ${logicalH}`;
-  const ctx = canvas.getContext("2d")!;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-  return ctx;
-}
-
-function drawMiniPiece(
-  ctx: CanvasRenderingContext2D,
-  type: PieceType,
-  centerX: number,
-  centerY: number,
-  size: number,
-): void {
-  const shape = PIECE_ROTATIONS[type][0];
-  let minX = 4, minY = 4, maxX = 0, maxY = 0;
-  for (let row = 0; row < shape.length; row++) {
-    for (let col = 0; col < shape[row].length; col++) {
-      if (shape[row][col] === 0) continue;
-      minX = Math.min(minX, col);
-      minY = Math.min(minY, row);
-      maxX = Math.max(maxX, col);
-      maxY = Math.max(maxY, row);
-    }
-  }
-  const pieceW = (maxX - minX + 1) * size;
-  const pieceH = (maxY - minY + 1) * size;
-  const offsetX = centerX - pieceW / 2;
-  const offsetY = centerY - pieceH / 2;
-
-  const style: PieceStyle = PIECE_STYLES[type];
-  for (let row = 0; row < shape.length; row++) {
-    for (let col = 0; col < shape[row].length; col++) {
-      if (shape[row][col] === 0) continue;
-      const px = offsetX + (col - minX) * size;
-      const py = offsetY + (row - minY) * size;
-      const inset = 1;
-      const w = size - inset * 2;
-      const h = size - inset * 2;
-      const gradient = ctx.createLinearGradient(px, py, px, py + size);
-      gradient.addColorStop(0, "rgba(255,255,255,0.2)");
-      gradient.addColorStop(0.28, style.fill);
-      gradient.addColorStop(1, style.edge);
-      ctx.fillStyle = gradient;
-      ctx.fillRect(px + inset, py + inset, w, h);
-      ctx.strokeStyle = "rgba(235, 243, 255, 0.45)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(px + inset + 0.5, py + inset + 0.5, w - 1, h - 1);
-    }
-  }
-}
-
 function formatCountUp(ms: number): string {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -108,13 +56,8 @@ function createHudUpdater(elements: HudElements): HudUpdater {
   let mode: GameMode = "timed";
   let target = 40;
 
-  const holdW = 4 * HOLD_CELL + 8;
-  const holdH = 4 * HOLD_CELL + 8;
-  const holdCtx = setupCanvas(elements.holdCanvas, holdW, holdH);
-
-  const nextW = 4 * NEXT_CELL + 8;
-  const nextH = NEXT_COUNT * NEXT_SLOT_H + (NEXT_COUNT - 1) * NEXT_GAP;
-  const nextCtx = setupCanvas(elements.nextCanvas, nextW, nextH);
+  const holdCtx = setupHoldCanvas(elements.holdCanvas);
+  const nextCtx = setupNextCanvas(elements.nextCanvas);
 
   let lastHold: PieceType | null | undefined = undefined;
   let lastNextKey = "";
@@ -140,8 +83,8 @@ function createHudUpdater(elements: HudElements): HudUpdater {
     elements.comboValue.textContent = "";
     elements.survivalValue.textContent = "";
 
-    holdCtx.clearRect(0, 0, holdW, holdH);
-    nextCtx.clearRect(0, 0, nextW, nextH);
+    holdCtx.clearRect(0, 0, HOLD_WIDTH, HOLD_HEIGHT);
+    nextCtx.clearRect(0, 0, NEXT_WIDTH, NEXT_HEIGHT);
   };
 
   const update = (snap: GameSnapshot): void => {
@@ -174,19 +117,19 @@ function createHudUpdater(elements: HudElements): HudUpdater {
 
     if (snap.hold !== lastHold) {
       lastHold = snap.hold;
-      holdCtx.clearRect(0, 0, holdW, holdH);
+      holdCtx.clearRect(0, 0, HOLD_WIDTH, HOLD_HEIGHT);
       if (snap.hold) {
-        drawMiniPiece(holdCtx, snap.hold, holdW / 2, holdH / 2, HOLD_CELL);
+        drawMiniPiece(holdCtx, snap.hold, HOLD_WIDTH / 2, HOLD_HEIGHT / 2);
       }
     }
 
     const nextKey = snap.next.slice(0, NEXT_COUNT).join(",");
     if (nextKey !== lastNextKey) {
       lastNextKey = nextKey;
-      nextCtx.clearRect(0, 0, nextW, nextH);
+      nextCtx.clearRect(0, 0, NEXT_WIDTH, NEXT_HEIGHT);
       snap.next.slice(0, NEXT_COUNT).forEach((type, idx) => {
-        const cy = NEXT_SLOT_H / 2 + idx * (NEXT_SLOT_H + NEXT_GAP);
-        drawMiniPiece(nextCtx, type, nextW / 2, cy, NEXT_CELL);
+        const cy = NEXT_SLOT_HEIGHT / 2 + idx * (NEXT_SLOT_HEIGHT + NEXT_GAP);
+        drawMiniPiece(nextCtx, type, NEXT_WIDTH / 2, cy);
       });
     }
   };

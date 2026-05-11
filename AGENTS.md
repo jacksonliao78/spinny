@@ -1,0 +1,22 @@
+# Working Style
+
+- Work in small, staged phases.
+- Keep each phase simple, maintainable, and extensible.
+- Prefer the existing codebase patterns over new abstractions.
+- After each phase:
+  - run relevant tests/build
+  - commit with a short, casual commit message
+  - verify the committed diff before continuing
+- If verification finds issues:
+  - fix them in a follow-up commit
+  - rerun checks
+  - verify again
+- Keep commit messages brief, like:
+  - `rng`
+  - `rooms`
+  - `lobby`
+  - `mp start`
+  - `mp boards`
+- Do not implement a large feature in one big pass when it can be split into clear stages.
+- Do not commit if the changes aren't that large/significant
+- Preserve solo gameplay while building multiplayer.

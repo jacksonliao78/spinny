@@ -1,13 +1,13 @@
 import { createBoard } from "@game/board/factory";
 import { Game, type RunSummary } from "@game/game";
 import type { GameConfigOverrides } from "@game/game/rules";
-import { Piece, type PieceType } from "@game/piece";
+import type { PieceType } from "@game/piece";
 import { createSeededRandom } from "@game/random";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import type { InputController } from "../../input/controller";
-import { BOARD_CELL_SIZE, BOARD_PADDING } from "../../render/boardCanvasLayout";
 import type { HudUpdater } from "../../render/hudPanels";
-import { PIECE_STYLES } from "../../render/pieceStyles";
+import { drawHoldPiece, drawNextPieces } from "../../render/miniPiecePainter";
+import type { RemoteBoardRenderer } from "../../render/remoteBoard";
 import type { createRenderer } from "../../render/renderer";
 import { buildMultiplayerSnapshot, isMultiplayerCell, type MultiplayerSnapshotPayload } from "../multiplayer/snapshots";
 import type { MultiplayerRoom } from "../multiplayer/rooms";
@@ -25,7 +25,7 @@ type MultiplayerPlayingScreenOptions = {
   tipsPopover: HTMLElement;
   gameActions: HTMLElement;
   gameTitle: HTMLElement;
-  opponentBoard: HTMLElement;
+  opponentRenderer: RemoteBoardRenderer;
   opponentStatus: HTMLElement;
   opponentHold: HTMLElement;
   opponentNext: HTMLElement;
@@ -68,22 +68,6 @@ type MultiplayerPlayingScreen = {
 
 const SNAPSHOT_BROADCAST_INTERVAL_MS = 150;
 const OPPONENT_STALE_MS = 3_000;
-/** Must stay aligned with `MIN_DISPLAY_SCALE` in `render/renderer.ts`. */
-const MIN_BOARD_DISPLAY_SCALE = 0.55;
-
-const parseCssPx = (value: string): number | null => {
-  const match = /^([\d.]+)px\s*$/i.exec(value.trim());
-  if (!match) return null;
-  const n = Number.parseFloat(match[1]);
-  return Number.isFinite(n) && n > 0 ? n : null;
-};
-
-const applyPieceStyleVars = (el: HTMLElement, type: PieceType): void => {
-  const style = PIECE_STYLES[type];
-  el.style.setProperty("--piece-fill", style.fill);
-  el.style.setProperty("--piece-edge", style.edge);
-  el.style.setProperty("--piece-glow", style.glow);
-};
 
 const isPieceType = (value: unknown): value is PieceType =>
   value === "I" || value === "J" || value === "L" || value === "O" || value === "S" || value === "T" || value === "Z";
@@ -98,6 +82,10 @@ const isSnapshotPayload = (payload: unknown, roomId: string): payload is Multipl
     typeof maybe.username === "string" &&
     typeof maybe.width === "number" &&
     typeof maybe.height === "number" &&
+    typeof maybe.fullWidth === "number" &&
+    typeof maybe.fullHeight === "number" &&
+    typeof maybe.viewOffsetX === "number" &&
+    typeof maybe.viewOffsetY === "number" &&
     typeof maybe.score === "number" &&
     typeof maybe.lines === "number" &&
     typeof maybe.incomingGarbage === "number" &&
@@ -109,25 +97,16 @@ const isSnapshotPayload = (payload: unknown, roomId: string): payload is Multipl
   );
 };
 
-const renderOpponentPiece = (type: PieceType | null): HTMLElement => {
-  const pieceEl = document.createElement("div");
-  pieceEl.className = "opponent-piece";
-  pieceEl.setAttribute("aria-label", type ?? "Empty");
-  if (!type) return pieceEl;
+const renderOpponentHold = (type: PieceType | null): HTMLCanvasElement => {
+  const canvas = document.createElement("canvas");
+  drawHoldPiece(canvas, type);
+  return canvas;
+};
 
-  const shape = new Piece(type, 0, 0).getShape(0);
-  for (const row of shape) {
-    for (const occupied of row) {
-      const cell = document.createElement("div");
-      cell.className = "opponent-piece-cell";
-      if (occupied) {
-        cell.dataset.value = type;
-        applyPieceStyleVars(cell, type);
-      }
-      pieceEl.append(cell);
-    }
-  }
-  return pieceEl;
+const renderOpponentNext = (next: PieceType[]): HTMLCanvasElement => {
+  const canvas = document.createElement("canvas");
+  drawNextPieces(canvas, next);
+  return canvas;
 };
 
 const makeGameConfig = (room: MultiplayerRoom): GameConfigOverrides => ({
@@ -145,7 +124,7 @@ const initMultiplayerPlayingScreen = ({
   tipsPopover,
   gameActions,
   gameTitle,
-  opponentBoard,
+  opponentRenderer,
   opponentStatus,
   opponentHold,
   opponentNext,
@@ -234,17 +213,8 @@ const initMultiplayerPlayingScreen = ({
   const resetOpponentPanel = (): void => {
     opponentLastSeenMs = 0;
     lastOpponentPayload = null;
-    opponentBoard.replaceChildren();
-    opponentBoard.style.removeProperty("grid-template-columns");
-    opponentBoard.style.removeProperty("grid-template-rows");
-    opponentBoard.style.removeProperty("width");
-    opponentBoard.style.removeProperty("height");
-    opponentBoard.style.removeProperty("padding");
-    const resetPanel = opponentHold.closest("#mp-opponent-panel");
-    if (resetPanel instanceof HTMLElement) {
-      resetPanel.style.removeProperty("--mp-board-cell");
-    }
-    opponentHold.replaceChildren(renderOpponentPiece(null));
+    opponentRenderer.reset();
+    opponentHold.replaceChildren(renderOpponentHold(null));
     opponentNext.replaceChildren();
     opponentStatus.textContent = "Waiting";
     opponentLines.textContent = "0";
@@ -290,75 +260,10 @@ const initMultiplayerPlayingScreen = ({
     opponentLines.textContent = String(payload.lines);
     opponentScore.textContent = String(payload.score);
     opponentGarbage.textContent = String(payload.incomingGarbage);
-    opponentHold.replaceChildren(renderOpponentPiece(payload.hold));
-    opponentNext.replaceChildren(...payload.next.map(renderOpponentPiece));
-    opponentBoard.style.gridTemplateColumns = `repeat(${payload.width}, minmax(0, 1fr))`;
-    opponentBoard.style.gridTemplateRows = `repeat(${payload.height}, minmax(0, 1fr))`;
-    syncOpponentBoardSize(payload);
-
-    const cellValues = new Map(payload.cells.map((cell) => [`${cell.x},${cell.y}`, cell.value]));
-    const cells: HTMLElement[] = [];
-    for (let y = 0; y < payload.height; y += 1) {
-      for (let x = 0; x < payload.width; x += 1) {
-        const cell = document.createElement("div");
-        cell.className = "opponent-cell";
-        const value = cellValues.get(`${x},${y}`);
-        if (value) {
-          cell.dataset.value = value;
-          if (value !== "solid") applyPieceStyleVars(cell, value);
-        }
-        cells.push(cell);
-      }
-    }
-    opponentBoard.replaceChildren(...cells);
-  };
-
-  /** Match the opponent DOM board box to the main canvas CSS box (same uniform scale as `setCanvasSize`). */
-  const matchCanvasToLogicalBox = (
-    logicalWidth: number,
-    logicalHeight: number,
-  ): { cssWidth: number; cssHeight: number; scale: number } => {
-    const styleW = parseCssPx(canvas.style.width);
-    const styleH = parseCssPx(canvas.style.height);
-    if (styleW !== null && styleH !== null) {
-      const sx = styleW / logicalWidth;
-      const sy = styleH / logicalHeight;
-      const scale = Math.abs(sx - sy) <= 0.002 ? sx : (sx + sy) / 2;
-      return { cssWidth: Math.round(styleW), cssHeight: Math.round(styleH), scale };
-    }
-    const slot = canvas.parentElement;
-    if (slot instanceof HTMLElement && slot.clientWidth > 0 && slot.clientHeight > 0) {
-      const raw = Math.min(1, slot.clientWidth / logicalWidth, slot.clientHeight / logicalHeight);
-      const scale = Math.max(MIN_BOARD_DISPLAY_SCALE, raw);
-      return {
-        cssWidth: Math.round(logicalWidth * scale),
-        cssHeight: Math.round(logicalHeight * scale),
-        scale,
-      };
-    }
-    const rect = canvas.getBoundingClientRect();
-    const rw = rect.width > 0 ? rect.width : logicalWidth * MIN_BOARD_DISPLAY_SCALE;
-    const rh = rect.height > 0 ? rect.height : logicalHeight * MIN_BOARD_DISPLAY_SCALE;
-    const raw = Math.min(1, rw / logicalWidth, rh / logicalHeight);
-    const scale = Math.max(MIN_BOARD_DISPLAY_SCALE, raw);
-    return {
-      cssWidth: Math.round(logicalWidth * scale),
-      cssHeight: Math.round(logicalHeight * scale),
-      scale,
-    };
-  };
-
-  const applyOpponentBoardChrome = (playWidth: number, playHeight: number): void => {
-    const logicalWidth = playWidth * BOARD_CELL_SIZE + BOARD_PADDING * 2;
-    const logicalHeight = playHeight * BOARD_CELL_SIZE + BOARD_PADDING * 2;
-    const { cssWidth, cssHeight, scale } = matchCanvasToLogicalBox(logicalWidth, logicalHeight);
-    opponentBoard.style.width = `${cssWidth}px`;
-    opponentBoard.style.height = `${cssHeight}px`;
-    opponentBoard.style.padding = `${Math.round(BOARD_PADDING * scale)}px`;
-    const panel = opponentHold.closest("#mp-opponent-panel");
-    if (panel instanceof HTMLElement) {
-      panel.style.setProperty("--mp-board-cell", `${BOARD_CELL_SIZE * scale}px`);
-    }
+    opponentHold.replaceChildren(renderOpponentHold(payload.hold));
+    opponentNext.replaceChildren(renderOpponentNext(payload.next));
+    opponentRenderer.sync(payload, canvas);
+    opponentRenderer.draw(payload);
   };
 
   /** Before any opponent snapshot, size the empty opponent frame like the local board. */
@@ -367,12 +272,17 @@ const initMultiplayerPlayingScreen = ({
     const game = getGame();
     if (!game) return;
     const snap = game.getSnapshot();
-    applyOpponentBoardChrome(snap.width, snap.height);
-  };
-
-  const syncOpponentBoardSize = (payload = lastOpponentPayload): void => {
-    if (!payload) return;
-    applyOpponentBoardChrome(payload.width, payload.height);
+    const frame = {
+      width: snap.width,
+      height: snap.height,
+      fullWidth: snap.locked[0]?.length ?? snap.width,
+      fullHeight: snap.locked.length,
+      viewOffsetX: snap.viewOffsetX,
+      viewOffsetY: snap.viewOffsetY,
+      cells: [],
+    };
+    opponentRenderer.sync(frame, canvas);
+    opponentRenderer.draw(frame);
   };
 
   const teardownMultiplayerChannel = (): void => {
@@ -549,7 +459,8 @@ const initMultiplayerPlayingScreen = ({
     if (!game) return;
     renderer.syncGameConfig(game);
     if (lastOpponentPayload) {
-      syncOpponentBoardSize();
+      opponentRenderer.sync(lastOpponentPayload, canvas);
+      opponentRenderer.draw(lastOpponentPayload);
     } else {
       syncOpponentBoardShellFromLocalGame();
     }

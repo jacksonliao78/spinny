@@ -10,6 +10,7 @@ import {
 } from "../input/settings";
 import { createMiniBoardRenderer } from "../render/miniBoard";
 import { createHudUpdater } from "../render/hudPanels";
+import { createRemoteBoardRenderer } from "../render/remoteBoard";
 import { createRenderer } from "../render/renderer";
 import { getSupabase, isSupabaseConfigured } from "../supabase/client";
 import { DEFAULT_BOARD_KIND, DEFAULT_GAME_MODE, SPINNY_BOARD_PREF_KEY, type AppScreen } from "./constants";
@@ -123,7 +124,9 @@ const mountApp = (): void => {
   const tipsPopover = getElement<HTMLElement>("tips-popover");
   const gameActions = getElement<HTMLElement>("game-actions");
   const gameTitle = getElement<HTMLElement>("game-title");
-  const multiplayerOpponentBoard = getElement<HTMLElement>("mp-opponent-board");
+  const multiplayerOpponentBoard = getElement<HTMLCanvasElement>("mp-opponent-board");
+  const multiplayerOpponentBoardCtx = multiplayerOpponentBoard.getContext("2d");
+  if (!multiplayerOpponentBoardCtx) return;
   const multiplayerOpponentStatus = getElement<HTMLElement>("mp-opponent-status");
   const multiplayerOpponentHold = getElement<HTMLElement>("mp-opponent-hold");
   const multiplayerOpponentNext = getElement<HTMLElement>("mp-opponent-next");
@@ -227,6 +230,7 @@ const mountApp = (): void => {
   const supabase = isSupabaseConfigured() ? getSupabase() : null;
   const renderer = createRenderer(canvas, ctx);
   const multiplayerRenderer = createRenderer(mpCanvas, mpCtx);
+  const multiplayerOpponentRenderer = createRemoteBoardRenderer(multiplayerOpponentBoard, multiplayerOpponentBoardCtx);
   const hudUpdater = createHudUpdater({
     holdCanvas,
     nextCanvas,
@@ -452,7 +456,7 @@ const mountApp = (): void => {
     tipsPopover: mpTipsPopover,
     gameActions: mpGameActions,
     gameTitle: mpGameTitle,
-    opponentBoard: multiplayerOpponentBoard,
+    opponentRenderer: multiplayerOpponentRenderer,
     opponentStatus: multiplayerOpponentStatus,
     opponentHold: multiplayerOpponentHold,
     opponentNext: multiplayerOpponentNext,
