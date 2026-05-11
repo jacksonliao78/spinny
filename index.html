@@ -80,19 +80,14 @@
               <button id="auth-signup-tab" class="auth-tab" type="button" role="tab" aria-selected="false">Sign Up</button>
             </div>
 
-            <label class="auth-field">
-              <span>Email</span>
-              <input id="auth-email" type="email" autocomplete="email" required />
+            <label id="auth-username-row" class="auth-field">
+              <span>Username</span>
+              <input id="auth-username" type="text" autocomplete="username" minlength="3" maxlength="24" required />
             </label>
 
             <label class="auth-field">
               <span>Password</span>
               <input id="auth-password" type="password" autocomplete="current-password" minlength="6" required />
-            </label>
-
-            <label id="auth-username-row" class="auth-field" hidden>
-              <span>Username</span>
-              <input id="auth-username" type="text" autocomplete="username" minlength="3" maxlength="24" />
             </label>
 
             <p id="auth-status" class="auth-status" role="status" aria-live="polite"></p>
@@ -204,9 +199,11 @@
               </div>
             </div>
             <div id="lobby-members" class="lobby-members"></div>
+            <div id="lobby-spectators" class="lobby-spectators" hidden></div>
             <div class="lobby-actions">
               <button id="lobby-ready-button" class="primary-button" type="button">Ready</button>
               <button id="lobby-start-button" class="secondary-button" type="button">Start</button>
+              <button id="lobby-watch-button" class="secondary-button" type="button" hidden>Watch Match</button>
               <button id="lobby-refresh-button" class="secondary-button" type="button">Refresh</button>
             </div>
           </section>
@@ -418,6 +415,14 @@
             </div>
             <div class="game-board-slot">
               <canvas id="mp-game" width="320" height="640" tabindex="0"></canvas>
+              <div id="mp-garbage-meter" class="garbage-meter garbage-meter--local" aria-label="Incoming garbage">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <strong id="mp-garbage-value">0</strong>
+              </div>
               <div id="mp-run-countdown" class="run-countdown" aria-live="polite" hidden></div>
             </div>
             <div class="game-sidebar game-sidebar--right">
@@ -451,6 +456,14 @@
             </div>
             <div class="game-board-slot opponent-board-slot">
               <canvas id="mp-opponent-board" class="opponent-board" width="320" height="640"></canvas>
+              <div id="mp-opponent-garbage-meter" class="garbage-meter garbage-meter--opponent" aria-label="Opponent incoming garbage">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <strong id="mp-opponent-garbage-value">0</strong>
+              </div>
             </div>
             <div class="game-sidebar game-sidebar--right">
               <div class="game-box">

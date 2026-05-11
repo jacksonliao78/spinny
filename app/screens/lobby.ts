@@ -1,8 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppScreen } from "../constants";
 import {
+  canStartRoom,
   fetchRoom,
   getServerTime,
+  getPlayerMembers,
+  getSpectatorMembers,
   leaveRoom,
   setReady,
   startRoom,
@@ -17,6 +20,7 @@ type LobbyScreenOptions = {
   lobbyRefreshButton: HTMLButtonElement;
   lobbyReadyButton: HTMLButtonElement;
   lobbyStartButton: HTMLButtonElement;
+  lobbyWatchButton: HTMLButtonElement;
   lobbyStatus: HTMLElement;
   lobbyContent: HTMLElement;
   lobbyHeading: HTMLElement;
@@ -24,12 +28,14 @@ type LobbyScreenOptions = {
   lobbyVisibility: HTMLElement;
   lobbyRoomStatus: HTMLElement;
   lobbyMembers: HTMLElement;
+  lobbySpectators: HTMLElement;
   supabase: SupabaseClient | null;
   session: SessionController;
   navigate: (screen: AppScreen) => void;
   getCurrentRoomId: () => string | null;
   setCurrentRoomId: (roomId: string | null) => void;
-  startMultiplayerGame: (room: RoomWithMembers["room"], serverNowMs?: number) => void;
+  startMultiplayerGame: (room: RoomWithMembers["room"], members: RoomMember[], serverNowMs?: number) => void;
+  startSpectatingMatch: (room: RoomWithMembers["room"], members: RoomMember[]) => void;
   canAutoStartRoom: () => boolean;
 };
 
@@ -69,6 +75,7 @@ const initLobbyScreen = ({
   lobbyRefreshButton,
   lobbyReadyButton,
   lobbyStartButton,
+  lobbyWatchButton,
   lobbyStatus,
   lobbyContent,
   lobbyHeading,
@@ -76,12 +83,14 @@ const initLobbyScreen = ({
   lobbyVisibility,
   lobbyRoomStatus,
   lobbyMembers,
+  lobbySpectators,
   supabase,
   session,
   navigate,
   getCurrentRoomId,
   setCurrentRoomId,
   startMultiplayerGame,
+  startSpectatingMatch,
   canAutoStartRoom,
 }: LobbyScreenOptions): LobbyScreen => {
   let currentRoom: RoomWithMembers | null = null;
@@ -99,28 +108,46 @@ const initLobbyScreen = ({
     lobbyRefreshButton.disabled = busy;
     lobbyReadyButton.disabled = busy;
     lobbyStartButton.disabled = busy;
+    lobbyWatchButton.disabled = busy;
+  };
+
+  const renderSpectators = (spectators: RoomMember[]): void => {
+    lobbySpectators.hidden = spectators.length === 0;
+    if (spectators.length === 0) {
+      lobbySpectators.replaceChildren();
+      return;
+    }
+    const label = document.createElement("strong");
+    label.textContent = `Spectators (${spectators.length})`;
+    const names = document.createElement("span");
+    names.textContent = spectators.map((member) => member.username).join(", ");
+    lobbySpectators.replaceChildren(label, names);
   };
 
   const render = (room: RoomWithMembers): void => {
     const user = session.getCurrentUser();
     const self = user ? room.members.find((member) => member.userId === user.id) ?? null : null;
     const host = user?.id === room.room.hostUserId;
-    const filled = room.members.length >= room.room.maxPlayers;
-    const allReady = filled && room.members.every((member) => member.ready);
-    const slotOne = room.members.find((member) => member.slot === 1) ?? null;
-    const slotTwo = room.members.find((member) => member.slot === 2) ?? null;
+    const player = self?.role === "player";
+    const players = getPlayerMembers(room.members);
+    const spectators = getSpectatorMembers(room.members);
+    const slotOne = players.find((member) => member.slot === 1) ?? null;
+    const slotTwo = players.find((member) => member.slot === 2) ?? null;
 
     lobbyHeading.textContent = room.room.status === "lobby" ? "Waiting" : statusLabel(room.room.status);
     lobbyCode.textContent = room.room.joinCode;
     lobbyVisibility.textContent = statusLabel(room.room.visibility);
     lobbyRoomStatus.textContent = statusLabel(room.room.status);
     lobbyMembers.replaceChildren(renderMember(slotOne, 1, room.room.hostUserId), renderMember(slotTwo, 2, room.room.hostUserId));
+    renderSpectators(spectators);
 
     lobbyReadyButton.textContent = self?.ready ? "Unready" : "Ready";
-    lobbyReadyButton.hidden = room.room.status !== "lobby" || !self;
+    lobbyReadyButton.hidden = room.room.status !== "lobby" || !self || !player;
     lobbyReadyButton.disabled = false;
-    lobbyStartButton.hidden = !host;
-    lobbyStartButton.disabled = room.room.status !== "lobby" || !allReady;
+    lobbyStartButton.hidden = !host || !player;
+    lobbyStartButton.disabled = room.room.status !== "lobby" || !canStartRoom(room.room, room.members);
+    lobbyWatchButton.hidden = !self || player || !shouldStartLocalGame(room);
+    lobbyWatchButton.disabled = false;
     lobbyRefreshButton.disabled = false;
     lobbyContent.hidden = false;
   };
@@ -130,10 +157,10 @@ const initLobbyScreen = ({
     Boolean(room.room.seed) &&
     Boolean(room.room.countdownStartsAt);
 
-  const startLocalGameFromRoom = async (room: RoomWithMembers["room"], epoch: number): Promise<void> => {
+  const startLocalGameFromRoom = async (room: RoomWithMembers, epoch: number): Promise<void> => {
     const serverTime = supabase ? Date.parse(await getServerTime(supabase)) : NaN;
-    if (epoch !== loadEpoch || getCurrentRoomId() !== room.id) return;
-    startMultiplayerGame(room, Number.isFinite(serverTime) ? serverTime : undefined);
+    if (epoch !== loadEpoch || getCurrentRoomId() !== room.room.id) return;
+    startMultiplayerGame(room.room, room.members, Number.isFinite(serverTime) ? serverTime : undefined);
   };
 
   const loadRoom = async (silent = false): Promise<void> => {
@@ -163,8 +190,9 @@ const initLobbyScreen = ({
       if (myEpoch !== loadEpoch) return;
       currentRoom = room;
       render(room);
-      if (shouldStartLocalGame(room) && canAutoStartRoom()) {
-        await startLocalGameFromRoom(room.room, myEpoch);
+      const self = room.members.find((member) => member.userId === user.id);
+      if (self?.role === "player" && shouldStartLocalGame(room) && canAutoStartRoom()) {
+        await startLocalGameFromRoom(room, myEpoch);
         return;
       }
       setStatus("", "");
@@ -207,7 +235,7 @@ const initLobbyScreen = ({
     const user = session.getCurrentUser();
     if (!room || !user || !supabase) return;
     const self = room.members.find((member) => member.userId === user.id);
-    if (!self) return;
+    if (!self || self.role !== "player") return;
     setButtonsBusy(true);
     setStatus(self.ready ? "Updating..." : "Ready...", "");
     try {
@@ -231,13 +259,19 @@ const initLobbyScreen = ({
       const started = await startRoom(supabase, room.room.id, room.room.settings, createSeed(), 3_000);
       currentRoom = { ...room, room: started };
       render(currentRoom);
-      await startLocalGameFromRoom(started, loadEpoch);
+      await startLocalGameFromRoom(currentRoom, loadEpoch);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not start room.", "error");
     } finally {
       setButtonsBusy(false);
       if (currentRoom) render(currentRoom);
     }
+  };
+
+  const watchCurrentMatch = (): void => {
+    const room = currentRoom;
+    if (!room || !shouldStartLocalGame(room)) return;
+    startSpectatingMatch(room.room, room.members);
   };
 
   const enter = (): void => {
@@ -260,6 +294,7 @@ const initLobbyScreen = ({
   lobbyRefreshButton.addEventListener("click", () => void loadRoom());
   lobbyReadyButton.addEventListener("click", () => void toggleReady());
   lobbyStartButton.addEventListener("click", () => void startCurrentRoom());
+  lobbyWatchButton.addEventListener("click", () => watchCurrentMatch());
 
   return { enter, leave };
 };

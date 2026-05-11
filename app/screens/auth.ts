@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { authEmailForUsername } from "../auth/credentials";
 import { isUsernameTakenError, readableAuthError } from "../auth/errors";
 import { saveProfileUsername } from "../auth/profile";
 import { clearPendingSignupUsername, normalizeUsername, savePendingSignupUsername } from "../auth/username";
@@ -12,7 +13,6 @@ type AuthScreenOptions = {
   authForm: HTMLFormElement;
   authLoginTab: HTMLButtonElement;
   authSignupTab: HTMLButtonElement;
-  authEmail: HTMLInputElement;
   authPassword: HTMLInputElement;
   authUsernameRow: HTMLLabelElement;
   authUsername: HTMLInputElement;
@@ -35,7 +35,6 @@ const initAuthScreen = ({
   authForm,
   authLoginTab,
   authSignupTab,
-  authEmail,
   authPassword,
   authUsernameRow,
   authUsername,
@@ -64,8 +63,8 @@ const initAuthScreen = ({
     const signingUp = authMode === "signup";
     authHeading.textContent = signingUp ? "Create Account" : "Sign In";
     authSubmitButton.textContent = signingUp ? "Create Account" : "Log In";
-    authUsernameRow.hidden = !signingUp;
-    authUsername.required = signingUp;
+    authUsernameRow.hidden = false;
+    authUsername.required = true;
     authPassword.autocomplete = signingUp ? "new-password" : "current-password";
     authLoginTab.classList.toggle("auth-tab--selected", !signingUp);
     authSignupTab.classList.toggle("auth-tab--selected", signingUp);
@@ -78,7 +77,7 @@ const initAuthScreen = ({
     authMode = "login";
     refreshAuthModeUi();
     navigate("auth");
-    authEmail.focus();
+    authUsername.focus();
   };
 
   authLoginTab.addEventListener("click", () => {
@@ -105,14 +104,15 @@ const initAuthScreen = ({
       return;
     }
 
-    const email = authEmail.value.trim();
     const password = authPassword.value;
     const username = normalizeUsername(authUsername.value);
 
-    if (authMode === "signup" && !USERNAME_PATTERN.test(username)) {
+    if (!USERNAME_PATTERN.test(username)) {
       setAuthStatus("Username must be 3-24 characters: lowercase letters, numbers, or underscores.", "error");
       return;
     }
+
+    const email = authEmailForUsername(username);
 
     const submit = async (): Promise<void> => {
       setAuthPending(true);
@@ -134,11 +134,11 @@ const initAuthScreen = ({
         if (error) throw error;
         savePendingSignupUsername(email, username);
         if (!data.user) {
-          setAuthStatus("Check your email to confirm your account, then log in.", "info");
+          setAuthStatus("Account created. Log in with your username and password.", "info");
           return;
         }
         if (!data.session) {
-          setAuthStatus("Check your email to confirm your account. Your username will be saved when you log in.", "info");
+          setAuthStatus("Account created. Log in with your username and password once the account is active.", "info");
           return;
         }
 

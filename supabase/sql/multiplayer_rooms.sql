@@ -21,14 +21,52 @@ CREATE TABLE IF NOT EXISTS public.room_members (
   room_id uuid NOT NULL REFERENCES public.rooms(id) ON DELETE CASCADE,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   username text NOT NULL,
-  slot int NOT NULL CHECK (slot IN (1, 2)),
+  role text NOT NULL DEFAULT 'player' CHECK (role IN ('player', 'spectator')),
+  slot int CHECK (slot IN (1, 2)),
   ready boolean NOT NULL DEFAULT false,
   connected boolean NOT NULL DEFAULT true,
   joined_at timestamptz NOT NULL DEFAULT now(),
   last_seen_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (room_id, user_id),
-  UNIQUE (room_id, slot)
+  UNIQUE (room_id, slot),
+  CHECK (
+    (role = 'player' AND slot IS NOT NULL)
+    OR (role = 'spectator' AND slot IS NULL AND ready = false)
+  )
 );
+
+ALTER TABLE public.room_members
+  ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'player';
+
+ALTER TABLE public.room_members
+  ALTER COLUMN slot DROP NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'room_members_role_check'
+      AND conrelid = 'public.room_members'::regclass
+  ) THEN
+    ALTER TABLE public.room_members
+      ADD CONSTRAINT room_members_role_check CHECK (role IN ('player', 'spectator'));
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'room_members_role_slot_check'
+      AND conrelid = 'public.room_members'::regclass
+  ) THEN
+    ALTER TABLE public.room_members
+      ADD CONSTRAINT room_members_role_slot_check CHECK (
+        (role = 'player' AND slot IS NOT NULL)
+        OR (role = 'spectator' AND slot IS NULL AND ready = false)
+      );
+  END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS public.room_results (
   room_id uuid NOT NULL REFERENCES public.rooms(id) ON DELETE CASCADE,
@@ -114,6 +152,7 @@ AS $$
         SELECT count(*)
         FROM public.room_members m
         WHERE m.room_id = target_room_id
+          AND m.role = 'player'
       ) < r.max_players
   );
 $$;
@@ -158,7 +197,7 @@ BEGIN
 
   IF requested_slot IN (1, 2) AND NOT EXISTS (
     SELECT 1 FROM public.room_members
-    WHERE room_id = target_room.id AND slot = requested_slot
+    WHERE room_id = target_room.id AND role = 'player' AND slot = requested_slot
   ) THEN
     chosen_slot := requested_slot;
   ELSE
@@ -167,20 +206,24 @@ BEGIN
     FROM generate_series(1, target_room.max_players) AS candidate(slot_number)
     WHERE NOT EXISTS (
       SELECT 1 FROM public.room_members
-      WHERE room_id = target_room.id AND room_members.slot = candidate.slot_number
+      WHERE room_id = target_room.id
+        AND room_members.role = 'player'
+        AND room_members.slot = candidate.slot_number
     )
     ORDER BY candidate.slot_number
     LIMIT 1;
   END IF;
 
-  IF chosen_slot IS NULL THEN
-    RAISE EXCEPTION 'Room is full';
-  END IF;
-
   clean_username := left(nullif(trim(member_username), ''), 64);
 
-  INSERT INTO public.room_members (room_id, user_id, username, slot)
-  VALUES (target_room.id, auth.uid(), coalesce(clean_username, 'player'), chosen_slot);
+  INSERT INTO public.room_members (room_id, user_id, username, role, slot)
+  VALUES (
+    target_room.id,
+    auth.uid(),
+    coalesce(clean_username, 'player'),
+    CASE WHEN chosen_slot IS NULL THEN 'spectator' ELSE 'player' END,
+    chosen_slot
+  );
 
   RETURN target_room.id;
 END;
@@ -229,7 +272,7 @@ BEGIN
 
   IF requested_slot IN (1, 2) AND NOT EXISTS (
     SELECT 1 FROM public.room_members
-    WHERE room_id = target_room.id AND slot = requested_slot
+    WHERE room_id = target_room.id AND role = 'player' AND slot = requested_slot
   ) THEN
     chosen_slot := requested_slot;
   ELSE
@@ -238,20 +281,24 @@ BEGIN
     FROM generate_series(1, target_room.max_players) AS candidate(slot_number)
     WHERE NOT EXISTS (
       SELECT 1 FROM public.room_members
-      WHERE room_id = target_room.id AND room_members.slot = candidate.slot_number
+      WHERE room_id = target_room.id
+        AND room_members.role = 'player'
+        AND room_members.slot = candidate.slot_number
     )
     ORDER BY candidate.slot_number
     LIMIT 1;
   END IF;
 
-  IF chosen_slot IS NULL THEN
-    RAISE EXCEPTION 'Room is full';
-  END IF;
-
   clean_username := left(nullif(trim(member_username), ''), 64);
 
-  INSERT INTO public.room_members (room_id, user_id, username, slot)
-  VALUES (target_room.id, auth.uid(), coalesce(clean_username, 'player'), chosen_slot);
+  INSERT INTO public.room_members (room_id, user_id, username, role, slot)
+  VALUES (
+    target_room.id,
+    auth.uid(),
+    coalesce(clean_username, 'player'),
+    CASE WHEN chosen_slot IS NULL THEN 'spectator' ELSE 'player' END,
+    chosen_slot
+  );
 
   RETURN target_room.id;
 END;
@@ -259,6 +306,8 @@ $$;
 
 REVOKE ALL ON FUNCTION public.join_public_room(uuid, text, int) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.join_public_room(uuid, text, int) TO authenticated;
+
+DROP FUNCTION IF EXISTS public.list_public_rooms();
 
 CREATE OR REPLACE FUNCTION public.list_public_rooms()
 RETURNS TABLE (
@@ -273,7 +322,9 @@ RETURNS TABLE (
   countdown_starts_at timestamptz,
   created_at timestamptz,
   updated_at timestamptz,
-  member_count bigint
+  member_count bigint,
+  player_count bigint,
+  spectator_count bigint
 )
 LANGUAGE sql
 SECURITY DEFINER
@@ -291,13 +342,14 @@ AS $$
     r.countdown_starts_at,
     r.created_at,
     r.updated_at,
-    count(m.user_id) AS member_count
+    count(m.user_id) AS member_count,
+    count(m.user_id) FILTER (WHERE m.role = 'player') AS player_count,
+    count(m.user_id) FILTER (WHERE m.role = 'spectator') AS spectator_count
   FROM public.rooms r
   LEFT JOIN public.room_members m ON m.room_id = r.id
   WHERE r.visibility = 'public'
     AND r.status = 'lobby'
   GROUP BY r.id
-  HAVING count(m.user_id) < r.max_players
   ORDER BY r.created_at DESC;
 $$;
 
@@ -359,6 +411,7 @@ BEGIN
   INTO next_host
   FROM public.room_members
   WHERE room_id = target_room_id
+    AND role = 'player'
   ORDER BY slot
   LIMIT 1;
 
@@ -419,6 +472,7 @@ BEGIN
     SELECT count(*)
     FROM public.room_members
     WHERE room_id = target_room_id
+      AND role = 'player'
   ) <> started_room.max_players THEN
     RAISE EXCEPTION 'Room needs two players';
   END IF;
@@ -427,6 +481,7 @@ BEGIN
     SELECT 1
     FROM public.room_members
     WHERE room_id = target_room_id
+      AND role = 'player'
       AND ready = false
   ) THEN
     RAISE EXCEPTION 'All players must be ready';
@@ -503,6 +558,7 @@ FOR INSERT
 TO authenticated
 WITH CHECK (
   user_id = auth.uid()
+  AND role = 'player'
   AND public.room_has_open_slot(room_id)
   AND (
     public.is_room_host(room_id)
@@ -531,8 +587,14 @@ WITH CHECK (
     WHERE old_member.room_id = room_members.room_id
       AND old_member.user_id = auth.uid()
   )
-  AND slot = (
+  AND slot IS NOT DISTINCT FROM (
     SELECT old_member.slot
+    FROM public.room_members AS old_member
+    WHERE old_member.room_id = room_members.room_id
+      AND old_member.user_id = auth.uid()
+  )
+  AND role = (
+    SELECT old_member.role
     FROM public.room_members AS old_member
     WHERE old_member.room_id = room_members.room_id
       AND old_member.user_id = auth.uid()
@@ -567,6 +629,13 @@ TO authenticated
 WITH CHECK (
   user_id = auth.uid()
   AND public.is_room_member(room_id)
+  AND EXISTS (
+    SELECT 1
+    FROM public.room_members
+    WHERE room_id = room_results.room_id
+      AND user_id = auth.uid()
+      AND role = 'player'
+  )
 );
 
 DROP POLICY IF EXISTS "room_results_update_self" ON public.room_results;

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 type RoomVisibility = "public" | "private";
 type RoomStatus = "lobby" | "countdown" | "playing" | "finished" | "abandoned";
+type RoomMemberRole = "player" | "spectator";
 
 type MultiplayerRoomSettings = {
   boardKind: BoardKind;
@@ -19,6 +20,8 @@ type MultiplayerRoom = {
   seed: string | null;
   countdownStartsAt: string | null;
   memberCount: number | null;
+  playerCount: number | null;
+  spectatorCount: number | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -27,7 +30,8 @@ type RoomMember = {
   roomId: string;
   userId: string;
   username: string;
-  slot: 1 | 2;
+  role: RoomMemberRole;
+  slot: 1 | 2 | null;
   ready: boolean;
   connected: boolean;
   joinedAt: string;
@@ -91,6 +95,8 @@ const roomFromRow = (row: any): MultiplayerRoom => ({
   seed: typeof row.seed === "string" ? row.seed : null,
   countdownStartsAt: typeof row.countdown_starts_at === "string" ? row.countdown_starts_at : null,
   memberCount: row.member_count == null ? null : Number(row.member_count),
+  playerCount: row.player_count == null ? null : Number(row.player_count),
+  spectatorCount: row.spectator_count == null ? null : Number(row.spectator_count),
   createdAt: String(row.created_at),
   updatedAt: String(row.updated_at),
 });
@@ -99,18 +105,33 @@ const memberFromRow = (row: any): RoomMember => ({
   roomId: String(row.room_id),
   userId: String(row.user_id),
   username: String(row.username),
-  slot: Number(row.slot) === 2 ? 2 : 1,
+  role: row.role === "spectator" ? "spectator" : "player",
+  slot: row.slot == null ? null : Number(row.slot) === 2 ? 2 : 1,
   ready: Boolean(row.ready),
   connected: Boolean(row.connected),
   joinedAt: String(row.joined_at),
   lastSeenAt: String(row.last_seen_at),
 });
 
+const isPlayerMember = (member: RoomMember): boolean => member.role === "player" && member.slot !== null;
+
+const getPlayerMembers = (members: RoomMember[]): RoomMember[] =>
+  members.filter(isPlayerMember).sort((a, b) => (a.slot ?? 99) - (b.slot ?? 99));
+
+const getSpectatorMembers = (members: RoomMember[]): RoomMember[] =>
+  members.filter((member) => member.role === "spectator");
+
+const canStartRoom = (room: MultiplayerRoom, members: RoomMember[]): boolean => {
+  const players = getPlayerMembers(members);
+  return players.length === room.maxPlayers && players.every((member) => member.ready);
+};
+
 const fetchRoomMembers = async (supabase: SupabaseClient, roomId: string): Promise<RoomMember[]> => {
   const { data, error } = await supabase
     .from("room_members")
     .select("*")
     .eq("room_id", roomId)
+    .order("role", { ascending: true })
     .order("slot", { ascending: true });
   if (error) throw error;
   return (data ?? []).map(memberFromRow);
@@ -155,6 +176,7 @@ const createRoom = async (
       room_id: room.id,
       user_id: userId,
       username: memberName,
+      role: "player",
       slot: 1,
     });
 
@@ -261,6 +283,10 @@ export {
   createRoom,
   fetchRoom,
   getServerTime,
+  canStartRoom,
+  getPlayerMembers,
+  getSpectatorMembers,
+  isPlayerMember,
   joinPrivateRoomByCode,
   joinPublicRoom,
   leaveRoom,
@@ -270,4 +296,12 @@ export {
   startRoom,
   touchRoomMember,
 };
-export type { MultiplayerRoom, MultiplayerRoomSettings, RoomMember, RoomStatus, RoomVisibility, RoomWithMembers };
+export type {
+  MultiplayerRoom,
+  MultiplayerRoomSettings,
+  RoomMember,
+  RoomMemberRole,
+  RoomStatus,
+  RoomVisibility,
+  RoomWithMembers,
+};

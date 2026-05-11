@@ -13,6 +13,7 @@ type MultiplayerSnapshotPayload = {
   roomId: string;
   userId: string;
   username: string;
+  slot: 1 | 2;
   sentAt: number;
   width: number;
   height: number;
@@ -31,20 +32,45 @@ type MultiplayerSnapshotPayload = {
 
 const isBroadcastCell = (cell: BoardCell): cell is PieceType | "solid" => cell !== null;
 
+const isPieceType = (value: unknown): value is PieceType =>
+  value === "I" || value === "J" || value === "L" || value === "O" || value === "S" || value === "T" || value === "Z";
+
 const isMultiplayerCell = (value: unknown): value is MultiplayerCell => {
   if (!value || typeof value !== "object") return false;
   const maybe = value as Partial<MultiplayerCell>;
   return (
     typeof maybe.x === "number" &&
     typeof maybe.y === "number" &&
-    (maybe.value === "solid" ||
-      maybe.value === "I" ||
-      maybe.value === "J" ||
-      maybe.value === "L" ||
-      maybe.value === "O" ||
-      maybe.value === "S" ||
-      maybe.value === "T" ||
-      maybe.value === "Z")
+    (maybe.value === "solid" || isPieceType(maybe.value))
+  );
+};
+
+const isMultiplayerSnapshotPayload = (payload: unknown, roomId: string): payload is MultiplayerSnapshotPayload => {
+  if (!payload || typeof payload !== "object") return false;
+  const maybe = payload as Partial<MultiplayerSnapshotPayload>;
+  return (
+    maybe.version === 2 &&
+    maybe.roomId === roomId &&
+    typeof maybe.userId === "string" &&
+    typeof maybe.username === "string" &&
+    (maybe.slot === 1 || maybe.slot === 2) &&
+    typeof maybe.sentAt === "number" &&
+    Number.isFinite(maybe.sentAt) &&
+    typeof maybe.width === "number" &&
+    typeof maybe.height === "number" &&
+    typeof maybe.fullWidth === "number" &&
+    typeof maybe.fullHeight === "number" &&
+    typeof maybe.viewOffsetX === "number" &&
+    typeof maybe.viewOffsetY === "number" &&
+    typeof maybe.score === "number" &&
+    typeof maybe.lines === "number" &&
+    typeof maybe.incomingGarbage === "number" &&
+    (maybe.hold === null || isPieceType(maybe.hold)) &&
+    Array.isArray(maybe.next) &&
+    maybe.next.every(isPieceType) &&
+    typeof maybe.gameOver === "boolean" &&
+    Array.isArray(maybe.cells) &&
+    maybe.cells.every(isMultiplayerCell)
   );
 };
 
@@ -64,6 +90,7 @@ const buildMultiplayerSnapshot = (
   roomId: string,
   userId: string,
   username: string,
+  slot: 1 | 2,
   snap: GameSnapshot,
   sentAt = Date.now(),
 ): MultiplayerSnapshotPayload => {
@@ -100,6 +127,7 @@ const buildMultiplayerSnapshot = (
     roomId,
     userId,
     username,
+    slot,
     sentAt,
     width: snap.width,
     height: snap.height,
@@ -117,5 +145,5 @@ const buildMultiplayerSnapshot = (
   };
 };
 
-export { buildMultiplayerSnapshot, isMultiplayerCell };
+export { buildMultiplayerSnapshot, isMultiplayerCell, isMultiplayerSnapshotPayload };
 export type { MultiplayerCell, MultiplayerSnapshotPayload };

@@ -1,4 +1,5 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { usernameFromAuthEmail } from "./auth/credentials";
 import { clearPendingSignupUsername } from "./auth/username";
 import { getSignupUsernameCandidate, loadProfileUsername, saveProfileUsername } from "./auth/profile";
 
@@ -30,7 +31,7 @@ const createSessionController = ({ supabase, ui }: SessionControllerOptions): Se
 
   const refreshAuthSummary = (): void => {
     if (currentUser) {
-      const label = currentUsername ?? currentUser.email ?? "player";
+      const label = currentUsername ?? usernameFromAuthEmail(currentUser.email) ?? currentUser.email ?? "player";
       ui.authSummaryText.textContent = `Signed in as ${label}`;
       ui.authButton.hidden = true;
       ui.signOutButton.hidden = false;

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { usernameFromAuthEmail } from "../auth/credentials";
 import type { AppScreen } from "../constants";
 import { buildPlayerStatsViewModel, type PlayerBest, type PlayerStat, type SavedRunRow } from "../playerStats";
 import { isMissingRunColumnError } from "../persistence/runs";
@@ -160,7 +161,7 @@ const initStatsScreen = ({
       const view = buildPlayerStatsViewModel(
         {
           username: session.getCurrentUsername(),
-          email: user.email ?? null,
+          email: usernameFromAuthEmail(user.email) ? null : (user.email ?? null),
           createdAt: user.created_at ?? null,
         },
         (data ?? []) as SavedRunRow[],

@@ -75,7 +75,6 @@ const mountApp = (): void => {
   const authForm = getElement<HTMLFormElement>("auth-form");
   const authLoginTab = getElement<HTMLButtonElement>("auth-login-tab");
   const authSignupTab = getElement<HTMLButtonElement>("auth-signup-tab");
-  const authEmail = getElement<HTMLInputElement>("auth-email");
   const authPassword = getElement<HTMLInputElement>("auth-password");
   const authUsernameRow = getElement<HTMLLabelElement>("auth-username-row");
   const authUsername = getElement<HTMLInputElement>("auth-username");
@@ -109,6 +108,7 @@ const mountApp = (): void => {
   const lobbyRefreshButton = getElement<HTMLButtonElement>("lobby-refresh-button");
   const lobbyReadyButton = getElement<HTMLButtonElement>("lobby-ready-button");
   const lobbyStartButton = getElement<HTMLButtonElement>("lobby-start-button");
+  const lobbyWatchButton = getElement<HTMLButtonElement>("lobby-watch-button");
   const lobbyStatus = getElement<HTMLElement>("lobby-status");
   const lobbyContent = getElement<HTMLElement>("lobby-content");
   const lobbyHeading = getElement<HTMLElement>("lobby-heading");
@@ -116,6 +116,7 @@ const mountApp = (): void => {
   const lobbyVisibility = getElement<HTMLElement>("lobby-visibility");
   const lobbyRoomStatus = getElement<HTMLElement>("lobby-room-status");
   const lobbyMembers = getElement<HTMLElement>("lobby-members");
+  const lobbySpectators = getElement<HTMLElement>("lobby-spectators");
 
   const backToLandingButton = getElement<HTMLButtonElement>("back-to-landing-button");
   const backToSetupButton = getElement<HTMLButtonElement>("back-to-setup-button");
@@ -155,6 +156,10 @@ const mountApp = (): void => {
   const mpRunSummaryPrimaryValue = getElement<HTMLElement>("mp-run-summary-primary-value");
   const mpRunSummaryStats = getElement<HTMLElement>("mp-run-summary-stats");
   const mpRunSummaryLobbyButton = getElement<HTMLButtonElement>("mp-run-summary-lobby");
+  const mpGarbageMeter = getElement<HTMLElement>("mp-garbage-meter");
+  const mpGarbageValue = getElement<HTMLElement>("mp-garbage-value");
+  const mpOpponentGarbageMeter = getElement<HTMLElement>("mp-opponent-garbage-meter");
+  const mpOpponentGarbageValue = getElement<HTMLElement>("mp-opponent-garbage-value");
   const modeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".mode-button[data-mode]"));
   const spinnyToggleButton = getElement<HTMLButtonElement>("spinny-toggle");
   const canvas = getElement<HTMLCanvasElement>("game");
@@ -230,6 +235,7 @@ const mountApp = (): void => {
   const supabase = isSupabaseConfigured() ? getSupabase() : null;
   const renderer = createRenderer(canvas, ctx);
   const multiplayerRenderer = createRenderer(mpCanvas, mpCtx);
+  const multiplayerSpectatorLocalRenderer = createRemoteBoardRenderer(mpCanvas, mpCtx);
   const multiplayerOpponentRenderer = createRemoteBoardRenderer(multiplayerOpponentBoard, multiplayerOpponentBoardCtx);
   const hudUpdater = createHudUpdater({
     holdCanvas,
@@ -392,7 +398,6 @@ const mountApp = (): void => {
     authForm,
     authLoginTab,
     authSignupTab,
-    authEmail,
     authPassword,
     authUsernameRow,
     authUsername,
@@ -463,6 +468,12 @@ const mountApp = (): void => {
     opponentLines: multiplayerOpponentLines,
     opponentScore: multiplayerOpponentScore,
     opponentGarbage: multiplayerOpponentGarbage,
+    localHoldCanvas: mpHoldCanvas,
+    localNextCanvas: mpNextCanvas,
+    localStatus: mpStatTimer,
+    localLines: mpStatLines,
+    localScore: mpStatScore,
+    localCombo: mpStatCombo,
     countdownEl: mpCountdownEl,
     runSummaryEl: mpRunSummaryEl,
     runSummaryHeadline: mpRunSummaryHeadline,
@@ -471,6 +482,11 @@ const mountApp = (): void => {
     runSummaryPrimaryValue: mpRunSummaryPrimaryValue,
     runSummaryStats: mpRunSummaryStats,
     runSummaryLobbyButton: mpRunSummaryLobbyButton,
+    garbageMeter: mpGarbageMeter,
+    garbageValue: mpGarbageValue,
+    opponentGarbageMeter: mpOpponentGarbageMeter,
+    opponentGarbageValue: mpOpponentGarbageValue,
+    spectatorLocalRenderer: multiplayerSpectatorLocalRenderer,
     renderer: multiplayerRenderer,
     hudUpdater: multiplayerHudUpdater,
     gameplayController: multiplayerGameplayController,
@@ -576,6 +592,7 @@ const mountApp = (): void => {
     lobbyRefreshButton,
     lobbyReadyButton,
     lobbyStartButton,
+    lobbyWatchButton,
     lobbyStatus,
     lobbyContent,
     lobbyHeading,
@@ -583,6 +600,7 @@ const mountApp = (): void => {
     lobbyVisibility,
     lobbyRoomStatus,
     lobbyMembers,
+    lobbySpectators,
     supabase,
     session,
     navigate,
@@ -591,8 +609,11 @@ const mountApp = (): void => {
       currentRoomId = roomId;
       if (roomId) lobbyAutoStartEnabled = true;
     },
-    startMultiplayerGame: (room, serverNowMs) => {
-      multiplayerPlayingScreen?.startMultiplayerGame(room, serverNowMs);
+    startMultiplayerGame: (room, members, serverNowMs) => {
+      multiplayerPlayingScreen?.startMultiplayerGame(room, members, serverNowMs);
+    },
+    startSpectatingMatch: (room, members) => {
+      multiplayerPlayingScreen?.startSpectatingMatch(room, members);
     },
     canAutoStartRoom: () => lobbyAutoStartEnabled,
   });

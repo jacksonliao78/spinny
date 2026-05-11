@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Piece } from "../../engine/piece";
-import { buildMultiplayerSnapshot, isMultiplayerCell } from "../../app/multiplayer/snapshots";
+import {
+  buildMultiplayerSnapshot,
+  isMultiplayerCell,
+  isMultiplayerSnapshotPayload,
+} from "../../app/multiplayer/snapshots";
 import type { GameSnapshot } from "../../engine/game";
 
 const makeSnapshot = (): GameSnapshot => ({
@@ -39,10 +43,11 @@ const makeSnapshot = (): GameSnapshot => ({
 });
 
 test("buildMultiplayerSnapshot exports visible cells and active piece", () => {
-  const payload = buildMultiplayerSnapshot("room-1", "user-1", "player", makeSnapshot(), 123);
+  const payload = buildMultiplayerSnapshot("room-1", "user-1", "player", 1, makeSnapshot(), 123);
 
   assert.equal(payload.version, 2);
   assert.equal(payload.roomId, "room-1");
+  assert.equal(payload.slot, 1);
   assert.equal(payload.width, 4);
   assert.equal(payload.height, 4);
   assert.equal(payload.fullWidth, 6);
@@ -64,4 +69,12 @@ test("isMultiplayerCell rejects malformed broadcast cells", () => {
   assert.equal(isMultiplayerCell(null), false);
   assert.equal(isMultiplayerCell({ x: 1, y: 2, value: "bad" }), false);
   assert.equal(isMultiplayerCell({ x: "1", y: 2, value: "T" }), false);
+});
+
+test("isMultiplayerSnapshotPayload requires a player slot", () => {
+  const payload = buildMultiplayerSnapshot("room-1", "user-1", "player", 2, makeSnapshot(), 123);
+
+  assert.equal(isMultiplayerSnapshotPayload(payload, "room-1"), true);
+  assert.equal(isMultiplayerSnapshotPayload({ ...payload, slot: undefined }, "room-1"), false);
+  assert.equal(isMultiplayerSnapshotPayload({ ...payload, slot: 3 }, "room-1"), false);
 });

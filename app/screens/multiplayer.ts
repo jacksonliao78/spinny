@@ -48,7 +48,10 @@ const renderRoom = (room: MultiplayerRoom, onJoin: (room: MultiplayerRoom) => vo
   const meta = document.createElement("div");
   const title = document.createElement("strong");
   const details = document.createElement("span");
-  const memberText = room.memberCount == null ? "" : `${room.memberCount}/${room.maxPlayers} / `;
+  const playerCount = room.playerCount ?? room.memberCount ?? 0;
+  const spectatorText =
+    room.spectatorCount && room.spectatorCount > 0 ? ` / ${room.spectatorCount} watching` : "";
+  const memberText = room.memberCount == null && room.playerCount == null ? "" : `${playerCount}/${room.maxPlayers}${spectatorText} / `;
   title.textContent = room.joinCode;
   details.textContent = `${memberText}${room.status} / ${room.settings.boardKind === "ring" ? "Spinny" : "Regular"}`;
   meta.append(title, details);
