@@ -119,7 +119,8 @@ test("resolveGameConfig applies versus garbage defaults without survival", () =>
   assert.equal(resolved.mode.kind, "versus");
   assert.equal(resolved.garbage.enabled, true);
   assert.equal(resolved.garbage.holesPerRing, 1);
-  assert.equal(resolved.garbage.maxPerApply, 4);
+  assert.equal(resolved.garbage.maxPerApply, 8);
+  assert.equal(resolved.garbage.groupSize, 4);
   assert.equal(resolved.garbage.survival, undefined);
   assert.equal(GAME_MODE_POLICIES.versus.timerStyle, "countup");
   assert.equal(GAME_MODE_POLICIES.versus.advancesLevel, false);

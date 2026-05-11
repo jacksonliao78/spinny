@@ -142,9 +142,9 @@ class RingBoard implements BoardModel {
     const cells = this.getRingCells(outerRing);
     if (cells.length === 0) return 0;
 
+    const holes = pickGarbageHoles(cells.length, holesPerRing, this.random);
     let applied = 0;
     for (let i = 0; i < amount; i++) {
-      const holes = pickGarbageHoles(cells.length, holesPerRing, this.random);
       let placedCells = 0;
       for (let cellIndex = 0; cellIndex < cells.length; cellIndex++) {
         if (holes.has(cellIndex)) continue;

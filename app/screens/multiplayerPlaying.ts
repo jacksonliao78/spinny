@@ -9,6 +9,11 @@ import type { HudUpdater } from "../../render/hudPanels";
 import { drawHoldPiece, drawNextPieces } from "../../render/miniPiecePainter";
 import type { RemoteBoardRenderer } from "../../render/remoteBoard";
 import type { createRenderer } from "../../render/renderer";
+import {
+  applyRemoteGarbageAttack,
+  buildMultiplayerAttackPayload,
+  createAttackDeduper,
+} from "../multiplayer/attacks";
 import { buildMultiplayerSnapshot, isMultiplayerCell, type MultiplayerSnapshotPayload } from "../multiplayer/snapshots";
 import type { MultiplayerRoom } from "../multiplayer/rooms";
 import { buildRunSummaryViewModel } from "../runSummary";
@@ -164,7 +169,9 @@ const initMultiplayerPlayingScreen = ({
   let multiplayerChannel: RealtimeChannel | null = null;
   let lastSnapshotBroadcastMs = 0;
   let opponentLastSeenMs = 0;
+  let attackSequence = 0;
   let lastOpponentPayload: MultiplayerSnapshotPayload | null = null;
+  const attackDeduper = createAttackDeduper();
 
   const syncCountdownRemaining = (): void => {
     if (countdownEndsAtMs === null) return;
@@ -291,6 +298,7 @@ const initMultiplayerPlayingScreen = ({
     }
     multiplayerChannel = null;
     lastSnapshotBroadcastMs = 0;
+    attackDeduper.reset();
     resetOpponentPanel();
   };
 
@@ -305,7 +313,24 @@ const initMultiplayerPlayingScreen = ({
         if (payload.userId === currentUser?.id) return;
         renderOpponentSnapshot(payload);
       })
+      .on("broadcast", { event: "attack" }, ({ payload }) => {
+        const currentUser = session.getCurrentUser();
+        applyRemoteGarbageAttack(payload, roomId, currentUser?.id, attackDeduper, (amount) => {
+          getGame()?.enqueueGarbage(amount);
+        });
+      })
       .subscribe();
+  };
+
+  const broadcastPendingGarbageAttacks = (room: MultiplayerRoom, game: Game): void => {
+    if (!multiplayerChannel) return;
+    const user = session.getCurrentUser();
+    if (!user) return;
+    for (const event of game.consumeGarbageAttackEvents()) {
+      attackSequence += 1;
+      const payload = buildMultiplayerAttackPayload(room.id, user.id, attackSequence, event.amount);
+      void multiplayerChannel.send({ type: "broadcast", event: "attack", payload });
+    }
   };
 
   const startMultiplayerGame = (room: MultiplayerRoom, serverNowMs?: number): void => {
@@ -321,6 +346,7 @@ const initMultiplayerPlayingScreen = ({
     setGame(game);
     runDurationMs = 0;
     completedRunShown = false;
+    attackSequence = 0;
     hideRunSummary();
     resetOpponentPanel();
     gameTitle.textContent = `Multiplayer / ${MODE_LABELS.versus}`;
@@ -429,6 +455,7 @@ const initMultiplayerPlayingScreen = ({
     if (getAppScreen() !== "multiplayer-playing" || !game || !room) return;
     const snap = game.getSnapshot();
     gameplayController.update(dtMs, snap.gravityIntervalMs);
+    broadcastPendingGarbageAttacks(room, game);
     renderer.draw(game, false);
     hudUpdater.update(snap);
 

@@ -72,6 +72,11 @@ export type RunSummary = {
   metrics: RunMetrics;
 };
 
+export type GarbageAttackEvent = {
+  id: number;
+  amount: number;
+};
+
 /** Read-only frame data consumed by the renderer and UI; active remains mutable game state. */
 export type GameSnapshot = {
   width: number;

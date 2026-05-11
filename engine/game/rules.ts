@@ -42,6 +42,8 @@ type GameConfig = {
     enabled: boolean;
     holesPerRing: number;
     maxPerApply: number;
+    /** Split applied garbage into groups so each group can share a hole pattern. */
+    groupSize: number;
     /** Optional time-based producer; when set, garbage is enqueued automatically as the run progresses. */
     survival?: GarbageSurvivalConfig;
   };
@@ -77,6 +79,7 @@ const MARATHON_SURVIVAL_GARBAGE: GameConfig["garbage"] = {
   enabled: true,
   holesPerRing: 1,
   maxPerApply: 10,
+  groupSize: 4,
   survival: {
     tierDurationMs: 60_000,
     intervalsMs: [6_000, 5_000, 4_000, 3_000, 2_000, 1_000],
@@ -138,7 +141,8 @@ const GAME_MODE_DEFAULT_OVERRIDES: Record<GameMode, GameConfigOverrides> = {
     garbage: {
       enabled: true,
       holesPerRing: 1,
-      maxPerApply: 4,
+      maxPerApply: 8,
+      groupSize: 4,
       survival: null,
     },
   },
@@ -176,6 +180,7 @@ const DEFAULT_GAME_CONFIG: GameConfig = {
     enabled: false,
     holesPerRing: 2,
     maxPerApply: 1,
+    groupSize: 4,
     survival: undefined,
   },
   modifiers: {

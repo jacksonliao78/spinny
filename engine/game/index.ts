@@ -12,6 +12,7 @@ import type { PieceType } from "../piece";
 import { Piece } from "../piece";
 import { Queue } from "../queue";
 import { try180Kicks, tryKicks } from "../srs";
+import { getAttackLines } from "./attack";
 import type { GameConfig, GameMode, GameModePolicy } from "./rules";
 import { pieceLow, syncLowProgress } from "./progression";
 import {
@@ -24,10 +25,11 @@ import { createRunMetrics } from "./metrics";
 import { cloneRunStats, createRunStats } from "./run_stats";
 import { detectSpin } from "./rotation";
 import type { LastRotation, SpinResult } from "./rotation";
-import type { GameOptions, GameSnapshot, RunSummary, SurvivalSnapshot } from "./types";
+import type { GameOptions, GameSnapshot, GarbageAttackEvent, RunSummary, SurvivalSnapshot } from "./types";
 
 export type {
   GameOptions,
+  GarbageAttackEvent,
   GameSnapshot,
   RunAttackMetrics,
   RunBackToBackMetrics,
@@ -69,6 +71,8 @@ class Game {
   private survivalLastEnqueueMs = 0;
   private lastRotation: LastRotation | null = null;
   private lastSpin: SpinResult | null = null;
+  private nextGarbageAttackId = 1;
+  private readonly pendingGarbageAttackEvents: GarbageAttackEvent[] = [];
 
   private lockTimerMs = 0;
   private lockDelayResetsUsed = 0;
@@ -143,6 +147,12 @@ class Game {
       stats,
       metrics: createRunMetrics(stats, durationMs),
     };
+  }
+
+  consumeGarbageAttackEvents(): GarbageAttackEvent[] {
+    const events = [...this.pendingGarbageAttackEvents];
+    this.pendingGarbageAttackEvents.length = 0;
+    return events;
   }
 
   /** Advance simulation time; applies gravity when interval elapses. */
@@ -455,6 +465,7 @@ class Game {
     this.recordLockStats(lockedPieceType, linesCleared, this.lastSpin);
     this.applyLineClearProgress(linesCleared);
     this.runStats.maxCombo = Math.max(this.runStats.maxCombo, Math.max(0, this.combo - 1));
+    this.resolveOutgoingGarbageAttack(linesCleared, this.lastSpin);
     if (this.gameOver) {
       this.activePiece = null;
       this.clearLockDelayState();
@@ -523,20 +534,52 @@ class Game {
     this.level = Math.max(1, nextLevel);
   }
 
+  private resolveOutgoingGarbageAttack(linesCleared: number, spin: SpinResult | null): void {
+    if (!this.config.garbage.enabled) return;
+    const amount = getAttackLines({
+      linesCleared,
+      spin,
+      combo: Math.max(0, this.combo - 1),
+      backToBackChain: this.runStats.b2bChain,
+    });
+    if (amount <= 0) return;
+
+    const canceled = Math.min(amount, this.incomingGarbage);
+    this.incomingGarbage -= canceled;
+    const netAmount = amount - canceled;
+    if (netAmount <= 0) return;
+    this.pendingGarbageAttackEvents.push({
+      id: this.nextGarbageAttackId,
+      amount: netAmount,
+    });
+    this.nextGarbageAttackId += 1;
+  }
+
   /** Apply a capped amount of queued garbage after clears so garbage never blocks a clear first. */
   private applyQueuedGarbage(): number {
     if (!this.config.garbage.enabled) return 0;
     if (this.incomingGarbage <= 0) return 0;
     const amount = Math.min(this.incomingGarbage, this.config.garbage.maxPerApply);
-    const applied = this.board.addGarbage(amount, this.config.garbage.holesPerRing);
-    this.incomingGarbage -= applied;
-    this.runStats.garbageAppliedTotal += applied;
-    return applied;
+    const groupSize = Math.max(1, Math.floor(this.config.garbage.groupSize));
+    let remaining = amount;
+    let appliedTotal = 0;
+    while (remaining > 0) {
+      const nextGroup = Math.min(groupSize, remaining);
+      const applied = this.board.addGarbage(nextGroup, this.config.garbage.holesPerRing);
+      if (applied <= 0) break;
+      appliedTotal += applied;
+      remaining -= applied;
+      if (applied < nextGroup) break;
+    }
+    this.incomingGarbage -= appliedTotal;
+    this.runStats.garbageAppliedTotal += appliedTotal;
+    return appliedTotal;
   }
 
   /** Drain queued garbage during a normal tick so survival pressure rises continuously, not only on lock. */
   private drainQueuedGarbageDuringTick(): void {
     if (this.gameOver) return;
+    if (!this.config.garbage.survival) return;
     const applied = this.applyQueuedGarbage();
     if (applied <= 0) return;
     const piece = this.activePiece;

@@ -114,8 +114,10 @@ const createAccumulatorBoardFactory = (allowedDownwardMoves: number) => {
 
 const createGarbageBoardFactory = () => {
   let appliedGarbage = 0;
+  const appliedChunks: number[] = [];
   return {
     getAppliedGarbage: () => appliedGarbage,
+    getAppliedChunks: () => [...appliedChunks],
     factory: (width: number, height: number): BoardModel => ({
       width,
       height,
@@ -131,6 +133,35 @@ const createGarbageBoardFactory = () => {
       clearLines: () => 0,
       addGarbage: (amount) => {
         appliedGarbage += amount;
+        appliedChunks.push(amount);
+        return amount;
+      },
+    }),
+  };
+};
+
+const createGarbageScoringBoardFactory = (linesToClear: number) => {
+  let appliedGarbage = 0;
+  const appliedChunks: number[] = [];
+  return {
+    getAppliedGarbage: () => appliedGarbage,
+    getAppliedChunks: () => [...appliedChunks],
+    factory: (width: number, height: number): BoardModel => ({
+      width,
+      height,
+      rotation: 0,
+      rotate: () => {},
+      gravityDelta: () => [0, 1],
+      lateralLeftDelta: () => [-1, 0],
+      lateralRightDelta: () => [1, 0],
+      getLockedCopy: () => Array.from({ length: height }, () => Array(width).fill(null)),
+      canPlace: (_piece, _rotation, _dx, dy) => dy !== 1,
+      isContactLoss: () => false,
+      lockPiece: (_piece: Piece) => {},
+      clearLines: () => linesToClear,
+      addGarbage: (amount) => {
+        appliedGarbage += amount;
+        appliedChunks.push(amount);
         return amount;
       },
     }),
@@ -653,6 +684,93 @@ test("Game applies capped queued garbage after a lock", () => {
   assert.equal(stats.garbageAppliedTotal, 1);
 });
 
+test("Game emits net garbage attack when no incoming garbage exists", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(2),
+    config: testConfig({ mode: { kind: "versus" } }),
+  });
+
+  game.hardDrop();
+  const events = game.consumeGarbageAttackEvents();
+
+  assert.deepEqual(events, [{ id: 1, amount: 1 }]);
+  assert.deepEqual(game.consumeGarbageAttackEvents(), []);
+});
+
+test("Game cancels incoming garbage before sending attack", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(2),
+    config: testConfig({ mode: { kind: "versus" } }),
+  });
+
+  game.enqueueGarbage(1);
+  game.hardDrop();
+
+  assert.deepEqual(game.consumeGarbageAttackEvents(), []);
+  assert.equal(game.getSnapshot().incomingGarbage, 0);
+});
+
+test("Game applies leftover incoming garbage on the same lock after cancellation", () => {
+  const garbageBoard = createGarbageScoringBoardFactory(2);
+  const game = new Game({
+    boardFactory: garbageBoard.factory,
+    config: testConfig({ mode: { kind: "versus" } }),
+  });
+
+  game.enqueueGarbage(3);
+  game.hardDrop();
+
+  assert.deepEqual(game.consumeGarbageAttackEvents(), []);
+  assert.equal(garbageBoard.getAppliedGarbage(), 2);
+  assert.equal(game.getSnapshot().incomingGarbage, 0);
+});
+
+test("Game emits no attack when incoming garbage fully cancels it", () => {
+  const game = new Game({
+    boardFactory: createScoringBoardFactory(4),
+    config: testConfig({ mode: { kind: "versus" } }),
+  });
+
+  game.enqueueGarbage(4);
+  game.hardDrop();
+
+  assert.deepEqual(game.consumeGarbageAttackEvents(), []);
+});
+
+test("Versus applies at most 8 queued garbage lines per lock", () => {
+  const garbageBoard = createGarbageBoardFactory();
+  const game = new Game({
+    boardFactory: garbageBoard.factory,
+    config: testConfig({ mode: { kind: "versus" } }),
+  });
+
+  game.enqueueGarbage(10);
+  game.hardDrop();
+
+  assert.equal(garbageBoard.getAppliedGarbage(), 8);
+  assert.equal(game.getSnapshot().incomingGarbage, 2);
+});
+
+test("Game applies queued garbage in groups of 4 plus remainder", () => {
+  const eightLineBoard = createGarbageBoardFactory();
+  const eightLineGame = new Game({
+    boardFactory: eightLineBoard.factory,
+    config: testConfig({ mode: { kind: "versus" } }),
+  });
+  eightLineGame.enqueueGarbage(8);
+  eightLineGame.hardDrop();
+  assert.deepEqual(eightLineBoard.getAppliedChunks(), [4, 4]);
+
+  const fiveLineBoard = createGarbageBoardFactory();
+  const fiveLineGame = new Game({
+    boardFactory: fiveLineBoard.factory,
+    config: testConfig({ mode: { kind: "versus" } }),
+  });
+  fiveLineGame.enqueueGarbage(5);
+  fiveLineGame.hardDrop();
+  assert.deepEqual(fiveLineBoard.getAppliedChunks(), [4, 1]);
+});
+
 test("Timed mode expires and ends the game", () => {
   const game = new Game({
     boardFactory: createScoringBoardFactory(0),
@@ -855,7 +973,7 @@ test("Survival snapshot is null for non-survival modes", () => {
   assert.equal(zen.getSnapshot().survival, null);
 });
 
-test("Line clears never cancel queued garbage", () => {
+test("Line clears cancel queued garbage before remaining garbage applies", () => {
   const game = new Game({
     boardFactory: createScoringBoardFactory(2),
     config: testConfig({
@@ -870,7 +988,7 @@ test("Line clears never cancel queued garbage", () => {
   game.hardDrop();
   const snap = game.getSnapshot();
   assert.equal(snap.linesClearedTotal, 2);
-  assert.equal(snap.incomingGarbage, 5);
+  assert.equal(snap.incomingGarbage, 4);
 });
 
 test("Marathon survival drains backlog on lock when maxPerApply allows", () => {
