@@ -26,6 +26,7 @@ type MultiplayerScreenOptions = {
   navigate: (screen: AppScreen) => void;
   openAuthLogin: () => void;
   setCurrentRoomId: (roomId: string | null) => void;
+  startSpectatingPublicRoom: (room: MultiplayerRoom) => void;
 };
 
 type MultiplayerScreen = {
@@ -41,7 +42,7 @@ const setButtonBusy = (buttons: HTMLButtonElement[], busy: boolean): void => {
   });
 };
 
-const renderRoom = (room: MultiplayerRoom, onJoin: (room: MultiplayerRoom) => void): HTMLElement => {
+const renderRoom = (room: MultiplayerRoom, actionLabel: string, onJoin: (room: MultiplayerRoom) => void): HTMLElement => {
   const item = document.createElement("article");
   item.className = "room-card";
 
@@ -59,7 +60,7 @@ const renderRoom = (room: MultiplayerRoom, onJoin: (room: MultiplayerRoom) => vo
   const button = document.createElement("button");
   button.className = "secondary-button";
   button.type = "button";
-  button.textContent = "Join";
+  button.textContent = actionLabel;
   button.addEventListener("click", () => onJoin(room));
 
   item.append(meta, button);
@@ -82,6 +83,7 @@ const initMultiplayerScreen = ({
   navigate,
   openAuthLogin,
   setCurrentRoomId,
+  startSpectatingPublicRoom,
 }: MultiplayerScreenOptions): MultiplayerScreen => {
   let loadEpoch = 0;
 
@@ -98,13 +100,6 @@ const initMultiplayerScreen = ({
   };
 
   const canUseRooms = (): boolean => {
-    const user = session.getCurrentUser();
-    if (!user || session.isGuestMode()) {
-      multiplayerContent.hidden = true;
-      multiplayerSignInButton.hidden = false;
-      setStatus("Sign in to create or join rooms.", "empty");
-      return false;
-    }
     if (!supabase) {
       multiplayerContent.hidden = true;
       multiplayerSignInButton.hidden = true;
@@ -112,7 +107,7 @@ const initMultiplayerScreen = ({
       return false;
     }
     multiplayerContent.hidden = false;
-    multiplayerSignInButton.hidden = true;
+    multiplayerSignInButton.hidden = !!session.getCurrentUser() && !session.isGuestMode();
     return true;
   };
 
@@ -131,10 +126,18 @@ const initMultiplayerScreen = ({
       if (myEpoch !== loadEpoch) return;
       publicRoomsList.replaceChildren(
         ...(rooms.length > 0
-          ? rooms.map((room) => renderRoom(room, (selected) => void joinPublic(selected)))
+          ? rooms.map((room) =>
+              renderRoom(room, !session.getCurrentUser() || session.isGuestMode() ? "Watch" : "Join", (selected) => {
+                if (!session.getCurrentUser() || session.isGuestMode()) {
+                  startSpectatingPublicRoom(selected);
+                  return;
+                }
+                void joinPublic(selected);
+              }),
+            )
           : [Object.assign(document.createElement("div"), { className: "room-empty", textContent: "No public rooms waiting." })]),
       );
-      setStatus("", "");
+      setStatus(!session.getCurrentUser() || session.isGuestMode() ? "Guests can watch public rooms. Sign in to create or play." : "", "");
     } catch (error) {
       if (myEpoch !== loadEpoch) return;
       publicRoomsList.replaceChildren();
@@ -146,7 +149,10 @@ const initMultiplayerScreen = ({
 
   const createNewRoom = async (visibility: RoomVisibility): Promise<void> => {
     const user = session.getCurrentUser();
-    if (!canUseRooms() || !supabase || !user) return;
+    if (!canUseRooms() || !supabase || !user || session.isGuestMode()) {
+      setStatus("Sign in to create rooms.", "empty");
+      return;
+    }
     setButtonBusy(allActionButtons, true);
     setStatus("Creating room...", "");
     try {
@@ -165,6 +171,10 @@ const initMultiplayerScreen = ({
 
   const joinPublic = async (room: MultiplayerRoom): Promise<void> => {
     if (!canUseRooms() || !supabase) return;
+    if (!session.getCurrentUser() || session.isGuestMode()) {
+      startSpectatingPublicRoom(room);
+      return;
+    }
     setButtonBusy(allActionButtons, true);
     setStatus("Joining room...", "");
     try {
@@ -180,6 +190,10 @@ const initMultiplayerScreen = ({
 
   const joinPrivate = async (): Promise<void> => {
     if (!canUseRooms() || !supabase) return;
+    if (!session.getCurrentUser() || session.isGuestMode()) {
+      setStatus("Sign in to join private rooms.", "empty");
+      return;
+    }
     const code = joinCodeInput.value;
     if (!code.trim()) {
       setStatus("Enter a room code.", "empty");

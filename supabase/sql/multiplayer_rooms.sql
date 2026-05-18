@@ -355,6 +355,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.list_public_rooms() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.list_public_rooms() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.list_public_rooms() TO anon;
 
 CREATE OR REPLACE FUNCTION public.get_server_time()
 RETURNS timestamptz

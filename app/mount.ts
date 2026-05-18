@@ -585,6 +585,11 @@ const mountApp = (): void => {
       currentRoomId = roomId;
       if (roomId) lobbyAutoStartEnabled = true;
     },
+    startSpectatingPublicRoom: (room) => {
+      currentRoomId = null;
+      lobbyAutoStartEnabled = false;
+      multiplayerPlayingScreen?.startSpectatingMatch(room, []);
+    },
   });
 
   lobbyScreen = initLobbyScreen({
