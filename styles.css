@@ -203,6 +203,10 @@ select {
   width: min(1440px, 100%);
 }
 
+.app:has(#bots-game-screen.screen--active) {
+  width: min(1440px, 100%);
+}
+
 .screen {
   display: none;
 }
@@ -319,6 +323,44 @@ select {
 .board-option:focus-visible {
   outline: 3px solid rgba(199, 183, 230, 0.55);
   outline-offset: 3px;
+}
+
+.bot-setup-panel {
+  align-self: stretch;
+  padding: 1.15rem;
+  border: 1px solid rgba(255, 245, 222, 0.22);
+  border-radius: 8px;
+  background: rgba(44, 34, 58, 0.58);
+  color: var(--panel-text);
+}
+
+.bot-setup-panel h2 {
+  margin: 0 0 0.4rem;
+  color: var(--heading-text);
+}
+
+.bot-setup-panel p {
+  max-width: 52ch;
+  margin: 0;
+  color: var(--muted-text);
+  font-weight: 700;
+}
+
+.bot-count-pill,
+.match-note {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  margin-top: 1rem;
+  padding: 0 0.8rem;
+  border: 1px solid rgba(255, 245, 222, 0.22);
+  border-radius: 999px;
+  background: rgba(15, 23, 40, 0.34);
+  color: var(--heading-text);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .primary-button {
@@ -1034,7 +1076,8 @@ select {
 }
 
 #game-screen.screen--active,
-#mp-game-screen.screen--active {
+#mp-game-screen.screen--active,
+#bots-game-screen.screen--active {
   display: flex;
   flex-direction: column;
   min-height: calc(100dvh - 3rem);
@@ -1193,6 +1236,10 @@ select {
   flex: 0 0 auto;
   justify-content: flex-start;
   padding-left: 34px;
+}
+
+.bot-play-area {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .garbage-meter {

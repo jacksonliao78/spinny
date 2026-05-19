@@ -8,6 +8,8 @@ type AppScreen =
   | "playing"
   | "settings"
   | "stats"
+  | "bots-setup"
+  | "bots-playing"
   | "multiplayer"
   | "lobby"
   | "multiplayer-playing";

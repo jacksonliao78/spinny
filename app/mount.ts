@@ -22,6 +22,9 @@ import type { AuthScreen } from "./screens/auth";
 import { initLandingScreen } from "./screens/landing";
 import { initLobbyScreen } from "./screens/lobby";
 import type { LobbyScreen } from "./screens/lobby";
+import { initLocalBotsPlayingScreen } from "./screens/localBotsPlaying";
+import type { LocalBotsPlayingScreen } from "./screens/localBotsPlaying";
+import { initLocalBotsSetupScreen } from "./screens/localBotsSetup";
 import { initMultiplayerScreen } from "./screens/multiplayer";
 import type { MultiplayerScreen } from "./screens/multiplayer";
 import { initMultiplayerPlayingScreen } from "./screens/multiplayerPlaying";
@@ -56,6 +59,8 @@ const mountApp = (): void => {
   const authScreenEl = getElement<HTMLElement>("auth-screen");
   const setupScreen = getElement<HTMLElement>("setup-screen");
   const gameScreen = getElement<HTMLElement>("game-screen");
+  const botsSetupScreenEl = getElement<HTMLElement>("bots-setup-screen");
+  const botsGameScreenEl = getElement<HTMLElement>("bots-game-screen");
   const settingsScreenEl = getElement<HTMLElement>("settings-screen");
   const statsScreenEl = getElement<HTMLElement>("stats-screen");
   const multiplayerScreenEl = getElement<HTMLElement>("multiplayer-screen");
@@ -63,6 +68,7 @@ const mountApp = (): void => {
   const multiplayerPlayingScreenEl = getElement<HTMLElement>("mp-game-screen");
 
   const soloButton = getElement<HTMLButtonElement>("solo-button");
+  const botsButton = getElement<HTMLButtonElement>("bots-button");
   const authButton = getElement<HTMLButtonElement>("auth-button");
   const signOutButton = getElement<HTMLButtonElement>("sign-out-button");
   const authSummaryText = getElement<HTMLElement>("auth-summary-text");
@@ -121,6 +127,57 @@ const mountApp = (): void => {
   const backToLandingButton = getElement<HTMLButtonElement>("back-to-landing-button");
   const backToSetupButton = getElement<HTMLButtonElement>("back-to-setup-button");
   const startGameButton = getElement<HTMLButtonElement>("start-game-button");
+  const botsSetupBackButton = getElement<HTMLButtonElement>("bots-setup-back-button");
+  const startBotsButton = getElement<HTMLButtonElement>("start-bots-button");
+  const botsSpinnyToggleButton = getElement<HTMLButtonElement>("bots-spinny-toggle");
+  const botsBackButton = getElement<HTMLButtonElement>("bots-back-button");
+  const botsGameTitle = getElement<HTMLElement>("bots-game-title");
+  const botsHumanCanvas = getElement<HTMLCanvasElement>("bots-human-game");
+  const botsHumanCtx = botsHumanCanvas.getContext("2d");
+  if (!botsHumanCtx) return;
+  const botsBotCanvas = getElement<HTMLCanvasElement>("bots-bot-game");
+  const botsBotCtx = botsBotCanvas.getContext("2d");
+  if (!botsBotCtx) return;
+  const botsHumanHoldCanvas = getElement<HTMLCanvasElement>("bots-human-hold-canvas");
+  const botsHumanNextCanvas = getElement<HTMLCanvasElement>("bots-human-next-canvas");
+  const botsBotHoldCanvas = getElement<HTMLCanvasElement>("bots-bot-hold-canvas");
+  const botsBotNextCanvas = getElement<HTMLCanvasElement>("bots-bot-next-canvas");
+  const botsHumanStatus = getElement<HTMLElement>("bots-human-status");
+  const botsBotStatus = getElement<HTMLElement>("bots-bot-status");
+  const botsHumanTimer = getElement<HTMLElement>("bots-human-timer");
+  const botsBotTimer = getElement<HTMLElement>("bots-bot-timer");
+  const botsHumanTarget = getElement<HTMLElement>("bots-human-target");
+  const botsBotTarget = getElement<HTMLElement>("bots-bot-target");
+  const botsHumanLinesRow = getElement<HTMLElement>("bots-human-lines-row");
+  const botsHumanLines = getElement<HTMLElement>("bots-human-lines");
+  const botsHumanScoreRow = getElement<HTMLElement>("bots-human-score-row");
+  const botsHumanScore = getElement<HTMLElement>("bots-human-score");
+  const botsHumanLevelRow = getElement<HTMLElement>("bots-human-level-row");
+  const botsHumanLevel = getElement<HTMLElement>("bots-human-level");
+  const botsHumanComboRow = getElement<HTMLElement>("bots-human-combo-row");
+  const botsHumanCombo = getElement<HTMLElement>("bots-human-combo");
+  const botsHumanSurvivalRow = getElement<HTMLElement>("bots-human-survival-row");
+  const botsHumanSurvival = getElement<HTMLElement>("bots-human-survival");
+  const botsBotLinesRow = getElement<HTMLElement>("bots-bot-lines-row");
+  const botsBotLines = getElement<HTMLElement>("bots-bot-lines");
+  const botsBotScoreRow = getElement<HTMLElement>("bots-bot-score-row");
+  const botsBotScore = getElement<HTMLElement>("bots-bot-score");
+  const botsBotLevelRow = getElement<HTMLElement>("bots-bot-level-row");
+  const botsBotLevel = getElement<HTMLElement>("bots-bot-level");
+  const botsBotComboRow = getElement<HTMLElement>("bots-bot-combo-row");
+  const botsBotCombo = getElement<HTMLElement>("bots-bot-combo");
+  const botsBotSurvivalRow = getElement<HTMLElement>("bots-bot-survival-row");
+  const botsBotSurvival = getElement<HTMLElement>("bots-bot-survival");
+  const botsHumanGarbageMeter = getElement<HTMLElement>("bots-human-garbage-meter");
+  const botsHumanGarbageValue = getElement<HTMLElement>("bots-human-garbage-value");
+  const botsBotGarbageMeter = getElement<HTMLElement>("bots-bot-garbage-meter");
+  const botsBotGarbageValue = getElement<HTMLElement>("bots-bot-garbage-value");
+  const botsResult = getElement<HTMLElement>("bots-result");
+  const botsResultHeadline = getElement<HTMLElement>("bots-result-headline");
+  const botsResultSubhead = getElement<HTMLElement>("bots-result-subhead");
+  const botsResultStats = getElement<HTMLElement>("bots-result-stats");
+  const botsRematchButton = getElement<HTMLButtonElement>("bots-rematch-button");
+  const botsResultSetupButton = getElement<HTMLButtonElement>("bots-result-setup-button");
   const tipsButton = getElement<HTMLButtonElement>("tips-button");
   const tipsPopover = getElement<HTMLElement>("tips-popover");
   const gameActions = getElement<HTMLElement>("game-actions");
@@ -230,11 +287,14 @@ const mountApp = (): void => {
   let paused = false;
   let gameplayBlocked = false;
   let multiplayerGameplayBlocked = false;
+  let localBotsGameplayBlocked = false;
   let last = performance.now();
 
   const supabase = isSupabaseConfigured() ? getSupabase() : null;
   const renderer = createRenderer(canvas, ctx);
   const multiplayerRenderer = createRenderer(mpCanvas, mpCtx);
+  const localBotsHumanRenderer = createRenderer(botsHumanCanvas, botsHumanCtx);
+  const localBotsBotRenderer = createRenderer(botsBotCanvas, botsBotCtx);
   const multiplayerSpectatorLocalRenderer = createRemoteBoardRenderer(mpCanvas, mpCtx);
   const multiplayerOpponentRenderer = createRemoteBoardRenderer(multiplayerOpponentBoard, multiplayerOpponentBoardCtx);
   const hudUpdater = createHudUpdater({
@@ -267,6 +327,36 @@ const mountApp = (): void => {
     survivalRow: mpStatSurvivalRow,
     survivalValue: mpStatSurvival,
   });
+  const localBotsHumanHudUpdater = createHudUpdater({
+    holdCanvas: botsHumanHoldCanvas,
+    nextCanvas: botsHumanNextCanvas,
+    timerEl: botsHumanTimer,
+    linesRow: botsHumanLinesRow,
+    linesValue: botsHumanLines,
+    scoreRow: botsHumanScoreRow,
+    scoreValue: botsHumanScore,
+    levelRow: botsHumanLevelRow,
+    levelValue: botsHumanLevel,
+    comboRow: botsHumanComboRow,
+    comboValue: botsHumanCombo,
+    survivalRow: botsHumanSurvivalRow,
+    survivalValue: botsHumanSurvival,
+  });
+  const localBotsBotHudUpdater = createHudUpdater({
+    holdCanvas: botsBotHoldCanvas,
+    nextCanvas: botsBotNextCanvas,
+    timerEl: botsBotTimer,
+    linesRow: botsBotLinesRow,
+    linesValue: botsBotLines,
+    scoreRow: botsBotScoreRow,
+    scoreValue: botsBotScore,
+    levelRow: botsBotLevelRow,
+    levelValue: botsBotLevel,
+    comboRow: botsBotComboRow,
+    comboValue: botsBotCombo,
+    survivalRow: botsBotSurvivalRow,
+    survivalValue: botsBotSurvival,
+  });
   const miniRenderer = createMiniBoardRenderer(settingsCanvas, settingsCtx);
 
   const session = createSessionController({
@@ -287,6 +377,11 @@ const mountApp = (): void => {
     () => (game && !game.getSnapshot().gameOver ? gameplayCallbacksFor(game) : null),
     inputSettings,
   );
+  let localBotsHumanGame: Game | null = null;
+  const localBotsGameplayController = createInputController(
+    () => (localBotsHumanGame && !localBotsHumanGame.getSnapshot().gameOver ? gameplayCallbacksFor(localBotsHumanGame) : null),
+    inputSettings,
+  );
 
   const testController = createInputController(
     () => (testGame && !testGame.getSnapshot().gameOver ? gameplayCallbacksFor(testGame) : null),
@@ -295,6 +390,7 @@ const mountApp = (): void => {
 
   gameplayController.attach(canvas);
   multiplayerGameplayController.attach(mpCanvas);
+  localBotsGameplayController.attach(botsHumanCanvas);
   testController.attach(settingsCanvas);
 
   const applyInputSettings = (next: InputSettings): void => {
@@ -302,18 +398,21 @@ const mountApp = (): void => {
     saveInputSettings(inputSettings);
     gameplayController.setSettings(inputSettings);
     multiplayerGameplayController.setSettings(inputSettings);
+    localBotsGameplayController.setSettings(inputSettings);
     testController.setSettings(inputSettings);
   };
 
   const spinBlocksInput = (): boolean => {
     if (appScreen === "playing") return renderer.isSpinAnimating();
     if (appScreen === "multiplayer-playing") return multiplayerRenderer.isSpinAnimating();
+    if (appScreen === "bots-playing") return localBotsHumanRenderer.isSpinAnimating();
     return false;
   };
 
   const syncInputControllerState = (): void => {
     const playing = appScreen === "playing";
     const multiplayerPlaying = appScreen === "multiplayer-playing";
+    const botsPlaying = appScreen === "bots-playing";
     const settings = appScreen === "settings";
 
     gameplayController.setEnabled(
@@ -326,6 +425,13 @@ const mountApp = (): void => {
         !game.getSnapshot().gameOver &&
         !spinBlocksInput(),
     );
+    localBotsGameplayController.setEnabled(
+      botsPlaying &&
+        !localBotsGameplayBlocked &&
+        !!localBotsHumanGame &&
+        !localBotsHumanGame.getSnapshot().gameOver &&
+        !spinBlocksInput(),
+    );
     testController.setEnabled(settings && settingsTestFocused && !!testGame && !testGame.getSnapshot().gameOver);
   };
 
@@ -336,6 +442,14 @@ const mountApp = (): void => {
     if (appScreen === "multiplayer-playing") {
       return !game || multiplayerGameplayBlocked || game.getSnapshot().gameOver || spinBlocksInput();
     }
+    if (appScreen === "bots-playing") {
+      return (
+        !localBotsHumanGame ||
+        localBotsGameplayBlocked ||
+        localBotsHumanGame.getSnapshot().gameOver ||
+        spinBlocksInput()
+      );
+    }
     if (appScreen === "settings") {
       return !testGame || testGame.getSnapshot().gameOver;
     }
@@ -345,6 +459,7 @@ const mountApp = (): void => {
   let settingsScreen: SettingsScreen | null = null;
   let playingScreen: PlayingScreen | null = null;
   let multiplayerPlayingScreen: MultiplayerPlayingScreen | null = null;
+  let localBotsPlayingScreen: LocalBotsPlayingScreen | null = null;
   let statsScreen: StatsScreen | null = null;
   let multiplayerScreen: MultiplayerScreen | null = null;
   let lobbyScreen: LobbyScreen | null = null;
@@ -355,6 +470,8 @@ const mountApp = (): void => {
     authScreenEl.classList.toggle("screen--active", nextScreen === "auth");
     setupScreen.classList.toggle("screen--active", nextScreen === "setup");
     gameScreen.classList.toggle("screen--active", nextScreen === "playing");
+    botsSetupScreenEl.classList.toggle("screen--active", nextScreen === "bots-setup");
+    botsGameScreenEl.classList.toggle("screen--active", nextScreen === "bots-playing");
     settingsScreenEl.classList.toggle("screen--active", nextScreen === "settings");
     statsScreenEl.classList.toggle("screen--active", nextScreen === "stats");
     multiplayerScreenEl.classList.toggle("screen--active", nextScreen === "multiplayer");
@@ -518,6 +635,45 @@ const mountApp = (): void => {
     },
   });
 
+  localBotsPlayingScreen = initLocalBotsPlayingScreen({
+    humanCanvas: botsHumanCanvas,
+    botCanvas: botsBotCanvas,
+    backButton: botsBackButton,
+    title: botsGameTitle,
+    humanRenderer: localBotsHumanRenderer,
+    botRenderer: localBotsBotRenderer,
+    humanHud: localBotsHumanHudUpdater,
+    botHud: localBotsBotHudUpdater,
+    humanController: localBotsGameplayController,
+    humanStatus: botsHumanStatus,
+    botStatus: botsBotStatus,
+    humanTarget: botsHumanTarget,
+    botTarget: botsBotTarget,
+    humanGarbageMeter: botsHumanGarbageMeter,
+    humanGarbageValue: botsHumanGarbageValue,
+    botGarbageMeter: botsBotGarbageMeter,
+    botGarbageValue: botsBotGarbageValue,
+    resultEl: botsResult,
+    resultHeadline: botsResultHeadline,
+    resultSubhead: botsResultSubhead,
+    resultStats: botsResultStats,
+    rematchButton: botsRematchButton,
+    setupButton: botsResultSetupButton,
+    getAppScreen: () => appScreen,
+    getSelectedBoard: () => selectedBoard,
+    navigate,
+    resetLastFrameTime: () => {
+      last = performance.now();
+    },
+    syncInputControllerState,
+    setGameplayBlocked: (blocked) => {
+      localBotsGameplayBlocked = blocked;
+    },
+    setHumanGame: (next) => {
+      localBotsHumanGame = next;
+    },
+  });
+
   settingsScreen = initSettingsScreen({
     settingsBackButton,
     settingsCanvas,
@@ -625,6 +781,7 @@ const mountApp = (): void => {
 
   initLandingScreen({
     soloButton,
+    botsButton,
     authButton,
     signOutButton,
     authSummaryText,
@@ -658,9 +815,27 @@ const mountApp = (): void => {
     startGame: playingScreen.startGame,
   });
 
+  initLocalBotsSetupScreen({
+    backButton: botsSetupBackButton,
+    startButton: startBotsButton,
+    spinnyToggleButton: botsSpinnyToggleButton,
+    initialSpinnyOn,
+    navigate,
+    setSelectedBoard: (next) => {
+      selectedBoard = next;
+      try {
+        window.localStorage.setItem(SPINNY_BOARD_PREF_KEY, next === "ring" ? "1" : "0");
+      } catch {
+        // localStorage unavailable; ignore.
+      }
+    },
+    startMatch: () => localBotsPlayingScreen?.startMatch(),
+  });
+
   const runLayoutResizeCallbacks = (): void => {
     playingScreen?.onResize();
     multiplayerPlayingScreen?.onResize();
+    localBotsPlayingScreen?.onResize();
     settingsScreen?.onResize();
   };
 
@@ -689,6 +864,11 @@ const mountApp = (): void => {
     const multiplayerBoardSlotResizeObserver = new ResizeObserver(runLayoutResizeCallbacks);
     multiplayerBoardSlotResizeObserver.observe(multiplayerBoardSlot);
   }
+  const botsBoardSlot = botsHumanCanvas.parentElement;
+  if (botsBoardSlot instanceof HTMLElement) {
+    const botsBoardSlotResizeObserver = new ResizeObserver(runLayoutResizeCallbacks);
+    botsBoardSlotResizeObserver.observe(botsBoardSlot);
+  }
 
   const loop = (now: number) => {
     if (document.hidden) {
@@ -701,10 +881,12 @@ const mountApp = (): void => {
     last = now;
     playingScreen?.stepFrame(dt);
     multiplayerPlayingScreen?.stepFrame(dt);
+    localBotsPlayingScreen?.stepFrame(dt);
     settingsScreen?.stepFrame(dt);
     syncInputControllerState();
     playingScreen?.drawFrame(dt);
     multiplayerPlayingScreen?.drawFrame(dt);
+    localBotsPlayingScreen?.drawFrame(dt);
     settingsScreen?.drawFrame(dt);
     requestAnimationFrame(loop);
   };

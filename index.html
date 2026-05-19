@@ -50,6 +50,7 @@
               </div>
             </div>
             <button id="solo-button" class="menu-button menu-button--primary" type="button">Solo</button>
+            <button id="bots-button" class="menu-button" type="button">Play Bots</button>
             <button id="stats-button" class="menu-button" type="button">My Stats</button>
             <button id="multiplayer-button" class="menu-button" type="button">Multiplayer</button>
             <button id="settings-button" class="menu-button" type="button">Settings</button>
@@ -130,6 +131,168 @@
           <div class="stats-actions">
             <button id="stats-sign-in-button" class="primary-button" type="button" hidden>Sign In</button>
             <button id="stats-setup-button" class="secondary-button" type="button" hidden>Start A Run</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="bots-setup-screen" class="screen">
+        <div class="setup-header">
+          <div>
+            <p class="eyebrow">Local bots</p>
+            <h1>Free For All</h1>
+          </div>
+          <button id="bots-setup-back-button" class="secondary-button setup-back-button" type="button">Back</button>
+        </div>
+        <div class="setup-grid">
+          <div class="bot-setup-panel">
+            <h2>1v1 FFA</h2>
+            <p>Play a local free-for-all against one bot. More bots come next once this foundation feels good.</p>
+            <div class="bot-count-pill">1 bot</div>
+          </div>
+          <aside class="setup-controls">
+            <div class="spinny-panel">
+              <button id="bots-spinny-toggle" class="board-toggle" type="button" aria-pressed="false">
+                <span class="board-toggle__label">
+                  <strong>Spinny</strong>
+                  <span>Switch from regular grid to rotating board.</span>
+                </span>
+                <span class="board-toggle__switch" aria-hidden="true">
+                  <span class="board-toggle__thumb"></span>
+                </span>
+              </button>
+            </div>
+            <div class="start-run-panel">
+              <button id="start-bots-button" class="primary-button start-run-button" type="button">Start Match</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="bots-game-screen" class="screen">
+        <div class="game-topbar">
+          <button id="bots-back-button" class="secondary-button" type="button">Back To Setup</button>
+          <h2 id="bots-game-title">Bots</h2>
+          <div class="game-actions">
+            <span class="match-note">Local FFA</span>
+          </div>
+        </div>
+        <div class="mp-play-area bot-play-area">
+          <div class="player-station player-station--local">
+            <div class="game-sidebar game-sidebar--left">
+              <div class="game-box">
+                <h3 class="game-box__title">Hold</h3>
+                <canvas id="bots-human-hold-canvas" width="100" height="80"></canvas>
+              </div>
+              <div class="game-box">
+                <span id="bots-human-status" class="stat-timer opponent-name">You</span>
+                <span id="bots-human-timer" class="stat-timer"></span>
+                <div class="stat-row">
+                  <span class="stat-label">Target</span>
+                  <span id="bots-human-target" class="stat-value">Bot 1</span>
+                </div>
+                <div id="bots-human-lines-row" class="stat-row">
+                  <span class="stat-label">Lines</span>
+                  <span id="bots-human-lines" class="stat-value"></span>
+                </div>
+                <div id="bots-human-score-row" class="stat-row">
+                  <span class="stat-label">Score</span>
+                  <span id="bots-human-score" class="stat-value"></span>
+                </div>
+                <div id="bots-human-level-row" class="stat-row">
+                  <span class="stat-label">Level</span>
+                  <span id="bots-human-level" class="stat-value"></span>
+                </div>
+                <div id="bots-human-combo-row" class="stat-row">
+                  <span class="stat-label">Combo</span>
+                  <span id="bots-human-combo" class="stat-value"></span>
+                </div>
+                <div id="bots-human-survival-row" class="stat-row" hidden>
+                  <span class="stat-label">Next garbage</span>
+                  <span id="bots-human-survival" class="stat-value"></span>
+                </div>
+              </div>
+            </div>
+            <div class="game-board-slot">
+              <canvas id="bots-human-game" width="320" height="640" tabindex="0"></canvas>
+              <div id="bots-human-garbage-meter" class="garbage-meter garbage-meter--local" aria-label="Incoming garbage">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <strong id="bots-human-garbage-value">0</strong>
+              </div>
+            </div>
+            <div class="game-sidebar game-sidebar--right">
+              <div class="game-box">
+                <h3 class="game-box__title">Next</h3>
+                <canvas id="bots-human-next-canvas" width="100" height="440"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="player-station player-station--opponent">
+            <div class="game-sidebar game-sidebar--left">
+              <div class="game-box">
+                <h3 class="game-box__title">Hold</h3>
+                <canvas id="bots-bot-hold-canvas" width="100" height="80"></canvas>
+              </div>
+              <div class="game-box">
+                <span id="bots-bot-status" class="stat-timer opponent-name">Bot 1</span>
+                <span id="bots-bot-timer" class="stat-timer"></span>
+                <div class="stat-row">
+                  <span class="stat-label">Target</span>
+                  <span id="bots-bot-target" class="stat-value">You</span>
+                </div>
+                <div id="bots-bot-lines-row" class="stat-row">
+                  <span class="stat-label">Lines</span>
+                  <span id="bots-bot-lines" class="stat-value"></span>
+                </div>
+                <div id="bots-bot-score-row" class="stat-row">
+                  <span class="stat-label">Score</span>
+                  <span id="bots-bot-score" class="stat-value"></span>
+                </div>
+                <div id="bots-bot-level-row" class="stat-row">
+                  <span class="stat-label">Level</span>
+                  <span id="bots-bot-level" class="stat-value"></span>
+                </div>
+                <div id="bots-bot-combo-row" class="stat-row">
+                  <span class="stat-label">Combo</span>
+                  <span id="bots-bot-combo" class="stat-value"></span>
+                </div>
+                <div id="bots-bot-survival-row" class="stat-row" hidden>
+                  <span class="stat-label">Next garbage</span>
+                  <span id="bots-bot-survival" class="stat-value"></span>
+                </div>
+              </div>
+            </div>
+            <div class="game-board-slot">
+              <canvas id="bots-bot-game" width="320" height="640"></canvas>
+              <div id="bots-bot-garbage-meter" class="garbage-meter garbage-meter--opponent" aria-label="Bot incoming garbage">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <strong id="bots-bot-garbage-value">0</strong>
+              </div>
+            </div>
+            <div class="game-sidebar game-sidebar--right">
+              <div class="game-box">
+                <h3 class="game-box__title">Next</h3>
+                <canvas id="bots-bot-next-canvas" width="100" height="440"></canvas>
+              </div>
+            </div>
+          </div>
+          <div id="bots-result" class="run-summary" tabindex="-1" hidden>
+            <div class="run-summary__panel">
+              <p id="bots-result-subhead" class="run-summary__subhead"></p>
+              <h2 id="bots-result-headline"></h2>
+              <dl id="bots-result-stats" class="run-summary__stats"></dl>
+              <div class="run-summary__actions">
+                <button id="bots-rematch-button" class="primary-button" type="button">Rematch</button>
+                <button id="bots-result-setup-button" class="secondary-button" type="button">Back To Setup</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
