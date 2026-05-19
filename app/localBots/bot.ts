@@ -34,7 +34,14 @@ const simulateLockedBoard = (snap: GameSnapshot, piece: Piece): BoardCell[][] =>
     if (y < 0 || y >= grid.length || x < 0 || x >= (grid[0]?.length ?? 0)) continue;
     grid[y][x] = piece.type;
   }
-  return grid.filter((row) => !row.every((cell) => cell !== null));
+  const minX = snap.viewOffsetX;
+  const maxX = snap.viewOffsetX + snap.width - 1;
+  return grid.filter((row) => {
+    for (let x = minX; x <= maxX; x += 1) {
+      if (row[x] === null) return true;
+    }
+    return false;
+  });
 };
 
 const columnStats = (grid: BoardCell[][], snap: GameSnapshot): { heights: number[]; holes: number } => {
@@ -107,10 +114,10 @@ const stepTowardPlacement = (game: Game, placement: BotPlacement): void => {
     return;
   }
 
-  if (active.x !== placement.x || active.y !== placement.y) {
-    if (active.x < placement.x) game.moveRight();
-    else if (active.x > placement.x) game.moveLeft();
-    else if (active.y < placement.y) game.moveRight();
+  const [rightX, rightY] = game.board.lateralRightDelta();
+  const lateralDistance = (placement.x - active.x) * rightX + (placement.y - active.y) * rightY;
+  if (lateralDistance !== 0) {
+    if (lateralDistance > 0) game.moveRight();
     else game.moveLeft();
     return;
   }

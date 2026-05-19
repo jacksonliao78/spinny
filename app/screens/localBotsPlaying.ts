@@ -231,6 +231,7 @@ const initLocalBotsPlayingScreen = ({
 
   const drawFrame = (dtMs: number): void => {
     if (getAppScreen() !== "bots-playing" || !human || !bot) return;
+    humanController.update(dtMs, human.game.getSnapshot().gravityIntervalMs);
     humanRenderer.updateRotation(human.game.board.rotation, dtMs);
     botRenderer.updateRotation(bot.game.board.rotation, dtMs);
     humanRenderer.draw(human.game, false);

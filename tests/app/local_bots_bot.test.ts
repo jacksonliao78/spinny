@@ -66,6 +66,29 @@ test("scorePlacement prefers a line clear over a similar non-clear", () => {
   assert.ok(scorePlacement(clearSnap as any, piece) > scorePlacement(noClearSnap as any, piece));
 });
 
+test("scorePlacement scores clears using visible play columns, not spawn padding", () => {
+  const piece = new Piece("O", 3, 1);
+  const clearSnap = {
+    width: 4,
+    height: 4,
+    viewOffsetX: 2,
+    viewOffsetY: 0,
+    locked: [
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, null, null, null, null, null, null],
+      [null, null, "I", "I", null, null, null, null],
+    ],
+  };
+  const noClearSnap = {
+    ...clearSnap,
+    locked: clearSnap.locked.map((row) => [...row]),
+  };
+  noClearSnap.locked[3][2] = null;
+
+  assert.ok(scorePlacement(clearSnap as any, piece) > scorePlacement(noClearSnap as any, piece));
+});
+
 test("scorePlacement penalizes holes", () => {
   const piece = new Piece("O", 1, 1);
   const cleanSnap = {
