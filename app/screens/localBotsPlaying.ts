@@ -170,7 +170,13 @@ const initLocalBotsPlayingScreen = ({
     match = createLocalFfaMatch(
       [
         { id: "human", name: "You", kind: "human", game: humanGame },
-        { id: "bot-1", name: "Bot 1", kind: "bot", game: botGame, controller: createBotController() },
+        {
+          id: "bot-1",
+          name: "Bot 1",
+          kind: "bot",
+          game: botGame,
+          controller: createBotController(boardKind === "ring" ? "ring" : "rectangular"),
+        },
       ],
       createSeededRandom(`${seed}:targets`),
     );
