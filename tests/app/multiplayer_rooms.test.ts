@@ -23,9 +23,9 @@ test("createJoinCode creates compact uppercase room codes", () => {
   assert.match(code, /^[A-Z2-9]+$/);
 });
 
-test("buildRoomSettings keeps defaults and accepts board overrides", () => {
+test("buildRoomSettings keeps multiplayer rectangular-only", () => {
   assert.deepEqual(buildRoomSettings(), { boardKind: "rectangular" });
-  assert.deepEqual(buildRoomSettings({ boardKind: "ring" }), { boardKind: "ring" });
+  assert.deepEqual(buildRoomSettings({ boardKind: "rectangular" }), { boardKind: "rectangular" });
 });
 
 const room: MultiplayerRoom = {

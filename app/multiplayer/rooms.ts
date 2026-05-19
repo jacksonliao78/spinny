@@ -1,4 +1,3 @@
-import type { BoardKind } from "@game/board/factory";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type RoomVisibility = "public" | "private";
@@ -6,7 +5,7 @@ type RoomStatus = "lobby" | "countdown" | "playing" | "finished" | "abandoned";
 type RoomMemberRole = "player" | "spectator";
 
 type MultiplayerRoomSettings = {
-  boardKind: BoardKind;
+  boardKind: "rectangular";
 };
 
 type MultiplayerRoom = {
@@ -71,9 +70,8 @@ const sanitizeUsername = (username: string): string => {
   return trimmed.length > 0 ? trimmed.slice(0, 64) : "player";
 };
 
-const buildRoomSettings = (settings: Partial<MultiplayerRoomSettings> = {}): MultiplayerRoomSettings => ({
+const buildRoomSettings = (_settings: Partial<MultiplayerRoomSettings> = {}): MultiplayerRoomSettings => ({
   ...DEFAULT_ROOM_SETTINGS,
-  ...settings,
 });
 
 const isDuplicateMembershipError = (error: unknown): boolean => {

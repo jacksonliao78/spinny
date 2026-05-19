@@ -9,8 +9,6 @@ type BotPlacement = {
   score: number;
 };
 
-type BotClearModel = "rectangular" | "ring";
-
 type BotController = {
   update: (game: Game, dtMs: number) => void;
 };
@@ -56,37 +54,6 @@ const rectangularClears = (grid: BoardCell[][], snap: GameSnapshot): number => {
   return clears;
 };
 
-const ringClears = (grid: BoardCell[][]): number => {
-  const height = grid.length;
-  const width = grid[0]?.length ?? 0;
-  if (width === 0 || height === 0) return 0;
-  const minCenterX = Math.floor((width - 3) / 2);
-  const minCenterY = Math.floor((height - 3) / 2);
-  const maxCenterX = minCenterX + 2;
-  const maxCenterY = minCenterY + 2;
-  const maxRing = Math.max(minCenterX, minCenterY, width - 1 - maxCenterX, height - 1 - maxCenterY);
-  const ringDistance = (x: number, y: number): number => {
-    const dx = x < minCenterX ? minCenterX - x : x > maxCenterX ? x - maxCenterX : 0;
-    const dy = y < minCenterY ? minCenterY - y : y > maxCenterY ? y - maxCenterY : 0;
-    return Math.max(dx, dy);
-  };
-
-  let clears = 0;
-  for (let ring = 1; ring <= maxRing; ring += 1) {
-    let hasCells = false;
-    let full = true;
-    for (let y = 0; y < height; y += 1) {
-      for (let x = 0; x < width; x += 1) {
-        if (ringDistance(x, y) !== ring) continue;
-        hasCells = true;
-        if (grid[y][x] === null) full = false;
-      }
-    }
-    if (hasCells && full) clears += 1;
-  }
-  return clears;
-};
-
 const compactRectangularGrid = (grid: BoardCell[][], snap: GameSnapshot): BoardCell[][] => {
   const minX = snap.viewOffsetX;
   const maxX = snap.viewOffsetX + snap.width - 1;
@@ -120,10 +87,10 @@ const columnStats = (grid: BoardCell[][], snap: GameSnapshot): { heights: number
   return { heights, holes };
 };
 
-const scorePlacement = (snap: GameSnapshot, piece: Piece, clearModel: BotClearModel = "rectangular"): number => {
+const scorePlacement = (snap: GameSnapshot, piece: Piece): number => {
   const placedGrid = placePieceOnGrid(snap, piece);
-  const lines = clearModel === "ring" ? ringClears(placedGrid) : rectangularClears(placedGrid, snap);
-  const grid = clearModel === "ring" ? placedGrid : compactRectangularGrid(placedGrid, snap);
+  const lines = rectangularClears(placedGrid, snap);
+  const grid = compactRectangularGrid(placedGrid, snap);
   const { heights, holes } = columnStats(grid, snap);
   const aggregateHeight = heights.reduce((sum, height) => sum + height, 0);
   const maxHeight = Math.max(0, ...heights);
@@ -131,7 +98,7 @@ const scorePlacement = (snap: GameSnapshot, piece: Piece, clearModel: BotClearMo
   return lines * 220 - holes * 55 - aggregateHeight * 4 - maxHeight * 8 - bumpiness * 2;
 };
 
-const enumerateLegalPlacements = (game: Game, clearModel: BotClearModel = "rectangular"): BotPlacement[] => {
+const enumerateLegalPlacements = (game: Game): BotPlacement[] => {
   const snap = game.getSnapshot();
   if (!snap.active || snap.gameOver) return [];
   const placements: BotPlacement[] = [];
@@ -146,7 +113,7 @@ const enumerateLegalPlacements = (game: Game, clearModel: BotClearModel = "recta
       piece.rotation = rotation;
       if (!game.canMovePiece(piece, 0, 0)) continue;
       while (game.canMovePiece(piece, gx, gy)) piece.move(gx, gy);
-      placements.push({ x: piece.x, y: piece.y, rotation, score: scorePlacement(snap, piece, clearModel) });
+      placements.push({ x: piece.x, y: piece.y, rotation, score: scorePlacement(snap, piece) });
     }
   }
 
@@ -154,8 +121,7 @@ const enumerateLegalPlacements = (game: Game, clearModel: BotClearModel = "recta
   return placements;
 };
 
-const chooseBotPlacement = (game: Game, clearModel: BotClearModel = "rectangular"): BotPlacement | null =>
-  enumerateLegalPlacements(game, clearModel)[0] ?? null;
+const chooseBotPlacement = (game: Game): BotPlacement | null => enumerateLegalPlacements(game)[0] ?? null;
 
 const activeMatchesPlacement = (snap: GameSnapshot, placement: BotPlacement): boolean =>
   Boolean(snap.active && snap.active.x === placement.x && snap.active.y === placement.y && snap.active.rotation === placement.rotation);
@@ -181,7 +147,7 @@ const stepTowardPlacement = (game: Game, placement: BotPlacement): void => {
   game.hardDrop();
 };
 
-const createBotController = (clearModel: BotClearModel = "rectangular"): BotController => {
+const createBotController = (): BotController => {
   let actionMs = 0;
   let plannedPiece: Piece | null = null;
   let placement: BotPlacement | null = null;
@@ -195,7 +161,7 @@ const createBotController = (clearModel: BotClearModel = "rectangular"): BotCont
       if (!snap.active || snap.gameOver) return;
       if (plannedPiece !== snap.active || !placement) {
         plannedPiece = snap.active;
-        placement = chooseBotPlacement(game, clearModel);
+        placement = chooseBotPlacement(game);
       }
       if (!placement) return;
       stepTowardPlacement(game, placement);
@@ -208,4 +174,4 @@ const createBotController = (clearModel: BotClearModel = "rectangular"): BotCont
 };
 
 export { chooseBotPlacement, createBotController, enumerateLegalPlacements, scorePlacement };
-export type { BotClearModel, BotController, BotPlacement };
+export type { BotController, BotPlacement };

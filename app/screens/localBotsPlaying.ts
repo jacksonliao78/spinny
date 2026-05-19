@@ -1,4 +1,4 @@
-import { createBoard, type BoardKind } from "@game/board/factory";
+import { createBoard } from "@game/board/factory";
 import { Game, type RunSummary } from "@game/game";
 import type { GameConfigOverrides } from "@game/game/rules";
 import { createSeededRandom } from "@game/random";
@@ -43,7 +43,6 @@ type LocalBotsPlayingScreenOptions = {
   rematchButton: HTMLButtonElement;
   setupButton: HTMLButtonElement;
   getAppScreen: () => AppScreen;
-  getSelectedBoard: () => BoardKind;
   navigate: (screen: AppScreen) => void;
   resetLastFrameTime: () => void;
   syncInputControllerState: () => void;
@@ -58,20 +57,20 @@ type LocalBotsPlayingScreen = {
   onResize: () => void;
 };
 
-const makeGameConfig = (boardKind: BoardKind): GameConfigOverrides => ({
-  ...(boardKind === "rectangular" ? { board: RECTANGULAR_BOARD_CONFIG } : {}),
+const makeGameConfig = (): GameConfigOverrides => ({
+  board: RECTANGULAR_BOARD_CONFIG,
   mode: {
     kind: "versus",
-    sprintTargetClears: SPRINT_TARGET_CLEARS[boardKind],
+    sprintTargetClears: SPRINT_TARGET_CLEARS.rectangular,
   },
 });
 
-const createLocalGame = (boardKind: BoardKind, seed: string): Game => {
+const createLocalGame = (seed: string): Game => {
   const random = createSeededRandom(seed);
   return new Game({
     random,
-    boardFactory: (width, height, boardRandom) => createBoard(boardKind, width, height, boardRandom),
-    config: makeGameConfig(boardKind),
+    boardFactory: (width, height, boardRandom) => createBoard("rectangular", width, height, boardRandom),
+    config: makeGameConfig(),
   });
 };
 
@@ -112,7 +111,6 @@ const initLocalBotsPlayingScreen = ({
   rematchButton,
   setupButton,
   getAppScreen,
-  getSelectedBoard,
   navigate,
   resetLastFrameTime,
   syncInputControllerState,
@@ -163,10 +161,9 @@ const initLocalBotsPlayingScreen = ({
   };
 
   const startMatch = (): void => {
-    const boardKind = getSelectedBoard();
     const seed = `local-bots:${Date.now()}`;
-    const humanGame = createLocalGame(boardKind, `${seed}:human`);
-    const botGame = createLocalGame(boardKind, `${seed}:bot`);
+    const humanGame = createLocalGame(`${seed}:human`);
+    const botGame = createLocalGame(`${seed}:bot`);
     match = createLocalFfaMatch(
       [
         { id: "human", name: "You", kind: "human", game: humanGame },
@@ -175,7 +172,7 @@ const initLocalBotsPlayingScreen = ({
           name: "Bot 1",
           kind: "bot",
           game: botGame,
-          controller: createBotController(boardKind === "ring" ? "ring" : "rectangular"),
+          controller: createBotController(),
         },
       ],
       createSeededRandom(`${seed}:targets`),
@@ -192,8 +189,8 @@ const initLocalBotsPlayingScreen = ({
     botRenderer.reset(botGame.board.rotation);
     humanRenderer.syncGameConfig(humanGame);
     botRenderer.syncGameConfig(botGame);
-    humanHud.configure("versus", SPRINT_TARGET_CLEARS[boardKind]);
-    botHud.configure("versus", SPRINT_TARGET_CLEARS[boardKind]);
+    humanHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
+    botHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
     title.textContent = `Bots / ${MODE_LABELS.versus}`;
     navigate("bots-playing");
     resetLastFrameTime();

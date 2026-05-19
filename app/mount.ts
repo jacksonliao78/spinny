@@ -129,7 +129,6 @@ const mountApp = (): void => {
   const startGameButton = getElement<HTMLButtonElement>("start-game-button");
   const botsSetupBackButton = getElement<HTMLButtonElement>("bots-setup-back-button");
   const startBotsButton = getElement<HTMLButtonElement>("start-bots-button");
-  const botsSpinnyToggleButton = getElement<HTMLButtonElement>("bots-spinny-toggle");
   const botsBackButton = getElement<HTMLButtonElement>("bots-back-button");
   const botsGameTitle = getElement<HTMLElement>("bots-game-title");
   const botsHumanCanvas = getElement<HTMLCanvasElement>("bots-human-game");
@@ -818,17 +817,7 @@ const mountApp = (): void => {
   initLocalBotsSetupScreen({
     backButton: botsSetupBackButton,
     startButton: startBotsButton,
-    spinnyToggleButton: botsSpinnyToggleButton,
-    initialSpinnyOn,
     navigate,
-    setSelectedBoard: (next) => {
-      selectedBoard = next;
-      try {
-        window.localStorage.setItem(SPINNY_BOARD_PREF_KEY, next === "ring" ? "1" : "0");
-      } catch {
-        // localStorage unavailable; ignore.
-      }
-    },
     startMatch: () => localBotsPlayingScreen?.startMatch(),
   });
 

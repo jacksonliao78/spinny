@@ -43,15 +43,6 @@ test("bot placement search is deterministic for the same seed", () => {
   assert.deepEqual(first, second);
 });
 
-test("enumerateLegalPlacements sweeps the lateral axis for horizontal gravity", () => {
-  const game = createTestGame();
-  game.board.rotate();
-  const placements = enumerateLegalPlacements(game, "ring");
-  const uniqueY = new Set(placements.map((placement) => placement.y));
-
-  assert.ok(uniqueY.size > 1);
-});
-
 test("scorePlacement prefers a line clear over a similar non-clear", () => {
   const piece = new Piece("O", 1, 1);
   const clearSnap = {
@@ -123,35 +114,4 @@ test("scorePlacement penalizes holes", () => {
   };
 
   assert.ok(scorePlacement(cleanSnap as any, piece) > scorePlacement(holeSnap as any, piece));
-});
-
-test("scorePlacement can value complete rings for spinny bot play", () => {
-  const piece = new Piece("O", 0, 0);
-  const locked = Array.from({ length: 7 }, () => Array(7).fill(null));
-  for (let y = 2; y <= 4; y += 1) {
-    for (let x = 2; x <= 4; x += 1) locked[y][x] = "solid";
-  }
-  for (let y = 1; y <= 5; y += 1) {
-    for (let x = 1; x <= 5; x += 1) {
-      if (x > 1 && x < 5 && y > 1 && y < 5) continue;
-      locked[y][x] = "I";
-    }
-  }
-  locked[1][1] = null;
-  locked[1][2] = null;
-  locked[2][1] = null;
-  const fullInnerRing = {
-    width: 7,
-    height: 7,
-    viewOffsetX: 0,
-    viewOffsetY: 0,
-    locked,
-  };
-  const missingRingCell = {
-    ...fullInnerRing,
-    locked: fullInnerRing.locked.map((row) => [...row]),
-  };
-  missingRingCell.locked[1][5] = null;
-
-  assert.ok(scorePlacement(fullInnerRing as any, piece, "ring") > scorePlacement(missingRingCell as any, piece, "ring"));
 });
