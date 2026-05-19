@@ -636,7 +636,6 @@ const mountApp = (): void => {
 
   localBotsPlayingScreen = initLocalBotsPlayingScreen({
     humanCanvas: botsHumanCanvas,
-    botCanvas: botsBotCanvas,
     backButton: botsBackButton,
     title: botsGameTitle,
     humanRenderer: localBotsHumanRenderer,
@@ -659,7 +658,6 @@ const mountApp = (): void => {
     rematchButton: botsRematchButton,
     setupButton: botsResultSetupButton,
     getAppScreen: () => appScreen,
-    getSelectedBoard: () => selectedBoard,
     navigate,
     resetLastFrameTime: () => {
       last = performance.now();

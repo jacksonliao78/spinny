@@ -20,7 +20,6 @@ type Renderer = ReturnType<typeof createRenderer>;
 
 type LocalBotsPlayingScreenOptions = {
   humanCanvas: HTMLCanvasElement;
-  botCanvas: HTMLCanvasElement;
   backButton: HTMLButtonElement;
   title: HTMLElement;
   humanRenderer: Renderer;
@@ -83,12 +82,11 @@ const setGarbageMeter = (meter: HTMLElement, valueEl: HTMLElement, amount: numbe
 
 const formatSummaryLine = (combatant: LocalFfaCombatant, durationMs: number): string => {
   const summary: RunSummary = combatant.finalSummary ?? combatant.game.getRunSummary(durationMs);
-  return `${combatant.name}: ${summary.linesClearedTotal} lines / ${summary.score} score / ${summary.stats.piecesLocked} pieces`;
+  return `${combatant.name}: ${summary.linesClearedTotal} lines / ${summary.score} score / ${summary.stats.locksPlaced} pieces`;
 };
 
 const initLocalBotsPlayingScreen = ({
   humanCanvas,
-  botCanvas,
   backButton,
   title,
   humanRenderer,
