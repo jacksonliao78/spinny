@@ -137,12 +137,12 @@ const enumerateLegalPlacements = (game: Game, clearModel: BotClearModel = "recta
   const placements: BotPlacement[] = [];
   const fullWidth = snap.locked[0]?.length ?? snap.width;
   const [gx, gy] = game.board.gravityDelta();
-  const minX = -3;
-  const maxX = fullWidth + 2;
+  const [rightX, rightY] = game.board.lateralRightDelta();
+  const maxLanes = fullWidth + snap.locked.length + 4;
 
   for (let rotation = 0; rotation < 4; rotation += 1) {
-    for (let x = minX; x <= maxX; x += 1) {
-      const piece = new Piece(snap.active.type, x, snap.active.y);
+    for (let lane = -maxLanes; lane <= maxLanes; lane += 1) {
+      const piece = new Piece(snap.active.type, snap.active.x + rightX * lane, snap.active.y + rightY * lane);
       piece.rotation = rotation;
       if (!game.canMovePiece(piece, 0, 0)) continue;
       while (game.canMovePiece(piece, gx, gy)) piece.move(gx, gy);

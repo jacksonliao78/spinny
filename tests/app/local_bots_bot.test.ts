@@ -43,6 +43,15 @@ test("bot placement search is deterministic for the same seed", () => {
   assert.deepEqual(first, second);
 });
 
+test("enumerateLegalPlacements sweeps the lateral axis for horizontal gravity", () => {
+  const game = createTestGame();
+  game.board.rotate();
+  const placements = enumerateLegalPlacements(game, "ring");
+  const uniqueY = new Set(placements.map((placement) => placement.y));
+
+  assert.ok(uniqueY.size > 1);
+});
+
 test("scorePlacement prefers a line clear over a similar non-clear", () => {
   const piece = new Piece("O", 1, 1);
   const clearSnap = {

@@ -83,3 +83,24 @@ test("routeGarbageAttackEvents sends attacks only to the current target", () => 
   assert.equal(bot.queued(), 5);
   assert.equal(human.queued(), 0);
 });
+
+test("updateLocalFfaMatchState gives simultaneous eliminations the same placement", () => {
+  const human = makeGame();
+  const bot = makeGame();
+  const match = createLocalFfaMatch(
+    [
+      { id: "human", name: "You", kind: "human", game: human as any },
+      { id: "bot-1", name: "Bot 1", kind: "bot", game: bot as any },
+    ],
+    () => 0,
+  );
+
+  human.setGameOver();
+  bot.setGameOver();
+  updateLocalFfaMatchState(match, 1000, () => 0);
+
+  assert.equal(match.completed, true);
+  assert.equal(match.winnerId, null);
+  assert.equal(match.combatants[0].placement, 1);
+  assert.equal(match.combatants[1].placement, 1);
+});

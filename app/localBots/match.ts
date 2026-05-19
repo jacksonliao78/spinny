@@ -107,14 +107,16 @@ const updateLocalFfaMatchState = (
   random: RandomSource = Math.random,
 ): void => {
   if (match.completed) return;
-  match.combatants.forEach((combatant) => {
-    if (!combatant.alive) return;
-    if (!combatant.game.getSnapshot().gameOver) return;
-    combatant.alive = false;
-    combatant.targetId = null;
-    combatant.finalSummary = combatant.game.getRunSummary(durationMs);
-    combatant.placement = getAliveCombatants(match).length + 1;
-  });
+  const eliminated = match.combatants.filter((combatant) => combatant.alive && combatant.game.getSnapshot().gameOver);
+  if (eliminated.length > 0) {
+    const placement = getAliveCombatants(match).length - eliminated.length + 1;
+    eliminated.forEach((combatant) => {
+      combatant.alive = false;
+      combatant.targetId = null;
+      combatant.finalSummary = combatant.game.getRunSummary(durationMs);
+      combatant.placement = placement;
+    });
+  }
   match.combatants.forEach((combatant) => retargetCombatant(match, combatant, random));
   markCompletedIfNeeded(match);
 };
