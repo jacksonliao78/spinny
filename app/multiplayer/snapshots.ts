@@ -9,7 +9,7 @@ type MultiplayerCell = {
 };
 
 type MultiplayerSnapshotPayload = {
-  version: 2;
+  version: 3;
   roomId: string;
   userId: string;
   username: string;
@@ -23,6 +23,8 @@ type MultiplayerSnapshotPayload = {
   viewOffsetY: number;
   score: number;
   lines: number;
+  pieces: number;
+  pps: number;
   incomingGarbage: number;
   hold: PieceType | null;
   next: PieceType[];
@@ -49,7 +51,7 @@ const isMultiplayerSnapshotPayload = (payload: unknown, roomId: string): payload
   if (!payload || typeof payload !== "object") return false;
   const maybe = payload as Partial<MultiplayerSnapshotPayload>;
   return (
-    maybe.version === 2 &&
+    maybe.version === 3 &&
     maybe.roomId === roomId &&
     typeof maybe.userId === "string" &&
     typeof maybe.username === "string" &&
@@ -64,6 +66,10 @@ const isMultiplayerSnapshotPayload = (payload: unknown, roomId: string): payload
     typeof maybe.viewOffsetY === "number" &&
     typeof maybe.score === "number" &&
     typeof maybe.lines === "number" &&
+    typeof maybe.pieces === "number" &&
+    Number.isFinite(maybe.pieces) &&
+    typeof maybe.pps === "number" &&
+    Number.isFinite(maybe.pps) &&
     typeof maybe.incomingGarbage === "number" &&
     (maybe.hold === null || isPieceType(maybe.hold)) &&
     Array.isArray(maybe.next) &&
@@ -123,7 +129,7 @@ const buildMultiplayerSnapshot = (
   }
 
   return {
-    version: 2,
+    version: 3,
     roomId,
     userId,
     username,
@@ -137,6 +143,8 @@ const buildMultiplayerSnapshot = (
     viewOffsetY: snap.viewOffsetY,
     score: snap.score,
     lines: snap.linesClearedTotal,
+    pieces: snap.piecesPlaced,
+    pps: snap.piecesPerSecond,
     incomingGarbage: snap.incomingGarbage,
     hold: snap.hold,
     next: snap.next,

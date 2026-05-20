@@ -25,6 +25,8 @@ type HudElements = {
   scoreValue: HTMLElement;
   levelRow: HTMLElement;
   levelValue: HTMLElement;
+  ppsRow: HTMLElement;
+  ppsValue: HTMLElement;
   comboRow: HTMLElement;
   comboValue: HTMLElement;
   survivalRow: HTMLElement;
@@ -72,6 +74,7 @@ function createHudUpdater(elements: HudElements): HudUpdater {
     elements.timerEl.hidden = policy.timerStyle === "none";
     elements.scoreRow.hidden = !policy.showsScore;
     elements.levelRow.hidden = !policy.showsLevel;
+    elements.ppsRow.hidden = false;
     elements.comboRow.hidden = false;
     elements.linesRow.hidden = false;
     elements.survivalRow.hidden = true;
@@ -80,6 +83,7 @@ function createHudUpdater(elements: HudElements): HudUpdater {
     elements.linesValue.textContent = "";
     elements.scoreValue.textContent = "";
     elements.levelValue.textContent = "";
+    elements.ppsValue.textContent = "";
     elements.comboValue.textContent = "";
     elements.survivalValue.textContent = "";
 
@@ -103,6 +107,7 @@ function createHudUpdater(elements: HudElements): HudUpdater {
 
     elements.scoreValue.textContent = String(snap.score);
     elements.levelValue.textContent = String(snap.level);
+    elements.ppsValue.textContent = snap.piecesPerSecond.toFixed(2);
     elements.comboValue.textContent = String(snap.combo);
 
     if (snap.survival && snap.survival.active) {

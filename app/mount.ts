@@ -157,6 +157,8 @@ const mountApp = (): void => {
   const botsHumanScore = getElement<HTMLElement>("bots-human-score");
   const botsHumanLevelRow = getElement<HTMLElement>("bots-human-level-row");
   const botsHumanLevel = getElement<HTMLElement>("bots-human-level");
+  const botsHumanPpsRow = getElement<HTMLElement>("bots-human-pps-row");
+  const botsHumanPps = getElement<HTMLElement>("bots-human-pps");
   const botsHumanComboRow = getElement<HTMLElement>("bots-human-combo-row");
   const botsHumanCombo = getElement<HTMLElement>("bots-human-combo");
   const botsHumanSurvivalRow = getElement<HTMLElement>("bots-human-survival-row");
@@ -167,6 +169,8 @@ const mountApp = (): void => {
   const botsBotScore = getElement<HTMLElement>("bots-bot-score");
   const botsBotLevelRow = getElement<HTMLElement>("bots-bot-level-row");
   const botsBotLevel = getElement<HTMLElement>("bots-bot-level");
+  const botsBotPpsRow = getElement<HTMLElement>("bots-bot-pps-row");
+  const botsBotPps = getElement<HTMLElement>("bots-bot-pps");
   const botsBotComboRow = getElement<HTMLElement>("bots-bot-combo-row");
   const botsBotCombo = getElement<HTMLElement>("bots-bot-combo");
   const botsBotSurvivalRow = getElement<HTMLElement>("bots-bot-survival-row");
@@ -193,6 +197,7 @@ const mountApp = (): void => {
   const multiplayerOpponentNext = getElement<HTMLElement>("mp-opponent-next");
   const multiplayerOpponentLines = getElement<HTMLElement>("mp-opponent-lines");
   const multiplayerOpponentScore = getElement<HTMLElement>("mp-opponent-score");
+  const multiplayerOpponentPps = getElement<HTMLElement>("mp-opponent-pps");
   const multiplayerOpponentGarbage = getElement<HTMLElement>("mp-opponent-garbage");
   const countdownEl = getElement<HTMLElement>("run-countdown");
   const runSummaryEl = getElement<HTMLElement>("run-summary");
@@ -238,6 +243,8 @@ const mountApp = (): void => {
   const statScore = getElement<HTMLElement>("stat-score");
   const statLevelRow = getElement<HTMLElement>("stat-level-row");
   const statLevel = getElement<HTMLElement>("stat-level");
+  const statPpsRow = getElement<HTMLElement>("stat-pps-row");
+  const statPps = getElement<HTMLElement>("stat-pps");
   const statComboRow = getElement<HTMLElement>("stat-combo-row");
   const statCombo = getElement<HTMLElement>("stat-combo");
   const statSurvivalRow = getElement<HTMLElement>("stat-survival-row");
@@ -251,6 +258,8 @@ const mountApp = (): void => {
   const mpStatScore = getElement<HTMLElement>("mp-stat-score");
   const mpStatLevelRow = getElement<HTMLElement>("mp-stat-level-row");
   const mpStatLevel = getElement<HTMLElement>("mp-stat-level");
+  const mpStatPpsRow = getElement<HTMLElement>("mp-stat-pps-row");
+  const mpStatPps = getElement<HTMLElement>("mp-stat-pps");
   const mpStatComboRow = getElement<HTMLElement>("mp-stat-combo-row");
   const mpStatCombo = getElement<HTMLElement>("mp-stat-combo");
   const mpStatSurvivalRow = getElement<HTMLElement>("mp-stat-survival-row");
@@ -310,6 +319,8 @@ const mountApp = (): void => {
     scoreValue: statScore,
     levelRow: statLevelRow,
     levelValue: statLevel,
+    ppsRow: statPpsRow,
+    ppsValue: statPps,
     comboRow: statComboRow,
     comboValue: statCombo,
     survivalRow: statSurvivalRow,
@@ -325,6 +336,8 @@ const mountApp = (): void => {
     scoreValue: mpStatScore,
     levelRow: mpStatLevelRow,
     levelValue: mpStatLevel,
+    ppsRow: mpStatPpsRow,
+    ppsValue: mpStatPps,
     comboRow: mpStatComboRow,
     comboValue: mpStatCombo,
     survivalRow: mpStatSurvivalRow,
@@ -340,6 +353,8 @@ const mountApp = (): void => {
     scoreValue: botsHumanScore,
     levelRow: botsHumanLevelRow,
     levelValue: botsHumanLevel,
+    ppsRow: botsHumanPpsRow,
+    ppsValue: botsHumanPps,
     comboRow: botsHumanComboRow,
     comboValue: botsHumanCombo,
     survivalRow: botsHumanSurvivalRow,
@@ -355,6 +370,8 @@ const mountApp = (): void => {
     scoreValue: botsBotScore,
     levelRow: botsBotLevelRow,
     levelValue: botsBotLevel,
+    ppsRow: botsBotPpsRow,
+    ppsValue: botsBotPps,
     comboRow: botsBotComboRow,
     comboValue: botsBotCombo,
     survivalRow: botsBotSurvivalRow,
@@ -587,12 +604,14 @@ const mountApp = (): void => {
     opponentNext: multiplayerOpponentNext,
     opponentLines: multiplayerOpponentLines,
     opponentScore: multiplayerOpponentScore,
+    opponentPps: multiplayerOpponentPps,
     opponentGarbage: multiplayerOpponentGarbage,
     localHoldCanvas: mpHoldCanvas,
     localNextCanvas: mpNextCanvas,
     localStatus: mpStatTimer,
     localLines: mpStatLines,
     localScore: mpStatScore,
+    localPps: mpStatPps,
     localCombo: mpStatCombo,
     countdownEl: mpCountdownEl,
     runSummaryEl: mpRunSummaryEl,

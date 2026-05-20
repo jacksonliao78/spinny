@@ -41,12 +41,14 @@ type MultiplayerPlayingScreenOptions = {
   opponentNext: HTMLElement;
   opponentLines: HTMLElement;
   opponentScore: HTMLElement;
+  opponentPps: HTMLElement;
   opponentGarbage: HTMLElement;
   localHoldCanvas: HTMLCanvasElement;
   localNextCanvas: HTMLCanvasElement;
   localStatus: HTMLElement;
   localLines: HTMLElement;
   localScore: HTMLElement;
+  localPps: HTMLElement;
   localCombo: HTMLElement;
   countdownEl: HTMLElement;
   runSummaryEl: HTMLElement;
@@ -125,12 +127,14 @@ const initMultiplayerPlayingScreen = ({
   opponentNext,
   opponentLines,
   opponentScore,
+  opponentPps,
   opponentGarbage,
   localHoldCanvas,
   localNextCanvas,
   localStatus,
   localLines,
   localScore,
+  localPps,
   localCombo,
   countdownEl,
   runSummaryEl,
@@ -247,6 +251,7 @@ const initMultiplayerPlayingScreen = ({
     opponentStatus.textContent = "Waiting";
     opponentLines.textContent = "0";
     opponentScore.textContent = "0";
+    opponentPps.textContent = "0.00";
     opponentGarbage.textContent = "0";
     setGarbageMeter(opponentGarbageMeter, opponentGarbageValue, 0);
   };
@@ -263,10 +268,12 @@ const initMultiplayerPlayingScreen = ({
     localStatus.textContent = "Player 1";
     localLines.textContent = "0";
     localScore.textContent = "0";
+    localPps.textContent = "0.00";
     localCombo.textContent = "0";
     opponentStatus.textContent = "Player 2";
     opponentLines.textContent = "0";
     opponentScore.textContent = "0";
+    opponentPps.textContent = "0.00";
     opponentGarbage.textContent = "0";
     setGarbageMeter(garbageMeter, garbageValue, 0);
     setGarbageMeter(opponentGarbageMeter, opponentGarbageValue, 0);
@@ -326,6 +333,7 @@ const initMultiplayerPlayingScreen = ({
         { label: "PPS", value: summary.metrics.speed.piecesPerSecond.toFixed(2) },
         { label: "Opponent Lines", value: String(opponent?.lines ?? 0) },
         { label: "Opponent Score", value: String(opponent?.score ?? 0) },
+        { label: "Opponent PPS", value: (opponent?.pps ?? 0).toFixed(2) },
       ].map((stat) => {
         const item = document.createElement("div");
         const label = document.createElement("dt");
@@ -361,6 +369,7 @@ const initMultiplayerPlayingScreen = ({
     localStatus.textContent = payload.gameOver ? `${payload.username} out` : payload.username;
     localLines.textContent = String(payload.lines);
     localScore.textContent = String(payload.score);
+    localPps.textContent = payload.pps.toFixed(2);
     localCombo.textContent = "0";
     drawHoldPiece(localHoldCanvas, payload.hold);
     drawNextPieces(localNextCanvas, payload.next);
@@ -376,6 +385,7 @@ const initMultiplayerPlayingScreen = ({
     opponentStatus.textContent = payload.gameOver ? `${payload.username} out` : payload.username;
     opponentLines.textContent = String(payload.lines);
     opponentScore.textContent = String(payload.score);
+    opponentPps.textContent = payload.pps.toFixed(2);
     opponentGarbage.textContent = String(payload.incomingGarbage);
     setGarbageMeter(opponentGarbageMeter, opponentGarbageValue, payload.incomingGarbage);
     opponentHold.replaceChildren(renderOpponentHold(payload.hold));
@@ -405,8 +415,10 @@ const initMultiplayerPlayingScreen = ({
       ...[
         { label: "P1 Lines", value: String(left?.lines ?? 0) },
         { label: "P1 Score", value: String(left?.score ?? 0) },
+        { label: "P1 PPS", value: (left?.pps ?? 0).toFixed(2) },
         { label: "P2 Lines", value: String(right?.lines ?? 0) },
         { label: "P2 Score", value: String(right?.score ?? 0) },
+        { label: "P2 PPS", value: (right?.pps ?? 0).toFixed(2) },
       ].map((stat) => {
         const item = document.createElement("div");
         const label = document.createElement("dt");

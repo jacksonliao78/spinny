@@ -29,6 +29,8 @@ const makeSnapshot = (): GameSnapshot => ({
   level: 1,
   combo: 0,
   b2b: 0,
+  piecesPlaced: 4,
+  piecesPerSecond: 0.8,
   linesClearedTotal: 3,
   garbageEnabled: true,
   incomingGarbage: 2,
@@ -45,7 +47,7 @@ const makeSnapshot = (): GameSnapshot => ({
 test("buildMultiplayerSnapshot exports visible cells and active piece", () => {
   const payload = buildMultiplayerSnapshot("room-1", "user-1", "player", 1, makeSnapshot(), 123);
 
-  assert.equal(payload.version, 2);
+  assert.equal(payload.version, 3);
   assert.equal(payload.roomId, "room-1");
   assert.equal(payload.slot, 1);
   assert.equal(payload.width, 4);
@@ -55,6 +57,8 @@ test("buildMultiplayerSnapshot exports visible cells and active piece", () => {
   assert.equal(payload.viewOffsetX, 1);
   assert.equal(payload.viewOffsetY, 1);
   assert.equal(payload.lines, 3);
+  assert.equal(payload.pieces, 4);
+  assert.equal(payload.pps, 0.8);
   assert.equal(payload.incomingGarbage, 2);
   assert.equal(payload.hold, null);
   assert.deepEqual(payload.next, ["I", "O", "T", "S", "Z"]);

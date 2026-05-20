@@ -82,7 +82,7 @@ const setGarbageMeter = (meter: HTMLElement, valueEl: HTMLElement, amount: numbe
 
 const formatSummaryLine = (combatant: LocalFfaCombatant, durationMs: number): string => {
   const summary: RunSummary = combatant.finalSummary ?? combatant.game.getRunSummary(durationMs);
-  return `${combatant.name}: ${summary.linesClearedTotal} lines / ${summary.score} score / ${summary.stats.locksPlaced} pieces`;
+  return `${combatant.name}: ${summary.linesClearedTotal} lines / ${summary.score} score / ${summary.stats.locksPlaced} pieces / ${summary.metrics.speed.piecesPerSecond.toFixed(2)} PPS`;
 };
 
 const initLocalBotsPlayingScreen = ({

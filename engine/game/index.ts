@@ -105,6 +105,7 @@ class Game {
   }
 
   getSnapshot(): GameSnapshot {
+    const metrics = createRunMetrics(this.runStats, this.elapsedMs);
     return {
       width: this.playWidth,
       height: this.playHeight,
@@ -119,6 +120,8 @@ class Game {
       level: this.level,
       combo: Math.max(0, this.combo - 1),
       b2b: this.runStats.b2bChain,
+      piecesPlaced: this.runStats.locksPlaced,
+      piecesPerSecond: metrics.speed.piecesPerSecond,
       linesClearedTotal: this.linesClearedTotal,
       garbageEnabled: this.config.garbage.enabled,
       incomingGarbage: this.incomingGarbage,

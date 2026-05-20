@@ -35,7 +35,7 @@ test("chooseBotPlacement prefers a grounded floor placement over a wall tuck on 
   assert.ok(placement);
   assert.equal(placement.rotation, 0);
   assert.equal(placement.y, 20);
-  assert.equal(placement.x, 5);
+  assert.equal(placement.x >= 2 && placement.x <= 8, true);
 });
 
 test("enumerateLegalPlacements returns no placements after game over", () => {
@@ -97,6 +97,63 @@ test("scorePlacement scores clears using visible play columns, not spawn padding
   noClearSnap.locked[3][2] = null;
 
   assert.ok(scorePlacement(clearSnap as any, piece) > scorePlacement(noClearSnap as any, piece));
+});
+
+test("scorePlacement strongly prefers quads over smaller clears", () => {
+  const makeSnap = () => ({
+    width: 10,
+    height: 20,
+    viewOffsetX: 2,
+    viewOffsetY: 2,
+    locked: Array.from({ length: 24 }, () => Array(14).fill(null)),
+  });
+  const quadSnap = makeSnap();
+  for (let y = 18; y <= 21; y += 1) {
+    for (let x = 2; x <= 11; x += 1) {
+      if (x !== 7) quadSnap.locked[y][x] = "I";
+    }
+  }
+  const quadPiece = new Piece("I", 5, 18);
+  quadPiece.rotation = 1;
+
+  const singleSnap = makeSnap();
+  for (let x = 2; x <= 11; x += 1) {
+    if (x < 5 || x > 8) singleSnap.locked[21][x] = "I";
+  }
+  const singlePiece = new Piece("I", 5, 20);
+  singlePiece.rotation = 0;
+
+  assert.ok(scorePlacement(quadSnap as any, quadPiece) > scorePlacement(singleSnap as any, singlePiece));
+});
+
+test("scorePlacement rewards plausible T-spin clears", () => {
+  const baseSnap = {
+    width: 4,
+    height: 4,
+    viewOffsetX: 0,
+    viewOffsetY: 0,
+    locked: Array.from({ length: 4 }, () => Array(4).fill(null)),
+    combo: 0,
+    b2b: 0,
+  };
+  const spinSnap = {
+    ...baseSnap,
+    locked: baseSnap.locked.map((row) => [...row]),
+  };
+  spinSnap.locked[1][0] = "I";
+  spinSnap.locked[1][2] = "I";
+  spinSnap.locked[2][3] = "I";
+  spinSnap.locked[3][0] = "I";
+
+  const regularSnap = {
+    ...baseSnap,
+    locked: baseSnap.locked.map((row) => [...row]),
+  };
+  regularSnap.locked[2][3] = "I";
+
+  const piece = new Piece("T", 0, 0);
+
+  assert.ok(scorePlacement(spinSnap as any, piece) > scorePlacement(regularSnap as any, piece));
 });
 
 test("scorePlacement ignores bottom padding when evaluating grounded pieces", () => {

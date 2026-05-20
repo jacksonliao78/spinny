@@ -93,6 +93,8 @@ export type GameSnapshot = {
   level: number;
   combo: number;
   b2b: number;
+  piecesPlaced: number;
+  piecesPerSecond: number;
   linesClearedTotal: number;
   garbageEnabled: boolean;
   incomingGarbage: number;
