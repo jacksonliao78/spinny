@@ -15,9 +15,25 @@ type BotController = {
   update: (game: Game, dtMs: number) => void;
 };
 
-const ACTION_INTERVAL_MS = 80;
+type BotControllerOptions = {
+  targetPps?: number;
+};
+
+const DEFAULT_TARGET_PPS = 1.6;
+const MIN_TARGET_PPS = 0.4;
+const MAX_TARGET_PPS = 4;
 const ATTACK_WEIGHT = 170;
 const LOOKAHEAD_WEIGHT = 0.35;
+
+const clampBotPps = (targetPps: number): number => {
+  if (!Number.isFinite(targetPps)) return DEFAULT_TARGET_PPS;
+  return Math.min(MAX_TARGET_PPS, Math.max(MIN_TARGET_PPS, targetPps));
+};
+
+const placementIntervalForPps = (targetPps: number): number => {
+  const safePps = clampBotPps(targetPps);
+  return 1000 / safePps;
+};
 
 const occupiedCellsFor = (piece: Piece): Array<[number, number]> => {
   const cells: Array<[number, number]> = [];
@@ -200,14 +216,17 @@ const snapshotAfterPlacement = (snap: GameSnapshot, piece: Piece): GameSnapshot 
   const lines = rectangularClears(placedGrid, snap);
   const spin = detectTSpinCandidate(snap, piece);
   const b2bQualified = lines > 0 && (lines >= 4 || spin?.kind === "t-spin");
+  const combo = snap.combo ?? 0;
+  const b2b = snap.b2b ?? 0;
+  const piecesPlaced = snap.piecesPlaced ?? 0;
   return {
     ...snap,
     locked: compactRectangularGrid(placedGrid, snap),
     active: null,
-    combo: lines > 0 ? snap.combo + 1 : 0,
-    b2b: b2bQualified ? snap.b2b + 1 : lines > 0 ? 0 : snap.b2b,
+    combo: lines > 0 ? combo + 1 : 0,
+    b2b: b2bQualified ? b2b + 1 : lines > 0 ? 0 : b2b,
     linesClearedTotal: snap.linesClearedTotal + lines,
-    piecesPlaced: snap.piecesPlaced + 1,
+    piecesPlaced: piecesPlaced + 1,
   };
 };
 
@@ -278,55 +297,37 @@ const enumerateLegalPlacements = (game: Game): BotPlacement[] => {
 
 const chooseBotPlacement = (game: Game): BotPlacement | null => enumerateLegalPlacements(game)[0] ?? null;
 
-const activeMatchesPlacement = (snap: GameSnapshot, placement: BotPlacement): boolean =>
-  Boolean(snap.active && snap.active.x === placement.x && snap.active.y === placement.y && snap.active.rotation === placement.rotation);
-
-const stepTowardPlacement = (game: Game, placement: BotPlacement): void => {
+const executePlacement = (game: Game, placement: BotPlacement): void => {
   const snap = game.getSnapshot();
   const active = snap.active;
   if (!active || snap.gameOver) return;
-
-  const [rightX, rightY] = game.board.lateralRightDelta();
-  const lateralDistance = (placement.x - active.x) * rightX + (placement.y - active.y) * rightY;
-  if (lateralDistance !== 0) {
-    if (lateralDistance > 0) game.moveRight();
-    else game.moveLeft();
-    return;
-  }
-
-  if (active.rotation !== placement.rotation) {
-    game.rotateCw();
-    return;
-  }
-
-  game.hardDrop();
+  const piece = new Piece(active.type, placement.x, placement.y);
+  piece.rotation = placement.rotation;
+  game.placeActivePieceAt(placement.x, placement.y, placement.rotation, {
+    markAsRotated: detectTSpinCandidate(snap, piece) !== null,
+  });
 };
 
-const createBotController = (): BotController => {
-  let actionMs = 0;
-  let plannedPiece: Piece | null = null;
-  let placement: BotPlacement | null = null;
+const createBotController = (options: BotControllerOptions = {}): BotController => {
+  let placementMs = 0;
+  const placementIntervalMs = placementIntervalForPps(options.targetPps ?? DEFAULT_TARGET_PPS);
 
   return {
     update: (game, dtMs) => {
-      actionMs += dtMs;
-      if (actionMs < ACTION_INTERVAL_MS) return;
-      actionMs = 0;
-      const snap = game.getSnapshot();
-      if (!snap.active || snap.gameOver) return;
-      if (plannedPiece !== snap.active || !placement) {
-        plannedPiece = snap.active;
-        placement = chooseBotPlacement(game);
-      }
-      if (!placement) return;
-      stepTowardPlacement(game, placement);
-      const nextSnap = game.getSnapshot();
-      if (nextSnap.active !== plannedPiece || activeMatchesPlacement(nextSnap, placement)) {
-        placement = nextSnap.active === plannedPiece ? placement : null;
+      placementMs += dtMs;
+      let placementsThisUpdate = 0;
+      while (placementMs >= placementIntervalMs && placementsThisUpdate < 4) {
+        placementMs -= placementIntervalMs;
+        placementsThisUpdate += 1;
+        const snap = game.getSnapshot();
+        if (!snap.active || snap.gameOver) return;
+        const placement = chooseBotPlacement(game);
+        if (!placement) return;
+        executePlacement(game, placement);
       }
     },
   };
 };
 
-export { chooseBotPlacement, createBotController, enumerateLegalPlacements, scorePlacement };
-export type { BotController, BotPlacement };
+export { clampBotPps, chooseBotPlacement, createBotController, enumerateLegalPlacements, scorePlacement };
+export type { BotController, BotControllerOptions, BotPlacement };

@@ -47,6 +47,7 @@ type LocalBotsPlayingScreenOptions = {
   syncInputControllerState: () => void;
   setGameplayBlocked: (blocked: boolean) => void;
   setHumanGame: (game: Game | null) => void;
+  getBotTargetPps: () => number;
 };
 
 type LocalBotsPlayingScreen = {
@@ -114,6 +115,7 @@ const initLocalBotsPlayingScreen = ({
   syncInputControllerState,
   setGameplayBlocked,
   setHumanGame,
+  getBotTargetPps,
 }: LocalBotsPlayingScreenOptions): LocalBotsPlayingScreen => {
   let match: LocalFfaMatch | null = null;
   let human: LocalFfaCombatant | null = null;
@@ -170,7 +172,7 @@ const initLocalBotsPlayingScreen = ({
           name: "Bot 1",
           kind: "bot",
           game: botGame,
-          controller: createBotController(),
+          controller: createBotController({ targetPps: getBotTargetPps() }),
         },
       ],
       createSeededRandom(`${seed}:targets`),

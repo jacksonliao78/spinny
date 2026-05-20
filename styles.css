@@ -346,6 +346,12 @@ select {
   font-weight: 700;
 }
 
+.bot-speed-row {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(255, 210, 226, 0.12);
+}
+
 .bot-count-pill,
 .match-note {
   display: inline-flex;

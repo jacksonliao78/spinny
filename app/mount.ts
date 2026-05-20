@@ -133,6 +133,8 @@ const mountApp = (): void => {
   const startGameButton = getElement<HTMLButtonElement>("start-game-button");
   const botsSetupBackButton = getElement<HTMLButtonElement>("bots-setup-back-button");
   const startBotsButton = getElement<HTMLButtonElement>("start-bots-button");
+  const botPpsSlider = getElement<HTMLInputElement>("bot-pps-slider");
+  const botPpsValue = getElement<HTMLElement>("bot-pps-value");
   const botsBackButton = getElement<HTMLButtonElement>("bots-back-button");
   const botsGameTitle = getElement<HTMLElement>("bots-game-title");
   const botsHumanCanvas = getElement<HTMLCanvasElement>("bots-human-game");
@@ -300,6 +302,7 @@ const mountApp = (): void => {
   let gameplayBlocked = false;
   let multiplayerGameplayBlocked = false;
   let localBotsGameplayBlocked = false;
+  let botTargetPps = Number(botPpsSlider.value);
   let last = performance.now();
 
   const supabase = isSupabaseConfigured() ? getSupabase() : null;
@@ -692,6 +695,7 @@ const mountApp = (): void => {
     setHumanGame: (next) => {
       localBotsHumanGame = next;
     },
+    getBotTargetPps: () => botTargetPps,
   });
 
   settingsScreen = initSettingsScreen({
@@ -843,7 +847,12 @@ const mountApp = (): void => {
   initLocalBotsSetupScreen({
     backButton: botsSetupBackButton,
     startButton: startBotsButton,
+    ppsSlider: botPpsSlider,
+    ppsValue: botPpsValue,
     navigate,
+    setTargetPps: (pps) => {
+      botTargetPps = pps;
+    },
     startMatch: () => localBotsPlayingScreen?.startMatch(),
   });
 

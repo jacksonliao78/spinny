@@ -5,7 +5,7 @@ import { Game } from "../../engine/game";
 import { createBoard } from "../../engine/board/factory";
 import { createSeededRandom } from "../../engine/random";
 import { Piece } from "../../engine/piece";
-import { chooseBotPlacement, enumerateLegalPlacements, scorePlacement } from "../../app/localBots/bot";
+import { chooseBotPlacement, createBotController, enumerateLegalPlacements, scorePlacement } from "../../app/localBots/bot";
 import { RECTANGULAR_BOARD_CONFIG } from "../../app/constants";
 
 const createTestGame = (): Game =>
@@ -51,6 +51,40 @@ test("bot placement search is deterministic for the same seed", () => {
   const second = chooseBotPlacement(createTestGame());
 
   assert.deepEqual(first, second);
+});
+
+test("createBotController uses target PPS as a piece placement clock", () => {
+  const game = createTestGame();
+  const bot = createBotController({ targetPps: 2 });
+
+  bot.update(game, 499);
+  assert.equal(game.getSnapshot().piecesPlaced, 0);
+
+  bot.update(game, 1);
+  assert.equal(game.getSnapshot().piecesPlaced, 1);
+
+  bot.update(game, 500);
+  assert.equal(game.getSnapshot().piecesPlaced, 2);
+});
+
+test("bot exact placement locks the selected legal placement", () => {
+  const game = createTestGame();
+  const placement = chooseBotPlacement(game);
+  const type = game.getSnapshot().active?.type;
+
+  assert.ok(placement);
+  assert.ok(type);
+  assert.equal(game.placeActivePieceAt(placement.x, placement.y, placement.rotation), true);
+
+  const locked = game.getSnapshot().locked;
+  const placed = new Piece(type, placement.x, placement.y);
+  placed.rotation = placement.rotation;
+  for (const [rowIdx, row] of placed.getShape(placed.rotation).entries()) {
+    for (const [colIdx, cell] of row.entries()) {
+      if (!cell) continue;
+      assert.equal(locked[placement.y + rowIdx][placement.x + colIdx], type);
+    }
+  }
 });
 
 test("scorePlacement prefers a line clear over a similar non-clear", () => {

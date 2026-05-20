@@ -253,6 +253,33 @@ class Game {
     this.lockAndSpawn();
   }
 
+  placeActivePieceAt(
+    x: number,
+    y: number,
+    rotation: number,
+    options: { markAsRotated?: boolean } = {},
+  ): boolean {
+    if (!this.activePiece || this.gameOver) return false;
+    const normalizedRotation = (((rotation % 4) + 4) % 4);
+    if (!this.canPlacePiece(this.activePiece, normalizedRotation, x, y)) return false;
+
+    this.activePiece.x = x;
+    this.activePiece.y = y;
+    this.activePiece.rotation = normalizedRotation;
+    this.lowestProgress = this.pieceLow(this.activePiece);
+    if (options.markAsRotated) this.recordLastRotation(this.activePiece, false);
+    else this.clearLastRotation();
+
+    if (this.board.isContactLoss(this.activePiece)) {
+      this.endGame();
+      this.clearLockDelayState();
+      return true;
+    }
+
+    this.lockAndSpawn();
+    return true;
+  }
+
   rotateCw(): void {
     this.tryRotate(1);
   }
