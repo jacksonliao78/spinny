@@ -13,7 +13,7 @@ const initLocalBotsSetupScreen = ({
   navigate,
   startMatch,
 }: LocalBotsSetupScreenOptions): void => {
-  backButton.addEventListener("click", () => navigate("landing"));
+  backButton.addEventListener("click", () => navigate("multiplayer"));
   startButton.addEventListener("click", startMatch);
 };
 

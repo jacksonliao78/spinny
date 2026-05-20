@@ -4,7 +4,6 @@ import type { SessionController } from "../session";
 
 type LandingScreenOptions = {
   soloButton: HTMLButtonElement;
-  botsButton: HTMLButtonElement;
   authButton: HTMLButtonElement;
   signOutButton: HTMLButtonElement;
   authSummaryText: HTMLElement;
@@ -19,7 +18,6 @@ type LandingScreenOptions = {
 
 const initLandingScreen = ({
   soloButton,
-  botsButton,
   authButton,
   signOutButton,
   authSummaryText,
@@ -33,7 +31,6 @@ const initLandingScreen = ({
 }: LandingScreenOptions): void => {
   authButton.addEventListener("click", openAuthLogin);
   soloButton.addEventListener("click", () => navigate("setup"));
-  botsButton.addEventListener("click", () => navigate("bots-setup"));
   statsButton.addEventListener("click", () => navigate("stats"));
   multiplayerButton.addEventListener("click", () => navigate("multiplayer"));
   settingsButton.addEventListener("click", () => navigate("settings"));

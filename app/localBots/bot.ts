@@ -40,8 +40,9 @@ const placePieceOnGrid = (snap: GameSnapshot, piece: Piece): BoardCell[][] => {
 const rectangularClears = (grid: BoardCell[][], snap: GameSnapshot): number => {
   const minX = snap.viewOffsetX;
   const maxX = snap.viewOffsetX + snap.width - 1;
+  const maxY = snap.viewOffsetY + snap.height - 1;
   let clears = 0;
-  for (let y = snap.viewOffsetY; y < grid.length; y += 1) {
+  for (let y = snap.viewOffsetY; y <= maxY; y += 1) {
     let full = true;
     for (let x = minX; x <= maxX; x += 1) {
       if (grid[y]?.[x] === null) {
@@ -57,27 +58,46 @@ const rectangularClears = (grid: BoardCell[][], snap: GameSnapshot): number => {
 const compactRectangularGrid = (grid: BoardCell[][], snap: GameSnapshot): BoardCell[][] => {
   const minX = snap.viewOffsetX;
   const maxX = snap.viewOffsetX + snap.width - 1;
-  return grid.filter((row, y) => {
-    if (y < snap.viewOffsetY) return true;
+  const maxY = snap.viewOffsetY + snap.height - 1;
+  const next = cloneLocked(grid);
+  const keptRows: BoardCell[][] = [];
+
+  for (let y = snap.viewOffsetY; y <= maxY; y += 1) {
+    const row = grid[y];
+    let full = true;
     for (let x = minX; x <= maxX; x += 1) {
-      if (row[x] === null) return true;
+      if (row?.[x] === null) {
+        full = false;
+        break;
+      }
     }
-    return false;
+    if (!full) keptRows.push(row);
+  }
+
+  const emptyRows = Array.from({ length: snap.height - keptRows.length }, () => {
+    const row = Array<BoardCell>(grid[0]?.length ?? snap.width).fill(null);
+    return row;
   });
+  const visibleRows = [...emptyRows, ...keptRows];
+  for (let i = 0; i < visibleRows.length; i += 1) {
+    for (let x = minX; x <= maxX; x += 1) next[snap.viewOffsetY + i][x] = visibleRows[i][x] ?? null;
+  }
+
+  return next;
 };
 
 const columnStats = (grid: BoardCell[][], snap: GameSnapshot): { heights: number[]; holes: number } => {
   const heights: number[] = [];
   let holes = 0;
-  const fullHeight = grid.length;
+  const maxY = snap.viewOffsetY + snap.height - 1;
   for (let x = snap.viewOffsetX; x < snap.viewOffsetX + snap.width; x += 1) {
     let seenBlock = false;
     let height = 0;
-    for (let y = snap.viewOffsetY; y < grid.length; y += 1) {
+    for (let y = snap.viewOffsetY; y <= maxY; y += 1) {
       const filled = grid[y]?.[x] !== null;
       if (filled && !seenBlock) {
         seenBlock = true;
-        height = fullHeight - y;
+        height = maxY - y + 1;
       } else if (!filled && seenBlock) {
         holes += 1;
       }
@@ -85,6 +105,14 @@ const columnStats = (grid: BoardCell[][], snap: GameSnapshot): { heights: number
     heights.push(height);
   }
   return { heights, holes };
+};
+
+const occupiedCenterDistance = (piece: Piece, snap: GameSnapshot): number => {
+  const cells = occupiedCellsFor(piece);
+  if (cells.length === 0) return 0;
+  const pieceCenter = cells.reduce((sum, [x]) => sum + x, 0) / cells.length;
+  const boardCenter = snap.viewOffsetX + (snap.width - 1) / 2;
+  return Math.abs(pieceCenter - boardCenter);
 };
 
 const scorePlacement = (snap: GameSnapshot, piece: Piece): number => {
@@ -95,7 +123,8 @@ const scorePlacement = (snap: GameSnapshot, piece: Piece): number => {
   const aggregateHeight = heights.reduce((sum, height) => sum + height, 0);
   const maxHeight = Math.max(0, ...heights);
   const bumpiness = heights.slice(1).reduce((sum, height, index) => sum + Math.abs(height - heights[index]), 0);
-  return lines * 220 - holes * 55 - aggregateHeight * 4 - maxHeight * 8 - bumpiness * 2;
+  const centerDistance = occupiedCenterDistance(piece, snap);
+  return lines * 220 - holes * 55 - aggregateHeight * 4 - maxHeight * 8 - bumpiness * 2 - centerDistance;
 };
 
 const enumerateLegalPlacements = (game: Game): BotPlacement[] => {

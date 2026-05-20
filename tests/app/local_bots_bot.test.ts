@@ -28,6 +28,16 @@ test("chooseBotPlacement returns a legal placement for an active game", () => {
   assert.equal(placement.rotation >= 0 && placement.rotation < 4, true);
 });
 
+test("chooseBotPlacement prefers a grounded floor placement over a wall tuck on an empty board", () => {
+  const game = createTestGame();
+  const placement = chooseBotPlacement(game);
+
+  assert.ok(placement);
+  assert.equal(placement.rotation, 0);
+  assert.equal(placement.y, 20);
+  assert.equal(placement.x, 5);
+});
+
 test("enumerateLegalPlacements returns no placements after game over", () => {
   const game = {
     getSnapshot: () => ({ active: null, gameOver: true }),
@@ -87,6 +97,22 @@ test("scorePlacement scores clears using visible play columns, not spawn padding
   noClearSnap.locked[3][2] = null;
 
   assert.ok(scorePlacement(clearSnap as any, piece) > scorePlacement(noClearSnap as any, piece));
+});
+
+test("scorePlacement ignores bottom padding when evaluating grounded pieces", () => {
+  const snap = {
+    width: 10,
+    height: 20,
+    viewOffsetX: 2,
+    viewOffsetY: 2,
+    locked: Array.from({ length: 24 }, () => Array(14).fill(null)),
+  };
+  const horizontalFloor = new Piece("I", 5, 20);
+  horizontalFloor.rotation = 0;
+  const verticalWall = new Piece("I", 0, 18);
+  verticalWall.rotation = 1;
+
+  assert.ok(scorePlacement(snap as any, horizontalFloor) > scorePlacement(snap as any, verticalWall));
 });
 
 test("scorePlacement penalizes holes", () => {

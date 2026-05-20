@@ -68,7 +68,6 @@ const mountApp = (): void => {
   const multiplayerPlayingScreenEl = getElement<HTMLElement>("mp-game-screen");
 
   const soloButton = getElement<HTMLButtonElement>("solo-button");
-  const botsButton = getElement<HTMLButtonElement>("bots-button");
   const authButton = getElement<HTMLButtonElement>("auth-button");
   const signOutButton = getElement<HTMLButtonElement>("sign-out-button");
   const authSummaryText = getElement<HTMLElement>("auth-summary-text");
@@ -101,6 +100,11 @@ const mountApp = (): void => {
 
   const multiplayerBackButton = getElement<HTMLButtonElement>("multiplayer-back-button");
   const multiplayerSignInButton = getElement<HTMLButtonElement>("multiplayer-sign-in-button");
+  const publicRoomsTab = getElement<HTMLButtonElement>("public-rooms-tab");
+  const privateRoomsTab = getElement<HTMLButtonElement>("private-rooms-tab");
+  const botsTab = getElement<HTMLButtonElement>("bots-tab");
+  const publicRoomsPanel = getElement<HTMLElement>("public-rooms-panel");
+  const privateRoomsPanel = getElement<HTMLElement>("private-rooms-panel");
   const createPublicRoomButton = getElement<HTMLButtonElement>("create-public-room-button");
   const createPrivateRoomButton = getElement<HTMLButtonElement>("create-private-room-button");
   const joinCodeInput = getElement<HTMLInputElement>("join-code-input");
@@ -722,6 +726,11 @@ const mountApp = (): void => {
   multiplayerScreen = initMultiplayerScreen({
     multiplayerBackButton,
     multiplayerSignInButton,
+    publicRoomsTab,
+    privateRoomsTab,
+    botsTab,
+    publicRoomsPanel,
+    privateRoomsPanel,
     createPublicRoomButton,
     createPrivateRoomButton,
     joinCodeInput,
@@ -743,6 +752,7 @@ const mountApp = (): void => {
       lobbyAutoStartEnabled = false;
       multiplayerPlayingScreen?.startSpectatingMatch(room, []);
     },
+    startBots: () => navigate("bots-setup"),
   });
 
   lobbyScreen = initLobbyScreen({
@@ -778,7 +788,6 @@ const mountApp = (): void => {
 
   initLandingScreen({
     soloButton,
-    botsButton,
     authButton,
     signOutButton,
     authSummaryText,

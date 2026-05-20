@@ -13,6 +13,11 @@ import type { SessionController } from "../session";
 type MultiplayerScreenOptions = {
   multiplayerBackButton: HTMLButtonElement;
   multiplayerSignInButton: HTMLButtonElement;
+  publicRoomsTab: HTMLButtonElement;
+  privateRoomsTab: HTMLButtonElement;
+  botsTab: HTMLButtonElement;
+  publicRoomsPanel: HTMLElement;
+  privateRoomsPanel: HTMLElement;
   createPublicRoomButton: HTMLButtonElement;
   createPrivateRoomButton: HTMLButtonElement;
   joinCodeInput: HTMLInputElement;
@@ -27,6 +32,7 @@ type MultiplayerScreenOptions = {
   openAuthLogin: () => void;
   setCurrentRoomId: (roomId: string | null) => void;
   startSpectatingPublicRoom: (room: MultiplayerRoom) => void;
+  startBots: () => void;
 };
 
 type MultiplayerScreen = {
@@ -70,6 +76,11 @@ const renderRoom = (room: MultiplayerRoom, actionLabel: string, onJoin: (room: M
 const initMultiplayerScreen = ({
   multiplayerBackButton,
   multiplayerSignInButton,
+  publicRoomsTab,
+  privateRoomsTab,
+  botsTab,
+  publicRoomsPanel,
+  privateRoomsPanel,
   createPublicRoomButton,
   createPrivateRoomButton,
   joinCodeInput,
@@ -84,8 +95,10 @@ const initMultiplayerScreen = ({
   openAuthLogin,
   setCurrentRoomId,
   startSpectatingPublicRoom,
+  startBots,
 }: MultiplayerScreenOptions): MultiplayerScreen => {
   let loadEpoch = 0;
+  let activePanel: "public" | "private" = "public";
 
   const allActionButtons = [
     createPublicRoomButton,
@@ -100,13 +113,12 @@ const initMultiplayerScreen = ({
   };
 
   const canUseRooms = (): boolean => {
+    multiplayerContent.hidden = false;
     if (!supabase) {
-      multiplayerContent.hidden = true;
       multiplayerSignInButton.hidden = true;
       setStatus("Rooms are unavailable because account services are not configured.", "error");
       return false;
     }
-    multiplayerContent.hidden = false;
     multiplayerSignInButton.hidden = !!session.getCurrentUser() && !session.isGuestMode();
     return true;
   };
@@ -114,6 +126,33 @@ const initMultiplayerScreen = ({
   const openRoom = (roomId: string): void => {
     setCurrentRoomId(roomId);
     navigate("lobby");
+  };
+
+  const renderActivePanel = (): void => {
+    publicRoomsTab.classList.toggle("mode-button--selected", activePanel === "public");
+    privateRoomsTab.classList.toggle("mode-button--selected", activePanel === "private");
+    botsTab.classList.remove("mode-button--selected");
+    publicRoomsPanel.hidden = activePanel !== "public";
+    privateRoomsPanel.hidden = activePanel !== "private";
+  };
+
+  const showPublicRooms = (): void => {
+    activePanel = "public";
+    renderActivePanel();
+    publicRoomsList.replaceChildren();
+    setStatus("", "");
+    if (canUseRooms()) void loadPublicRooms();
+  };
+
+  const showPrivateRooms = (): void => {
+    activePanel = "private";
+    renderActivePanel();
+    publicRoomsList.replaceChildren();
+    setStatus("", "");
+    if (!canUseRooms()) return;
+    if (!session.getCurrentUser() || session.isGuestMode()) {
+      setStatus("Sign in to create or join private rooms.", "empty");
+    }
   };
 
   const loadPublicRooms = async (): Promise<void> => {
@@ -213,13 +252,14 @@ const initMultiplayerScreen = ({
 
   const enter = (): void => {
     setCurrentRoomId(null);
-    setStatus("", "");
-    publicRoomsList.replaceChildren();
-    if (canUseRooms()) void loadPublicRooms();
+    showPublicRooms();
   };
 
   multiplayerBackButton.addEventListener("click", () => navigate("landing"));
   multiplayerSignInButton.addEventListener("click", openAuthLogin);
+  publicRoomsTab.addEventListener("click", showPublicRooms);
+  privateRoomsTab.addEventListener("click", showPrivateRooms);
+  botsTab.addEventListener("click", startBots);
   createPublicRoomButton.addEventListener("click", () => void createNewRoom("public"));
   createPrivateRoomButton.addEventListener("click", () => void createNewRoom("private"));
   refreshRoomsButton.addEventListener("click", () => void loadPublicRooms());
