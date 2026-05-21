@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Game } from "../../engine/game";
+import { Game, type GameSnapshot } from "../../engine/game";
 import { createBoard } from "../../engine/board/factory";
+import type { BoardCell } from "../../engine/board/types";
 import { createSeededRandom } from "../../engine/random";
 import { Piece } from "../../engine/piece";
 import {
@@ -23,6 +24,56 @@ const createTestGame = (): Game =>
       mode: { kind: "versus" },
     },
   });
+
+const cells = (rows: BoardCell[][]): BoardCell[][] => rows;
+
+const emptyGrid = (rows: number, cols: number): BoardCell[][] =>
+  Array.from({ length: rows }, () => Array<BoardCell>(cols).fill(null));
+
+const makeSnapshot = (overrides: Partial<GameSnapshot> = {}): GameSnapshot => {
+  const width = overrides.width ?? 4;
+  const height = overrides.height ?? 4;
+  const viewOffsetX = overrides.viewOffsetX ?? 0;
+  const viewOffsetY = overrides.viewOffsetY ?? 0;
+  return {
+    width,
+    height,
+    viewOffsetX,
+    viewOffsetY,
+    boardRotation: 0,
+    locked: overrides.locked ?? emptyGrid(viewOffsetY + height, viewOffsetX + width),
+    active: null,
+    next: [],
+    hold: null,
+    score: 0,
+    level: 1,
+    combo: 0,
+    b2b: 0,
+    piecesPlaced: 0,
+    piecesPerSecond: 0,
+    linesClearedTotal: 0,
+    garbageEnabled: true,
+    incomingGarbage: 0,
+    survival: null,
+    gameMode: "versus",
+    remainingMs: null,
+    elapsedMs: 0,
+    sprintTargetClears: 40,
+    gravityIntervalMs: 1000,
+    lastSpin: null,
+    gameOver: false,
+    ...overrides,
+  };
+};
+
+const makeGameOverPlacementSearchGame = () => ({
+  board: {
+    gravityDelta: (): [number, number] => [0, 1],
+    lateralRightDelta: (): [number, number] => [1, 0],
+  },
+  getSnapshot: () => makeSnapshot({ active: null, gameOver: true }),
+  canMovePiece: () => false,
+});
 
 test("chooseBotPlacement returns a legal placement for an active game", () => {
   const game = createTestGame();
@@ -45,11 +96,7 @@ test("chooseBotPlacement prefers a grounded floor placement over a wall tuck on 
 });
 
 test("enumerateLegalPlacements returns no placements after game over", () => {
-  const game = {
-    getSnapshot: () => ({ active: null, gameOver: true }),
-  };
-
-  assert.deepEqual(enumerateLegalPlacements(game as any), []);
+  assert.deepEqual(enumerateLegalPlacements(makeGameOverPlacementSearchGame()), []);
 });
 
 test("bot placement search is deterministic for the same seed", () => {
@@ -95,57 +142,57 @@ test("bot exact placement locks the selected legal placement", () => {
 
 test("scorePlacement prefers a line clear over a similar non-clear", () => {
   const piece = new Piece("O", 1, 1);
-  const clearSnap = {
+  const clearSnap = makeSnapshot({
     width: 4,
     height: 4,
     viewOffsetX: 0,
     viewOffsetY: 0,
-    locked: [
+    locked: cells([
       [null, null, null, null],
       [null, null, null, null],
       [null, null, null, null],
       ["I", "I", null, null],
-    ],
-  };
-  const noClearSnap = {
+    ]),
+  });
+  const noClearSnap = makeSnapshot({
     ...clearSnap,
     locked: clearSnap.locked.map((row) => [...row]),
-  };
+  });
   noClearSnap.locked[3][0] = null;
 
-  assert.ok(scorePlacement(clearSnap as any, piece) > scorePlacement(noClearSnap as any, piece));
+  assert.ok(scorePlacement(clearSnap, piece) > scorePlacement(noClearSnap, piece));
 });
 
 test("scorePlacement scores clears using visible play columns, not spawn padding", () => {
   const piece = new Piece("O", 3, 1);
-  const clearSnap = {
+  const clearSnap = makeSnapshot({
     width: 4,
     height: 4,
     viewOffsetX: 2,
     viewOffsetY: 0,
-    locked: [
+    locked: cells([
       [null, null, null, null, null, null, null, null],
       [null, null, null, null, null, null, null, null],
       [null, null, null, null, null, null, null, null],
       [null, null, "I", "I", null, null, null, null],
-    ],
-  };
-  const noClearSnap = {
+    ]),
+  });
+  const noClearSnap = makeSnapshot({
     ...clearSnap,
     locked: clearSnap.locked.map((row) => [...row]),
-  };
+  });
   noClearSnap.locked[3][2] = null;
 
-  assert.ok(scorePlacement(clearSnap as any, piece) > scorePlacement(noClearSnap as any, piece));
+  assert.ok(scorePlacement(clearSnap, piece) > scorePlacement(noClearSnap, piece));
 });
 
 test("scorePlacement strongly prefers quads over smaller clears", () => {
-  const makeSnap = () => ({
+  const makeSnap = () => makeSnapshot({
     width: 10,
     height: 20,
     viewOffsetX: 2,
     viewOffsetY: 2,
-    locked: Array.from({ length: 24 }, () => Array(14).fill(null)),
+    locked: emptyGrid(24, 14),
   });
   const quadSnap = makeSnap();
   for (let y = 18; y <= 21; y += 1) {
@@ -163,119 +210,119 @@ test("scorePlacement strongly prefers quads over smaller clears", () => {
   const singlePiece = new Piece("I", 5, 20);
   singlePiece.rotation = 0;
 
-  assert.ok(scorePlacement(quadSnap as any, quadPiece) > scorePlacement(singleSnap as any, singlePiece));
+  assert.ok(scorePlacement(quadSnap, quadPiece) > scorePlacement(singleSnap, singlePiece));
 });
 
 test("scorePlacement rewards plausible T-spin clears", () => {
-  const baseSnap = {
+  const baseSnap = makeSnapshot({
     width: 4,
     height: 4,
     viewOffsetX: 0,
     viewOffsetY: 0,
-    locked: Array.from({ length: 4 }, () => Array(4).fill(null)),
+    locked: emptyGrid(4, 4),
     combo: 0,
     b2b: 0,
-  };
-  const spinSnap = {
+  });
+  const spinSnap = makeSnapshot({
     ...baseSnap,
     locked: baseSnap.locked.map((row) => [...row]),
-  };
+  });
   spinSnap.locked[1][0] = "I";
   spinSnap.locked[1][2] = "I";
   spinSnap.locked[2][3] = "I";
   spinSnap.locked[3][0] = "I";
 
-  const regularSnap = {
+  const regularSnap = makeSnapshot({
     ...baseSnap,
     locked: baseSnap.locked.map((row) => [...row]),
-  };
+  });
   regularSnap.locked[2][3] = "I";
 
   const piece = new Piece("T", 0, 0);
 
-  assert.ok(scorePlacement(spinSnap as any, piece) > scorePlacement(regularSnap as any, piece));
+  assert.ok(scorePlacement(spinSnap, piece) > scorePlacement(regularSnap, piece));
 });
 
 test("scorePlacement ignores bottom padding when evaluating grounded pieces", () => {
-  const snap = {
+  const snap = makeSnapshot({
     width: 10,
     height: 20,
     viewOffsetX: 2,
     viewOffsetY: 2,
-    locked: Array.from({ length: 24 }, () => Array(14).fill(null)),
-  };
+    locked: emptyGrid(24, 14),
+  });
   const horizontalFloor = new Piece("I", 5, 20);
   horizontalFloor.rotation = 0;
   const verticalWall = new Piece("I", 0, 18);
   verticalWall.rotation = 1;
 
-  assert.ok(scorePlacement(snap as any, horizontalFloor) > scorePlacement(snap as any, verticalWall));
+  assert.ok(scorePlacement(snap, horizontalFloor) > scorePlacement(snap, verticalWall));
 });
 
 test("scorePlacement penalizes holes", () => {
   const piece = new Piece("O", 1, 1);
-  const cleanSnap = {
+  const cleanSnap = makeSnapshot({
     width: 4,
     height: 4,
     viewOffsetX: 0,
     viewOffsetY: 0,
-    locked: [
+    locked: cells([
       [null, null, null, null],
       [null, null, null, null],
       [null, null, null, null],
       [null, null, null, null],
-    ],
-  };
-  const holeSnap = {
+    ]),
+  });
+  const holeSnap = makeSnapshot({
     ...cleanSnap,
-    locked: [
+    locked: cells([
       [null, null, null, null],
       ["I", null, null, null],
       [null, null, null, null],
       ["I", null, null, null],
-    ],
-  };
+    ]),
+  });
 
-  assert.ok(scorePlacement(cleanSnap as any, piece) > scorePlacement(holeSnap as any, piece));
+  assert.ok(scorePlacement(cleanSnap, piece) > scorePlacement(holeSnap, piece));
 });
 
 test("Bot B strongly prefers safer boards over high-hole boards", () => {
   const piece = new Piece("O", 1, 1);
-  const cleanSnap = {
+  const cleanSnap = makeSnapshot({
     width: 4,
     height: 4,
     viewOffsetX: 0,
     viewOffsetY: 0,
-    locked: [
+    locked: cells([
       [null, null, null, null],
       [null, null, null, null],
       [null, null, null, null],
       [null, null, null, null],
-    ],
+    ]),
     combo: 0,
     b2b: 0,
     incomingGarbage: 0,
-  };
-  const messySnap = {
+  });
+  const messySnap = makeSnapshot({
     ...cleanSnap,
-    locked: [
+    locked: cells([
       ["I", null, "I", null],
       ["I", null, "I", null],
       [null, null, null, null],
       ["I", null, "I", null],
-    ],
-  };
+    ]),
+  });
 
-  assert.ok(scoreBotBPlacement(cleanSnap as any, piece) > scoreBotBPlacement(messySnap as any, piece));
+  assert.ok(scoreBotBPlacement(cleanSnap, piece) > scoreBotBPlacement(messySnap, piece));
 });
 
 test("Bot B prefers attack-producing placements when survival cost is reasonable", () => {
-  const makeSnap = () => ({
+  const makeSnap = () => makeSnapshot({
     width: 10,
     height: 20,
     viewOffsetX: 2,
     viewOffsetY: 2,
-    locked: Array.from({ length: 24 }, () => Array(14).fill(null)),
+    locked: emptyGrid(24, 14),
     combo: 0,
     b2b: 1,
     incomingGarbage: 0,
@@ -293,5 +340,5 @@ test("Bot B prefers attack-producing placements when survival cost is reasonable
   const flatPiece = new Piece("I", 5, 20);
   flatPiece.rotation = 0;
 
-  assert.ok(scoreBotBPlacement(quadSnap as any, quadPiece) > scoreBotBPlacement(flatSnap as any, flatPiece));
+  assert.ok(scoreBotBPlacement(quadSnap, quadPiece) > scoreBotBPlacement(flatSnap, flatPiece));
 });

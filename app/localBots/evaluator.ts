@@ -5,6 +5,12 @@ import type { BoardCell } from "@game/board/types";
 import { Piece } from "@game/piece";
 import type { BotPlacement } from "./types";
 
+type PlacementSearchGame = {
+  board: Pick<Game["board"], "gravityDelta" | "lateralRightDelta">;
+  getSnapshot: () => GameSnapshot;
+  canMovePiece: (piece: Piece, dx: number, dy: number) => boolean;
+};
+
 type PlacementWeights = {
   attack: number;
   lineClear: number;
@@ -343,7 +349,7 @@ const scoreWeightedPlacement = (snap: GameSnapshot, piece: Piece, weights: Place
   return scoreImmediatePlacement(snap, piece, weights);
 };
 
-const enumerateWeightedPlacements = (game: Game, weights: PlacementWeights): BotPlacement[] => {
+const enumerateWeightedPlacements = (game: PlacementSearchGame, weights: PlacementWeights): BotPlacement[] => {
   const snap = game.getSnapshot();
   if (!snap.active || snap.gameOver) return [];
   const placements: BotPlacement[] = [];
@@ -374,13 +380,13 @@ const scorePlacement = (snap: GameSnapshot, piece: Piece): number => scoreWeight
 const scoreBotBPlacement = (snap: GameSnapshot, piece: Piece): number =>
   scoreWeightedPlacement(snap, piece, BOT_B_WEIGHTS);
 
-const enumerateLegalPlacements = (game: Game): BotPlacement[] => enumerateWeightedPlacements(game, BOT_A_WEIGHTS);
+const enumerateLegalPlacements = (game: PlacementSearchGame): BotPlacement[] => enumerateWeightedPlacements(game, BOT_A_WEIGHTS);
 
-const enumerateBotBPlacements = (game: Game): BotPlacement[] => enumerateWeightedPlacements(game, BOT_B_WEIGHTS);
+const enumerateBotBPlacements = (game: PlacementSearchGame): BotPlacement[] => enumerateWeightedPlacements(game, BOT_B_WEIGHTS);
 
-const chooseBotPlacement = (game: Game): BotPlacement | null => enumerateLegalPlacements(game)[0] ?? null;
+const chooseBotPlacement = (game: PlacementSearchGame): BotPlacement | null => enumerateLegalPlacements(game)[0] ?? null;
 
-const chooseBotBPlacement = (game: Game): BotPlacement | null => enumerateBotBPlacements(game)[0] ?? null;
+const chooseBotBPlacement = (game: PlacementSearchGame): BotPlacement | null => enumerateBotBPlacements(game)[0] ?? null;
 
 export {
   chooseBotBPlacement,
