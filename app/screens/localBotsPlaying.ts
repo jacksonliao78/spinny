@@ -16,7 +16,7 @@ import {
   type LocalFfaCombatant,
   type LocalFfaMatch,
 } from "../localBots/match";
-import { getAliveBotCombatants, getVisibleBotCombatant } from "../localBots/view";
+import { getLocalBotsCombatantLayout, type LocalBotsCombatantLayout } from "../localBots/view";
 
 type Renderer = ReturnType<typeof createRenderer>;
 
@@ -125,8 +125,9 @@ const initLocalBotsPlayingScreen = ({
 }: LocalBotsPlayingScreenOptions): LocalBotsPlayingScreen => {
   let match: LocalFfaMatch | null = null;
   let human: LocalFfaCombatant | null = null;
-  let initialBotCount = 1;
+  let renderedPrimaryId: string | null = null;
   let renderedBotId: string | null = null;
+  let renderedLayoutMode: LocalBotsCombatantLayout["mode"] | null = null;
   let durationMs = 0;
   let resultShown = false;
 
@@ -160,32 +161,47 @@ const initLocalBotsPlayingScreen = ({
     return match.combatants.find((combatant) => combatant.id === targetId)?.name ?? "-";
   };
 
-  const updateVisibleBot = (): LocalFfaCombatant | null => {
+  const syncRendererForCombatant = (renderer: Renderer, combatant: LocalFfaCombatant): void => {
+    renderer.reset(combatant.game.board.rotation);
+    renderer.syncGameConfig(combatant.game);
+  };
+
+  const updateLayout = (): LocalBotsCombatantLayout | null => {
     if (!match) return null;
-    const visibleBot = getVisibleBotCombatant(match, initialBotCount);
-    botStation.hidden = visibleBot === null;
-    if (visibleBot && visibleBot.id !== renderedBotId) {
-      renderedBotId = visibleBot.id;
-      botRenderer.reset(visibleBot.game.board.rotation);
-      botRenderer.syncGameConfig(visibleBot.game);
+    const layout = getLocalBotsCombatantLayout(match);
+    title.textContent = `Bots / ${layout.aliveCount}/${layout.totalCount} alive`;
+    botStation.hidden = layout.mode !== "side-by-side" || layout.opponent === null;
+
+    if (layout.mode !== renderedLayoutMode || layout.primary.id !== renderedPrimaryId) {
+      renderedLayoutMode = layout.mode;
+      renderedPrimaryId = layout.primary.id;
+      syncRendererForCombatant(humanRenderer, layout.primary);
+      humanHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
+    }
+
+    if (layout.opponent && layout.opponent.id !== renderedBotId) {
+      renderedBotId = layout.opponent.id;
+      syncRendererForCombatant(botRenderer, layout.opponent);
       botHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
-    } else if (!visibleBot) {
+    } else if (!layout.opponent) {
       renderedBotId = null;
     }
-    return visibleBot;
+
+    return layout;
   };
 
   const updateStatus = (): void => {
     if (!match || !human) return;
-    const visibleBot = updateVisibleBot();
-    const aliveBots = getAliveBotCombatants(match);
-    humanStatus.textContent = human.alive ? human.name : `${human.name} out`;
-    humanTarget.textContent = initialBotCount > 1 && aliveBots.length > 1 ? `${aliveBots.length} bots` : getTargetName(human.targetId);
-    setGarbageMeter(humanGarbageMeter, humanGarbageValue, human.game.getSnapshot().incomingGarbage);
-    if (visibleBot) {
-      botStatus.textContent = visibleBot.alive ? visibleBot.name : `${visibleBot.name} out`;
-      botTarget.textContent = getTargetName(visibleBot.targetId);
-      setGarbageMeter(botGarbageMeter, botGarbageValue, visibleBot.game.getSnapshot().incomingGarbage);
+    const layout = updateLayout();
+    if (!layout) return;
+    humanStatus.textContent = layout.primary.alive ? layout.primary.name : `${layout.primary.name} out`;
+    humanTarget.textContent =
+      layout.mode === "player-only" && layout.aliveCount > 2 ? `${layout.aliveCount} alive` : getTargetName(layout.primary.targetId);
+    setGarbageMeter(humanGarbageMeter, humanGarbageValue, layout.primary.game.getSnapshot().incomingGarbage);
+    if (layout.opponent) {
+      botStatus.textContent = layout.opponent.alive ? layout.opponent.name : `${layout.opponent.name} out`;
+      botTarget.textContent = getTargetName(layout.opponent.targetId);
+      setGarbageMeter(botGarbageMeter, botGarbageValue, layout.opponent.game.getSnapshot().incomingGarbage);
     }
   };
 
@@ -218,21 +234,19 @@ const initLocalBotsPlayingScreen = ({
       createSeededRandom(`${seed}:targets`),
     );
     human = match.combatants[0];
-    initialBotCount = botInputs.length;
+    renderedPrimaryId = null;
     renderedBotId = null;
+    renderedLayoutMode = null;
     durationMs = 0;
     resultShown = false;
     resultEl.hidden = true;
     setHumanGame(humanGame);
     humanController.setEnabled(true);
     setGameplayBlocked(false);
-    humanRenderer.reset(humanGame.board.rotation);
-    humanRenderer.syncGameConfig(humanGame);
     humanHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
     botHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
-    updateVisibleBot();
-    title.textContent = `Bots / ${botInputs.length + 1}P ${MODE_LABELS.versus}`;
     navigate("bots-playing");
+    updateLayout();
     resetLastFrameTime();
     humanCanvas.focus();
     updateStatus();
@@ -275,23 +289,24 @@ const initLocalBotsPlayingScreen = ({
 
   const drawFrame = (dtMs: number): void => {
     if (getAppScreen() !== "bots-playing" || !match || !human) return;
-    const visibleBot = updateVisibleBot();
+    const layout = updateLayout();
+    if (!layout) return;
     humanController.update(dtMs, human.game.getSnapshot().gravityIntervalMs);
-    humanRenderer.updateRotation(human.game.board.rotation, dtMs);
-    humanRenderer.draw(human.game, false);
-    humanHud.update(human.game.getSnapshot());
-    if (visibleBot) {
-      botRenderer.updateRotation(visibleBot.game.board.rotation, dtMs);
-      botRenderer.draw(visibleBot.game, false);
-      botHud.update(visibleBot.game.getSnapshot());
+    humanRenderer.updateRotation(layout.primary.game.board.rotation, dtMs);
+    humanRenderer.draw(layout.primary.game, false);
+    humanHud.update(layout.primary.game.getSnapshot());
+    if (layout.opponent) {
+      botRenderer.updateRotation(layout.opponent.game.board.rotation, dtMs);
+      botRenderer.draw(layout.opponent.game, false);
+      botHud.update(layout.opponent.game.getSnapshot());
     }
   };
 
   const onResize = (): void => {
     if (!match || !human) return;
-    const visibleBot = getVisibleBotCombatant(match, initialBotCount);
-    humanRenderer.syncGameConfig(human.game);
-    if (visibleBot) botRenderer.syncGameConfig(visibleBot.game);
+    const layout = getLocalBotsCombatantLayout(match);
+    humanRenderer.syncGameConfig(layout.primary.game);
+    if (layout.opponent) botRenderer.syncGameConfig(layout.opponent.game);
   };
 
   return { startMatch, stepFrame, drawFrame, onResize };

@@ -37,6 +37,11 @@ body {
   overflow-y: auto;
 }
 
+body:has(#bots-result:not([hidden])),
+body:has(#mp-run-summary:not([hidden])) {
+  overflow: hidden;
+}
+
 /** Hand-drawn tetromino decorations: above bg image, below UI (.app). */
 .bg-scatter {
   position: fixed;
@@ -1301,6 +1306,18 @@ select {
   justify-items: center;
 }
 
+.bot-play-area:has(#bots-opponent-station[hidden]) .player-station--local {
+  width: auto;
+  max-width: min(100%, 980px);
+  justify-self: center;
+  justify-content: center;
+}
+
+.bot-play-area:has(#bots-opponent-station[hidden]) .game-board-slot {
+  width: auto;
+  flex: 0 0 auto;
+}
+
 .garbage-meter {
   position: absolute;
   top: 50%;
@@ -1381,6 +1398,24 @@ select {
 
 .run-summary[hidden] {
   display: none;
+}
+
+#bots-result.run-summary,
+#mp-run-summary.run-summary {
+  position: fixed;
+  z-index: 20;
+}
+
+#bots-game-screen.screen--active:has(#bots-result:not([hidden])),
+#mp-game-screen.screen--active:has(#mp-run-summary:not([hidden])),
+.mp-play-area:has(#bots-result:not([hidden])),
+.mp-play-area:has(#mp-run-summary:not([hidden])) {
+  overflow: hidden;
+}
+
+#bots-result .run-summary__panel,
+#mp-run-summary .run-summary__panel {
+  max-height: calc(100dvh - 2rem);
 }
 
 .run-summary__panel {
