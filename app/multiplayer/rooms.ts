@@ -54,6 +54,8 @@ const DEFAULT_ROOM_SETTINGS: MultiplayerRoomSettings = {
   boardKind: "rectangular",
 };
 
+const DUPLICATE_KEY_ERROR = "23505";
+
 const normalizeJoinCode = (value: string): string => value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 
 const createJoinCode = (random: () => number = Math.random): string => {
@@ -165,7 +167,7 @@ const createRoom = async (
       .single();
 
     if (roomError) {
-      if ((roomError as any).code === "23505" && attempt < 2) continue;
+      if (roomError.code === DUPLICATE_KEY_ERROR && attempt < 2) continue;
       throw roomError;
     }
 

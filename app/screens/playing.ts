@@ -3,7 +3,7 @@ import type { BoardKind } from "@game/board/factory";
 import { Game, type RunSummary } from "@game/game";
 import { GAME_MODE_POLICIES } from "@game/game/rules";
 import type { GameConfigOverrides, GameMode } from "@game/game/rules";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import type { InputController } from "../../input/controller";
 import type { createRenderer } from "../../render/renderer";
 import type { HudUpdater } from "../../render/hudPanels";
@@ -59,6 +59,18 @@ type PlayingScreen = {
   stepFrame: (dtMs: number) => void;
   drawFrame: (dtMs: number) => void;
   onResize: () => void;
+};
+
+type RunSavePayload = ReturnType<typeof buildRunInsert> | ReturnType<typeof buildCoreRunInsert>;
+
+const warnRunSaveFailure = (error: PostgrestError, payload: RunSavePayload): void => {
+  console.warn("Could not save run", {
+    message: error.message,
+    details: error.details,
+    hint: error.hint,
+    code: error.code,
+    payloadKeys: Object.keys(payload),
+  });
 };
 
 const initPlayingScreen = ({
@@ -239,23 +251,11 @@ const initPlayingScreen = ({
       const fallbackPayload = buildCoreRunInsert(currentUser.id, summary, durationMs, board, finishedAt);
       const { error: fallbackError } = await supabase.from("runs").insert(fallbackPayload);
       if (!fallbackError) return;
-      console.warn("Could not save run", {
-        message: fallbackError.message,
-        details: (fallbackError as any).details,
-        hint: (fallbackError as any).hint,
-        code: (fallbackError as any).code,
-        payloadKeys: Object.keys(fallbackPayload),
-      });
+      warnRunSaveFailure(fallbackError, fallbackPayload);
       return;
     }
     if (error) {
-      console.warn("Could not save run", {
-        message: error.message,
-        details: (error as any).details,
-        hint: (error as any).hint,
-        code: (error as any).code,
-        payloadKeys: Object.keys(payload),
-      });
+      warnRunSaveFailure(error, payload);
     }
   };
 
