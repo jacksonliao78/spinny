@@ -275,9 +275,6 @@ const initPlayingScreen = ({
     gameTitle.textContent = `Solo / ${MODE_LABELS[mode]}`;
     backToSetupButton.textContent = "Back To Setup";
     runSummarySetupButton.textContent = "Back To Menu";
-    if (gamePlayArea instanceof HTMLElement) {
-      gamePlayArea.classList.remove("game-play-area--multiplayer");
-    }
     hudUpdater.configure(mode, SPRINT_TARGET_CLEARS[boardKind]);
     navigate("playing");
     renderer.syncGameConfig(game);
