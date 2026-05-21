@@ -15,6 +15,7 @@ import { createRenderer } from "../render/renderer";
 import { getSupabase, isSupabaseConfigured } from "../supabase/client";
 import { DEFAULT_BOARD_KIND, DEFAULT_GAME_MODE, SPINNY_BOARD_PREF_KEY, type AppScreen } from "./constants";
 import { getElement } from "./dom";
+import { getCanvas2d, getHudElements } from "./mountDom";
 import { leaveRoom } from "./multiplayer/rooms";
 import { createSessionController } from "./session";
 import { initAuthScreen } from "./screens/auth";
@@ -146,46 +147,50 @@ const mountApp = (): void => {
   const botsGameTitle = getElement<HTMLElement>("bots-game-title");
   const botsPlayArea = getElement<HTMLElement>("bots-play-area");
   const botsOpponentStation = getElement<HTMLElement>("bots-opponent-station");
-  const botsHumanCanvas = getElement<HTMLCanvasElement>("bots-human-game");
-  const botsHumanCtx = botsHumanCanvas.getContext("2d");
-  if (!botsHumanCtx) return;
-  const botsBotCanvas = getElement<HTMLCanvasElement>("bots-bot-game");
-  const botsBotCtx = botsBotCanvas.getContext("2d");
-  if (!botsBotCtx) return;
-  const botsHumanHoldCanvas = getElement<HTMLCanvasElement>("bots-human-hold-canvas");
-  const botsHumanNextCanvas = getElement<HTMLCanvasElement>("bots-human-next-canvas");
-  const botsBotHoldCanvas = getElement<HTMLCanvasElement>("bots-bot-hold-canvas");
-  const botsBotNextCanvas = getElement<HTMLCanvasElement>("bots-bot-next-canvas");
+  const botsHumanBoard = getCanvas2d("bots-human-game");
+  if (!botsHumanBoard) return;
+  const { canvas: botsHumanCanvas, ctx: botsHumanCtx } = botsHumanBoard;
+  const botsBotBoard = getCanvas2d("bots-bot-game");
+  if (!botsBotBoard) return;
+  const { canvas: botsBotCanvas, ctx: botsBotCtx } = botsBotBoard;
+  const botsHumanHudElements = getHudElements({
+    holdCanvas: "bots-human-hold-canvas",
+    nextCanvas: "bots-human-next-canvas",
+    timerEl: "bots-human-timer",
+    linesRow: "bots-human-lines-row",
+    linesValue: "bots-human-lines",
+    scoreRow: "bots-human-score-row",
+    scoreValue: "bots-human-score",
+    levelRow: "bots-human-level-row",
+    levelValue: "bots-human-level",
+    ppsRow: "bots-human-pps-row",
+    ppsValue: "bots-human-pps",
+    comboRow: "bots-human-combo-row",
+    comboValue: "bots-human-combo",
+    survivalRow: "bots-human-survival-row",
+    survivalValue: "bots-human-survival",
+  });
+  const botsBotHudElements = getHudElements({
+    holdCanvas: "bots-bot-hold-canvas",
+    nextCanvas: "bots-bot-next-canvas",
+    timerEl: "bots-bot-timer",
+    linesRow: "bots-bot-lines-row",
+    linesValue: "bots-bot-lines",
+    scoreRow: "bots-bot-score-row",
+    scoreValue: "bots-bot-score",
+    levelRow: "bots-bot-level-row",
+    levelValue: "bots-bot-level",
+    ppsRow: "bots-bot-pps-row",
+    ppsValue: "bots-bot-pps",
+    comboRow: "bots-bot-combo-row",
+    comboValue: "bots-bot-combo",
+    survivalRow: "bots-bot-survival-row",
+    survivalValue: "bots-bot-survival",
+  });
   const botsHumanStatus = getElement<HTMLElement>("bots-human-status");
   const botsBotStatus = getElement<HTMLElement>("bots-bot-status");
-  const botsHumanTimer = getElement<HTMLElement>("bots-human-timer");
-  const botsBotTimer = getElement<HTMLElement>("bots-bot-timer");
   const botsHumanTarget = getElement<HTMLElement>("bots-human-target");
   const botsBotTarget = getElement<HTMLElement>("bots-bot-target");
-  const botsHumanLinesRow = getElement<HTMLElement>("bots-human-lines-row");
-  const botsHumanLines = getElement<HTMLElement>("bots-human-lines");
-  const botsHumanScoreRow = getElement<HTMLElement>("bots-human-score-row");
-  const botsHumanScore = getElement<HTMLElement>("bots-human-score");
-  const botsHumanLevelRow = getElement<HTMLElement>("bots-human-level-row");
-  const botsHumanLevel = getElement<HTMLElement>("bots-human-level");
-  const botsHumanPpsRow = getElement<HTMLElement>("bots-human-pps-row");
-  const botsHumanPps = getElement<HTMLElement>("bots-human-pps");
-  const botsHumanComboRow = getElement<HTMLElement>("bots-human-combo-row");
-  const botsHumanCombo = getElement<HTMLElement>("bots-human-combo");
-  const botsHumanSurvivalRow = getElement<HTMLElement>("bots-human-survival-row");
-  const botsHumanSurvival = getElement<HTMLElement>("bots-human-survival");
-  const botsBotLinesRow = getElement<HTMLElement>("bots-bot-lines-row");
-  const botsBotLines = getElement<HTMLElement>("bots-bot-lines");
-  const botsBotScoreRow = getElement<HTMLElement>("bots-bot-score-row");
-  const botsBotScore = getElement<HTMLElement>("bots-bot-score");
-  const botsBotLevelRow = getElement<HTMLElement>("bots-bot-level-row");
-  const botsBotLevel = getElement<HTMLElement>("bots-bot-level");
-  const botsBotPpsRow = getElement<HTMLElement>("bots-bot-pps-row");
-  const botsBotPps = getElement<HTMLElement>("bots-bot-pps");
-  const botsBotComboRow = getElement<HTMLElement>("bots-bot-combo-row");
-  const botsBotCombo = getElement<HTMLElement>("bots-bot-combo");
-  const botsBotSurvivalRow = getElement<HTMLElement>("bots-bot-survival-row");
-  const botsBotSurvival = getElement<HTMLElement>("bots-bot-survival");
   const botsHumanGarbageMeter = getElement<HTMLElement>("bots-human-garbage-meter");
   const botsHumanGarbageValue = getElement<HTMLElement>("bots-human-garbage-value");
   const botsBotGarbageMeter = getElement<HTMLElement>("bots-bot-garbage-meter");
@@ -200,9 +205,9 @@ const mountApp = (): void => {
   const tipsPopover = getElement<HTMLElement>("tips-popover");
   const gameActions = getElement<HTMLElement>("game-actions");
   const gameTitle = getElement<HTMLElement>("game-title");
-  const multiplayerOpponentBoard = getElement<HTMLCanvasElement>("mp-opponent-board");
-  const multiplayerOpponentBoardCtx = multiplayerOpponentBoard.getContext("2d");
-  if (!multiplayerOpponentBoardCtx) return;
+  const multiplayerOpponentBoard2d = getCanvas2d("mp-opponent-board");
+  if (!multiplayerOpponentBoard2d) return;
+  const { canvas: multiplayerOpponentBoard, ctx: multiplayerOpponentBoardCtx } = multiplayerOpponentBoard2d;
   const multiplayerOpponentStatus = getElement<HTMLElement>("mp-opponent-status");
   const multiplayerOpponentHold = getElement<HTMLElement>("mp-opponent-hold");
   const multiplayerOpponentNext = getElement<HTMLElement>("mp-opponent-next");
@@ -238,48 +243,51 @@ const mountApp = (): void => {
   const mpOpponentGarbageValue = getElement<HTMLElement>("mp-opponent-garbage-value");
   const modeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".mode-button[data-mode]"));
   const spinnyToggleButton = getElement<HTMLButtonElement>("spinny-toggle");
-  const canvas = getElement<HTMLCanvasElement>("game");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  const mpCanvas = getElement<HTMLCanvasElement>("mp-game");
-  const mpCtx = mpCanvas.getContext("2d");
-  if (!mpCtx) return;
-
-  const holdCanvas = getElement<HTMLCanvasElement>("hold-canvas");
-  const nextCanvas = getElement<HTMLCanvasElement>("next-canvas");
-  const statTimer = getElement<HTMLElement>("stat-timer");
-  const statLinesRow = getElement<HTMLElement>("stat-lines-row");
-  const statLines = getElement<HTMLElement>("stat-lines");
-  const statScoreRow = getElement<HTMLElement>("stat-score-row");
-  const statScore = getElement<HTMLElement>("stat-score");
-  const statLevelRow = getElement<HTMLElement>("stat-level-row");
-  const statLevel = getElement<HTMLElement>("stat-level");
-  const statPpsRow = getElement<HTMLElement>("stat-pps-row");
-  const statPps = getElement<HTMLElement>("stat-pps");
-  const statComboRow = getElement<HTMLElement>("stat-combo-row");
-  const statCombo = getElement<HTMLElement>("stat-combo");
-  const statSurvivalRow = getElement<HTMLElement>("stat-survival-row");
-  const statSurvival = getElement<HTMLElement>("stat-survival");
-  const mpHoldCanvas = getElement<HTMLCanvasElement>("mp-hold-canvas");
-  const mpNextCanvas = getElement<HTMLCanvasElement>("mp-next-canvas");
-  const mpStatTimer = getElement<HTMLElement>("mp-stat-timer");
-  const mpStatLinesRow = getElement<HTMLElement>("mp-stat-lines-row");
-  const mpStatLines = getElement<HTMLElement>("mp-stat-lines");
-  const mpStatScoreRow = getElement<HTMLElement>("mp-stat-score-row");
-  const mpStatScore = getElement<HTMLElement>("mp-stat-score");
-  const mpStatLevelRow = getElement<HTMLElement>("mp-stat-level-row");
-  const mpStatLevel = getElement<HTMLElement>("mp-stat-level");
-  const mpStatPpsRow = getElement<HTMLElement>("mp-stat-pps-row");
-  const mpStatPps = getElement<HTMLElement>("mp-stat-pps");
-  const mpStatComboRow = getElement<HTMLElement>("mp-stat-combo-row");
-  const mpStatCombo = getElement<HTMLElement>("mp-stat-combo");
-  const mpStatSurvivalRow = getElement<HTMLElement>("mp-stat-survival-row");
-  const mpStatSurvival = getElement<HTMLElement>("mp-stat-survival");
+  const gameBoard = getCanvas2d("game");
+  if (!gameBoard) return;
+  const { canvas, ctx } = gameBoard;
+  const multiplayerBoard = getCanvas2d("mp-game");
+  if (!multiplayerBoard) return;
+  const { canvas: mpCanvas, ctx: mpCtx } = multiplayerBoard;
+  const soloHudElements = getHudElements({
+    holdCanvas: "hold-canvas",
+    nextCanvas: "next-canvas",
+    timerEl: "stat-timer",
+    linesRow: "stat-lines-row",
+    linesValue: "stat-lines",
+    scoreRow: "stat-score-row",
+    scoreValue: "stat-score",
+    levelRow: "stat-level-row",
+    levelValue: "stat-level",
+    ppsRow: "stat-pps-row",
+    ppsValue: "stat-pps",
+    comboRow: "stat-combo-row",
+    comboValue: "stat-combo",
+    survivalRow: "stat-survival-row",
+    survivalValue: "stat-survival",
+  });
+  const multiplayerHudElements = getHudElements({
+    holdCanvas: "mp-hold-canvas",
+    nextCanvas: "mp-next-canvas",
+    timerEl: "mp-stat-timer",
+    linesRow: "mp-stat-lines-row",
+    linesValue: "mp-stat-lines",
+    scoreRow: "mp-stat-score-row",
+    scoreValue: "mp-stat-score",
+    levelRow: "mp-stat-level-row",
+    levelValue: "mp-stat-level",
+    ppsRow: "mp-stat-pps-row",
+    ppsValue: "mp-stat-pps",
+    comboRow: "mp-stat-combo-row",
+    comboValue: "mp-stat-combo",
+    survivalRow: "mp-stat-survival-row",
+    survivalValue: "mp-stat-survival",
+  });
 
   const settingsBackButton = getElement<HTMLButtonElement>("settings-back-button");
-  const settingsCanvas = getElement<HTMLCanvasElement>("settings-test-board");
-  const settingsCtx = settingsCanvas.getContext("2d");
-  if (!settingsCtx) return;
+  const settingsBoard = getCanvas2d("settings-test-board");
+  if (!settingsBoard) return;
+  const { canvas: settingsCanvas, ctx: settingsCtx } = settingsBoard;
 
   const dasSlider = getElement<HTMLInputElement>("das-slider");
   const arrSlider = getElement<HTMLInputElement>("arr-slider");
@@ -321,74 +329,10 @@ const mountApp = (): void => {
   const localBotsBotRenderer = createRenderer(botsBotCanvas, botsBotCtx);
   const multiplayerSpectatorLocalRenderer = createRemoteBoardRenderer(mpCanvas, mpCtx);
   const multiplayerOpponentRenderer = createRemoteBoardRenderer(multiplayerOpponentBoard, multiplayerOpponentBoardCtx);
-  const hudUpdater = createHudUpdater({
-    holdCanvas,
-    nextCanvas,
-    timerEl: statTimer,
-    linesRow: statLinesRow,
-    linesValue: statLines,
-    scoreRow: statScoreRow,
-    scoreValue: statScore,
-    levelRow: statLevelRow,
-    levelValue: statLevel,
-    ppsRow: statPpsRow,
-    ppsValue: statPps,
-    comboRow: statComboRow,
-    comboValue: statCombo,
-    survivalRow: statSurvivalRow,
-    survivalValue: statSurvival,
-  });
-  const multiplayerHudUpdater = createHudUpdater({
-    holdCanvas: mpHoldCanvas,
-    nextCanvas: mpNextCanvas,
-    timerEl: mpStatTimer,
-    linesRow: mpStatLinesRow,
-    linesValue: mpStatLines,
-    scoreRow: mpStatScoreRow,
-    scoreValue: mpStatScore,
-    levelRow: mpStatLevelRow,
-    levelValue: mpStatLevel,
-    ppsRow: mpStatPpsRow,
-    ppsValue: mpStatPps,
-    comboRow: mpStatComboRow,
-    comboValue: mpStatCombo,
-    survivalRow: mpStatSurvivalRow,
-    survivalValue: mpStatSurvival,
-  });
-  const localBotsHumanHudUpdater = createHudUpdater({
-    holdCanvas: botsHumanHoldCanvas,
-    nextCanvas: botsHumanNextCanvas,
-    timerEl: botsHumanTimer,
-    linesRow: botsHumanLinesRow,
-    linesValue: botsHumanLines,
-    scoreRow: botsHumanScoreRow,
-    scoreValue: botsHumanScore,
-    levelRow: botsHumanLevelRow,
-    levelValue: botsHumanLevel,
-    ppsRow: botsHumanPpsRow,
-    ppsValue: botsHumanPps,
-    comboRow: botsHumanComboRow,
-    comboValue: botsHumanCombo,
-    survivalRow: botsHumanSurvivalRow,
-    survivalValue: botsHumanSurvival,
-  });
-  const localBotsBotHudUpdater = createHudUpdater({
-    holdCanvas: botsBotHoldCanvas,
-    nextCanvas: botsBotNextCanvas,
-    timerEl: botsBotTimer,
-    linesRow: botsBotLinesRow,
-    linesValue: botsBotLines,
-    scoreRow: botsBotScoreRow,
-    scoreValue: botsBotScore,
-    levelRow: botsBotLevelRow,
-    levelValue: botsBotLevel,
-    ppsRow: botsBotPpsRow,
-    ppsValue: botsBotPps,
-    comboRow: botsBotComboRow,
-    comboValue: botsBotCombo,
-    survivalRow: botsBotSurvivalRow,
-    survivalValue: botsBotSurvival,
-  });
+  const hudUpdater = createHudUpdater(soloHudElements);
+  const multiplayerHudUpdater = createHudUpdater(multiplayerHudElements);
+  const localBotsHumanHudUpdater = createHudUpdater(botsHumanHudElements);
+  const localBotsBotHudUpdater = createHudUpdater(botsBotHudElements);
   const miniRenderer = createMiniBoardRenderer(settingsCanvas, settingsCtx);
 
   const session = createSessionController({
@@ -618,13 +562,13 @@ const mountApp = (): void => {
     opponentScore: multiplayerOpponentScore,
     opponentPps: multiplayerOpponentPps,
     opponentGarbage: multiplayerOpponentGarbage,
-    localHoldCanvas: mpHoldCanvas,
-    localNextCanvas: mpNextCanvas,
-    localStatus: mpStatTimer,
-    localLines: mpStatLines,
-    localScore: mpStatScore,
-    localPps: mpStatPps,
-    localCombo: mpStatCombo,
+    localHoldCanvas: multiplayerHudElements.holdCanvas,
+    localNextCanvas: multiplayerHudElements.nextCanvas,
+    localStatus: multiplayerHudElements.timerEl,
+    localLines: multiplayerHudElements.linesValue,
+    localScore: multiplayerHudElements.scoreValue,
+    localPps: multiplayerHudElements.ppsValue,
+    localCombo: multiplayerHudElements.comboValue,
     countdownEl: mpCountdownEl,
     runSummaryEl: mpRunSummaryEl,
     runSummaryHeadline: mpRunSummaryHeadline,

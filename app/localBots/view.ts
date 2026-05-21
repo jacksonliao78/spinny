@@ -1,10 +1,7 @@
-import { getAliveParticipants, getMatchCombatantLayout, type MatchCombatantLayout } from "../matchLayout";
+import { getMatchCombatantLayout, type MatchCombatantLayout } from "../matchLayout";
 import type { LocalFfaCombatant, LocalFfaMatch } from "./match";
 
 type LocalBotsCombatantLayout = MatchCombatantLayout<LocalFfaCombatant>;
-
-const getAliveCombatantsForLayout = (match: LocalFfaMatch): LocalFfaCombatant[] =>
-  getAliveParticipants(match.combatants);
 
 const getAliveBotCombatants = (match: LocalFfaMatch): LocalFfaCombatant[] =>
   match.combatants.filter((combatant) => combatant.kind === "bot" && combatant.alive);
