@@ -1,5 +1,5 @@
 import { createBoard } from "@game/board/factory";
-import { Game, type RunSummary } from "@game/game";
+import { Game } from "@game/game";
 import type { GameConfigOverrides } from "@game/game/rules";
 import type { PieceType } from "@game/piece";
 import { createSeededRandom } from "@game/random";
@@ -20,11 +20,12 @@ import {
   isMultiplayerSnapshotPayload,
   type MultiplayerSnapshotPayload,
 } from "../multiplayer/snapshots";
+import { buildPlayerMatchResultViewModel, buildSpectatorMatchResultViewModel } from "../multiplayer/matchSummary";
 import type { MultiplayerRoom, RoomMember } from "../multiplayer/rooms";
-import { buildRunSummaryViewModel } from "../runSummary";
 import type { SessionController } from "../session";
 import type { AppScreen } from "../constants";
 import { MODE_LABELS, RECTANGULAR_BOARD_CONFIG, SPRINT_TARGET_CLEARS } from "../constants";
+import { renderSummaryStatGrid, setGarbageMeter } from "./matchPresentation";
 
 type Renderer = ReturnType<typeof createRenderer>;
 
@@ -185,13 +186,6 @@ const initMultiplayerPlayingScreen = ({
   let spectatorPlayerNames: Record<1 | 2, string> = { 1: "Player 1", 2: "Player 2" };
   const attackDeduper = createAttackDeduper();
 
-  const setGarbageMeter = (meter: HTMLElement, valueEl: HTMLElement, amount: number): void => {
-    const safeAmount = Math.max(0, Math.floor(amount));
-    const level = Math.min(5, Math.ceil(safeAmount / 4));
-    meter.dataset.level = String(level);
-    valueEl.textContent = safeAmount > 20 ? "20+" : String(safeAmount);
-  };
-
   const clearResultReturnTimer = (): void => {
     if (resultReturnTimer === null) return;
     window.clearTimeout(resultReturnTimer);
@@ -287,30 +281,6 @@ const initMultiplayerPlayingScreen = ({
     syncInputControllerState();
   };
 
-  const showRunSummary = (summary: RunSummary, durationMs: number): void => {
-    const boardKind = activeRoom?.settings.boardKind ?? "rectangular";
-    const view = buildRunSummaryViewModel(summary, durationMs, boardKind);
-    runSummarySubhead.textContent = view.subhead;
-    runSummaryHeadline.textContent = view.headline;
-    runSummaryPrimaryLabel.textContent = view.primaryLabel;
-    runSummaryPrimaryValue.textContent = view.primaryValue;
-    runSummaryStats.replaceChildren(
-      ...view.stats.map((stat) => {
-        const item = document.createElement("div");
-        const label = document.createElement("dt");
-        const value = document.createElement("dd");
-        label.textContent = stat.label;
-        value.textContent = stat.value;
-        item.append(label, value);
-        return item;
-      }),
-    );
-    runSummaryEl.hidden = false;
-    runSummaryEl.focus();
-    setGameplayBlocked(true);
-    syncInputControllerState();
-  };
-
   const showMatchResult = (won: boolean): void => {
     const game = getGame();
     if (!game || matchCompleted) return;
@@ -318,34 +288,15 @@ const initMultiplayerPlayingScreen = ({
     clearCountdown();
     const summary = game.getRunSummary(runDurationMs);
     const boardKind = activeRoom?.settings.boardKind ?? "rectangular";
-    const view = buildRunSummaryViewModel(summary, runDurationMs, boardKind);
-    const opponent = lastOpponentPayload;
+    const view = buildPlayerMatchResultViewModel(won, summary, runDurationMs, boardKind, lastOpponentPayload);
 
     runSummarySubhead.textContent = view.subhead;
-    runSummaryHeadline.textContent = won ? "You Win" : "You Lose";
-    runSummaryPrimaryLabel.textContent = "Result";
-    runSummaryPrimaryValue.textContent = won ? "Winner" : "Knocked Out";
-    runSummaryStats.replaceChildren(
-      ...[
-        { label: "Your Lines", value: String(summary.linesClearedTotal) },
-        { label: "Your Score", value: String(summary.score) },
-        { label: "Pieces", value: String(summary.stats.locksPlaced) },
-        { label: "PPS", value: summary.metrics.speed.piecesPerSecond.toFixed(2) },
-        { label: "Opponent Lines", value: String(opponent?.lines ?? 0) },
-        { label: "Opponent Score", value: String(opponent?.score ?? 0) },
-        { label: "Opponent PPS", value: (opponent?.pps ?? 0).toFixed(2) },
-      ].map((stat) => {
-        const item = document.createElement("div");
-        const label = document.createElement("dt");
-        const value = document.createElement("dd");
-        label.textContent = stat.label;
-        value.textContent = stat.value;
-        item.append(label, value);
-        return item;
-      }),
-    );
-    runSummaryEl.classList.toggle("run-summary--win", won);
-    runSummaryEl.classList.toggle("run-summary--loss", !won);
+    runSummaryHeadline.textContent = view.headline;
+    runSummaryPrimaryLabel.textContent = view.primaryLabel;
+    runSummaryPrimaryValue.textContent = view.primaryValue;
+    renderSummaryStatGrid(runSummaryStats, view.stats);
+    runSummaryEl.classList.toggle("run-summary--win", view.outcome === "win");
+    runSummaryEl.classList.toggle("run-summary--loss", view.outcome === "loss");
     runSummaryLobbyButton.textContent = "Back To Lobby";
     runSummaryEl.hidden = false;
     runSummaryEl.focus();
@@ -398,37 +349,19 @@ const initMultiplayerPlayingScreen = ({
     if (matchCompleted) return;
     matchCompleted = true;
     clearCountdown();
-    const left = lastSpectatorLeftPayload;
-    const right = lastSpectatorRightPayload;
-    const loser =
-      left?.userId === loserUserId ? left : right?.userId === loserUserId ? right : null;
-    const winner = loser?.slot === 1 ? right : loser?.slot === 2 ? left : null;
-    const fallbackWinnerSlot = left?.userId === loserUserId ? 2 : right?.userId === loserUserId ? 1 : null;
-    const winnerName = winner?.username ?? (fallbackWinnerSlot ? spectatorPlayerNames[fallbackWinnerSlot] : "Winner");
-    const loserName = loser?.username ?? loserUsername;
-
-    runSummarySubhead.textContent = "Versus / Spectating";
-    runSummaryHeadline.textContent = `${winnerName} Wins`;
-    runSummaryPrimaryLabel.textContent = "Knocked Out";
-    runSummaryPrimaryValue.textContent = loserName;
-    runSummaryStats.replaceChildren(
-      ...[
-        { label: "P1 Lines", value: String(left?.lines ?? 0) },
-        { label: "P1 Score", value: String(left?.score ?? 0) },
-        { label: "P1 PPS", value: (left?.pps ?? 0).toFixed(2) },
-        { label: "P2 Lines", value: String(right?.lines ?? 0) },
-        { label: "P2 Score", value: String(right?.score ?? 0) },
-        { label: "P2 PPS", value: (right?.pps ?? 0).toFixed(2) },
-      ].map((stat) => {
-        const item = document.createElement("div");
-        const label = document.createElement("dt");
-        const value = document.createElement("dd");
-        label.textContent = stat.label;
-        value.textContent = stat.value;
-        item.append(label, value);
-        return item;
-      }),
+    const view = buildSpectatorMatchResultViewModel(
+      loserUserId,
+      loserUsername,
+      lastSpectatorLeftPayload,
+      lastSpectatorRightPayload,
+      spectatorPlayerNames,
     );
+
+    runSummarySubhead.textContent = view.subhead;
+    runSummaryHeadline.textContent = view.headline;
+    runSummaryPrimaryLabel.textContent = view.primaryLabel;
+    runSummaryPrimaryValue.textContent = view.primaryValue;
+    renderSummaryStatGrid(runSummaryStats, view.stats);
     runSummaryEl.classList.add("run-summary--win");
     runSummaryEl.classList.remove("run-summary--loss");
     runSummaryLobbyButton.textContent = "Back To Lobby";

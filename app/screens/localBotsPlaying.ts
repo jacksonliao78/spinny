@@ -17,6 +17,7 @@ import {
   type LocalFfaMatch,
 } from "../localBots/match";
 import { getLocalBotsCombatantLayout, type LocalBotsCombatantLayout } from "../localBots/view";
+import { renderDefinitionStats, setGarbageMeter } from "./matchPresentation";
 
 type Renderer = ReturnType<typeof createRenderer>;
 
@@ -78,13 +79,6 @@ const createLocalGame = (seed: string): Game => {
   });
 };
 
-const setGarbageMeter = (meter: HTMLElement, valueEl: HTMLElement, amount: number): void => {
-  const safeAmount = Math.max(0, Math.floor(amount));
-  const level = Math.min(5, Math.ceil(safeAmount / 4));
-  meter.dataset.level = String(level);
-  valueEl.textContent = safeAmount > 20 ? "20+" : String(safeAmount);
-};
-
 const formatSummaryLine = (combatant: LocalFfaCombatant, durationMs: number): string => {
   const summary: RunSummary = combatant.finalSummary ?? combatant.game.getRunSummary(durationMs);
   const placement = combatant.placement ? `#${combatant.placement} / ` : "";
@@ -135,14 +129,13 @@ const initLocalBotsPlayingScreen = ({
 
   const renderResultStats = (): void => {
     if (!match) return;
-    resultStats.replaceChildren();
-    match.combatants.forEach((combatant) => {
-      const dt = document.createElement("dt");
-      const dd = document.createElement("dd");
-      dt.textContent = combatant.name;
-      dd.textContent = formatSummaryLine(combatant, durationMs).replace(`${combatant.name}: `, "");
-      resultStats.append(dt, dd);
-    });
+    renderDefinitionStats(
+      resultStats,
+      match.combatants.map((combatant) => ({
+        label: combatant.name,
+        value: formatSummaryLine(combatant, durationMs).replace(`${combatant.name}: `, ""),
+      })),
+    );
   };
 
   const showResult = (): void => {
