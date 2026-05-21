@@ -12,6 +12,8 @@ type LocalFfaCombatant = {
   id: CombatantId;
   name: string;
   kind: CombatantKind;
+  detail: string | null;
+  targetPps: number | null;
   game: Game;
   controller: CombatantController | null;
   targetId: CombatantId | null;
@@ -30,6 +32,8 @@ type CreateCombatantInput = {
   id: CombatantId;
   name: string;
   kind: CombatantKind;
+  detail?: string | null;
+  targetPps?: number | null;
   game: Game;
   controller?: CombatantController | null;
 };
@@ -69,6 +73,8 @@ const createLocalFfaMatch = (
       id: combatant.id,
       name: combatant.name,
       kind: combatant.kind,
+      detail: combatant.detail ?? null,
+      targetPps: combatant.targetPps ?? null,
       game: combatant.game,
       controller: combatant.controller ?? null,
       targetId: null,

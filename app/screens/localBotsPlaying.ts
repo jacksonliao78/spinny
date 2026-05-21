@@ -7,7 +7,8 @@ import type { HudUpdater } from "../../render/hudPanels";
 import type { createRenderer } from "../../render/renderer";
 import { MODE_LABELS, RECTANGULAR_BOARD_CONFIG, SPRINT_TARGET_CLEARS } from "../constants";
 import type { AppScreen } from "../constants";
-import { createBotController } from "../localBots/bot";
+import { createBotController, getBotDefinition } from "../localBots/bot";
+import { getEnabledBotSlots, type LocalBotSlotConfig } from "../localBots/config";
 import {
   createLocalFfaMatch,
   routeGarbageAttackEvents,
@@ -15,6 +16,7 @@ import {
   type LocalFfaCombatant,
   type LocalFfaMatch,
 } from "../localBots/match";
+import { getAliveBotCombatants, getVisibleBotCombatant } from "../localBots/view";
 
 type Renderer = ReturnType<typeof createRenderer>;
 
@@ -22,6 +24,7 @@ type LocalBotsPlayingScreenOptions = {
   humanCanvas: HTMLCanvasElement;
   backButton: HTMLButtonElement;
   title: HTMLElement;
+  botStation: HTMLElement;
   humanRenderer: Renderer;
   botRenderer: Renderer;
   humanHud: HudUpdater;
@@ -47,7 +50,7 @@ type LocalBotsPlayingScreenOptions = {
   syncInputControllerState: () => void;
   setGameplayBlocked: (blocked: boolean) => void;
   setHumanGame: (game: Game | null) => void;
-  getBotTargetPps: () => number;
+  getBotSlots: () => LocalBotSlotConfig[];
 };
 
 type LocalBotsPlayingScreen = {
@@ -83,13 +86,16 @@ const setGarbageMeter = (meter: HTMLElement, valueEl: HTMLElement, amount: numbe
 
 const formatSummaryLine = (combatant: LocalFfaCombatant, durationMs: number): string => {
   const summary: RunSummary = combatant.finalSummary ?? combatant.game.getRunSummary(durationMs);
-  return `${combatant.name}: ${summary.linesClearedTotal} lines / ${summary.score} score / ${summary.stats.locksPlaced} pieces / ${summary.metrics.speed.piecesPerSecond.toFixed(2)} PPS`;
+  const placement = combatant.placement ? `#${combatant.placement} / ` : "";
+  const detail = combatant.detail ? `${combatant.detail} / ` : "";
+  return `${combatant.name}: ${placement}${detail}${summary.linesClearedTotal} lines / ${summary.score} score / ${summary.stats.locksPlaced} pieces / ${summary.metrics.speed.piecesPerSecond.toFixed(2)} PPS`;
 };
 
 const initLocalBotsPlayingScreen = ({
   humanCanvas,
   backButton,
   title,
+  botStation,
   humanRenderer,
   botRenderer,
   humanHud,
@@ -115,11 +121,12 @@ const initLocalBotsPlayingScreen = ({
   syncInputControllerState,
   setGameplayBlocked,
   setHumanGame,
-  getBotTargetPps,
+  getBotSlots,
 }: LocalBotsPlayingScreenOptions): LocalBotsPlayingScreen => {
   let match: LocalFfaMatch | null = null;
   let human: LocalFfaCombatant | null = null;
-  let bot: LocalFfaCombatant | null = null;
+  let initialBotCount = 1;
+  let renderedBotId: string | null = null;
   let durationMs = 0;
   let resultShown = false;
 
@@ -148,37 +155,71 @@ const initLocalBotsPlayingScreen = ({
     syncInputControllerState();
   };
 
+  const getTargetName = (targetId: string | null): string => {
+    if (!match || !targetId) return "-";
+    return match.combatants.find((combatant) => combatant.id === targetId)?.name ?? "-";
+  };
+
+  const updateVisibleBot = (): LocalFfaCombatant | null => {
+    if (!match) return null;
+    const visibleBot = getVisibleBotCombatant(match, initialBotCount);
+    botStation.hidden = visibleBot === null;
+    if (visibleBot && visibleBot.id !== renderedBotId) {
+      renderedBotId = visibleBot.id;
+      botRenderer.reset(visibleBot.game.board.rotation);
+      botRenderer.syncGameConfig(visibleBot.game);
+      botHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
+    } else if (!visibleBot) {
+      renderedBotId = null;
+    }
+    return visibleBot;
+  };
+
   const updateStatus = (): void => {
-    if (!match || !human || !bot) return;
+    if (!match || !human) return;
+    const visibleBot = updateVisibleBot();
+    const aliveBots = getAliveBotCombatants(match);
     humanStatus.textContent = human.alive ? human.name : `${human.name} out`;
-    botStatus.textContent = bot.alive ? bot.name : `${bot.name} out`;
-    const humanTargetCombatant = match.combatants.find((combatant) => combatant.id === human?.targetId);
-    const botTargetCombatant = match.combatants.find((combatant) => combatant.id === bot?.targetId);
-    humanTarget.textContent = humanTargetCombatant ? humanTargetCombatant.name : "-";
-    botTarget.textContent = botTargetCombatant ? botTargetCombatant.name : "-";
+    humanTarget.textContent = initialBotCount > 1 && aliveBots.length > 1 ? `${aliveBots.length} bots` : getTargetName(human.targetId);
     setGarbageMeter(humanGarbageMeter, humanGarbageValue, human.game.getSnapshot().incomingGarbage);
-    setGarbageMeter(botGarbageMeter, botGarbageValue, bot.game.getSnapshot().incomingGarbage);
+    if (visibleBot) {
+      botStatus.textContent = visibleBot.alive ? visibleBot.name : `${visibleBot.name} out`;
+      botTarget.textContent = getTargetName(visibleBot.targetId);
+      setGarbageMeter(botGarbageMeter, botGarbageValue, visibleBot.game.getSnapshot().incomingGarbage);
+    }
   };
 
   const startMatch = (): void => {
     const seed = `local-bots:${Date.now()}`;
+    const slots = getEnabledBotSlots(getBotSlots());
+    if (slots.length === 0) return;
     const humanGame = createLocalGame(`${seed}:human`);
-    const botGame = createLocalGame(`${seed}:bot`);
+    const botInputs = slots.map((slot) => {
+      const definition = getBotDefinition(slot.botKind);
+      const botGame = createLocalGame(`${seed}:${slot.id}`);
+      return {
+        id: slot.id,
+        name: slot.label,
+        detail: definition.label,
+        targetPps: slot.targetPps,
+        kind: "bot" as const,
+        game: botGame,
+        controller: createBotController({
+          targetPps: slot.targetPps,
+          brain: definition.createBrain(),
+        }),
+      };
+    });
     match = createLocalFfaMatch(
       [
         { id: "human", name: "You", kind: "human", game: humanGame },
-        {
-          id: "bot-1",
-          name: "Bot 1",
-          kind: "bot",
-          game: botGame,
-          controller: createBotController({ targetPps: getBotTargetPps() }),
-        },
+        ...botInputs,
       ],
       createSeededRandom(`${seed}:targets`),
     );
     human = match.combatants[0];
-    bot = match.combatants[1];
+    initialBotCount = botInputs.length;
+    renderedBotId = null;
     durationMs = 0;
     resultShown = false;
     resultEl.hidden = true;
@@ -186,12 +227,11 @@ const initLocalBotsPlayingScreen = ({
     humanController.setEnabled(true);
     setGameplayBlocked(false);
     humanRenderer.reset(humanGame.board.rotation);
-    botRenderer.reset(botGame.board.rotation);
     humanRenderer.syncGameConfig(humanGame);
-    botRenderer.syncGameConfig(botGame);
     humanHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
     botHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
-    title.textContent = `Bots / ${MODE_LABELS.versus}`;
+    updateVisibleBot();
+    title.textContent = `Bots / ${botInputs.length + 1}P ${MODE_LABELS.versus}`;
     navigate("bots-playing");
     resetLastFrameTime();
     humanCanvas.focus();
@@ -202,9 +242,9 @@ const initLocalBotsPlayingScreen = ({
   backButton.addEventListener("click", () => {
     match = null;
     human = null;
-    bot = null;
     setHumanGame(null);
     resultEl.hidden = true;
+    botStation.hidden = false;
     setGameplayBlocked(false);
     navigate("bots-setup");
   });
@@ -213,6 +253,7 @@ const initLocalBotsPlayingScreen = ({
     match = null;
     setHumanGame(null);
     resultEl.hidden = true;
+    botStation.hidden = false;
     setGameplayBlocked(false);
     navigate("bots-setup");
   });
@@ -233,20 +274,24 @@ const initLocalBotsPlayingScreen = ({
   };
 
   const drawFrame = (dtMs: number): void => {
-    if (getAppScreen() !== "bots-playing" || !human || !bot) return;
+    if (getAppScreen() !== "bots-playing" || !match || !human) return;
+    const visibleBot = updateVisibleBot();
     humanController.update(dtMs, human.game.getSnapshot().gravityIntervalMs);
     humanRenderer.updateRotation(human.game.board.rotation, dtMs);
-    botRenderer.updateRotation(bot.game.board.rotation, dtMs);
     humanRenderer.draw(human.game, false);
-    botRenderer.draw(bot.game, false);
     humanHud.update(human.game.getSnapshot());
-    botHud.update(bot.game.getSnapshot());
+    if (visibleBot) {
+      botRenderer.updateRotation(visibleBot.game.board.rotation, dtMs);
+      botRenderer.draw(visibleBot.game, false);
+      botHud.update(visibleBot.game.getSnapshot());
+    }
   };
 
   const onResize = (): void => {
-    if (!human || !bot) return;
+    if (!match || !human) return;
+    const visibleBot = getVisibleBotCombatant(match, initialBotCount);
     humanRenderer.syncGameConfig(human.game);
-    botRenderer.syncGameConfig(bot.game);
+    if (visibleBot) botRenderer.syncGameConfig(visibleBot.game);
   };
 
   return { startMatch, stepFrame, drawFrame, onResize };

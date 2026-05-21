@@ -5,7 +5,13 @@ import { Game } from "../../engine/game";
 import { createBoard } from "../../engine/board/factory";
 import { createSeededRandom } from "../../engine/random";
 import { Piece } from "../../engine/piece";
-import { chooseBotPlacement, createBotController, enumerateLegalPlacements, scorePlacement } from "../../app/localBots/bot";
+import {
+  chooseBotPlacement,
+  createBotController,
+  enumerateLegalPlacements,
+  scoreBotBPlacement,
+  scorePlacement,
+} from "../../app/localBots/bot";
 import { RECTANGULAR_BOARD_CONFIG } from "../../app/constants";
 
 const createTestGame = (): Game =>
@@ -231,4 +237,61 @@ test("scorePlacement penalizes holes", () => {
   };
 
   assert.ok(scorePlacement(cleanSnap as any, piece) > scorePlacement(holeSnap as any, piece));
+});
+
+test("Bot B strongly prefers safer boards over high-hole boards", () => {
+  const piece = new Piece("O", 1, 1);
+  const cleanSnap = {
+    width: 4,
+    height: 4,
+    viewOffsetX: 0,
+    viewOffsetY: 0,
+    locked: [
+      [null, null, null, null],
+      [null, null, null, null],
+      [null, null, null, null],
+      [null, null, null, null],
+    ],
+    combo: 0,
+    b2b: 0,
+    incomingGarbage: 0,
+  };
+  const messySnap = {
+    ...cleanSnap,
+    locked: [
+      ["I", null, "I", null],
+      ["I", null, "I", null],
+      [null, null, null, null],
+      ["I", null, "I", null],
+    ],
+  };
+
+  assert.ok(scoreBotBPlacement(cleanSnap as any, piece) > scoreBotBPlacement(messySnap as any, piece));
+});
+
+test("Bot B prefers attack-producing placements when survival cost is reasonable", () => {
+  const makeSnap = () => ({
+    width: 10,
+    height: 20,
+    viewOffsetX: 2,
+    viewOffsetY: 2,
+    locked: Array.from({ length: 24 }, () => Array(14).fill(null)),
+    combo: 0,
+    b2b: 1,
+    incomingGarbage: 0,
+  });
+  const quadSnap = makeSnap();
+  for (let y = 18; y <= 21; y += 1) {
+    for (let x = 2; x <= 11; x += 1) {
+      if (x !== 7) quadSnap.locked[y][x] = "I";
+    }
+  }
+  const quadPiece = new Piece("I", 5, 18);
+  quadPiece.rotation = 1;
+
+  const flatSnap = makeSnap();
+  const flatPiece = new Piece("I", 5, 20);
+  flatPiece.rotation = 0;
+
+  assert.ok(scoreBotBPlacement(quadSnap as any, quadPiece) > scoreBotBPlacement(flatSnap as any, flatPiece));
 });

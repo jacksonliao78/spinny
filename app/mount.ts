@@ -25,6 +25,8 @@ import type { LobbyScreen } from "./screens/lobby";
 import { initLocalBotsPlayingScreen } from "./screens/localBotsPlaying";
 import type { LocalBotsPlayingScreen } from "./screens/localBotsPlaying";
 import { initLocalBotsSetupScreen } from "./screens/localBotsSetup";
+import type { LocalBotSlotControls } from "./screens/localBotsSetup";
+import { getDefaultLocalBotSlots, type LocalBotSlotConfig } from "./localBots/config";
 import { initMultiplayerScreen } from "./screens/multiplayer";
 import type { MultiplayerScreen } from "./screens/multiplayer";
 import { initMultiplayerPlayingScreen } from "./screens/multiplayerPlaying";
@@ -133,10 +135,16 @@ const mountApp = (): void => {
   const startGameButton = getElement<HTMLButtonElement>("start-game-button");
   const botsSetupBackButton = getElement<HTMLButtonElement>("bots-setup-back-button");
   const startBotsButton = getElement<HTMLButtonElement>("start-bots-button");
-  const botPpsSlider = getElement<HTMLInputElement>("bot-pps-slider");
-  const botPpsValue = getElement<HTMLElement>("bot-pps-value");
+  const botSlotControls: LocalBotSlotControls[] = [1, 2, 3].map((slot) => ({
+    enabled: getElement<HTMLInputElement>(`bot-slot-${slot}-enabled`),
+    type: getElement<HTMLSelectElement>(`bot-slot-${slot}-type`),
+    ppsSlider: getElement<HTMLInputElement>(`bot-slot-${slot}-pps`),
+    ppsValue: getElement<HTMLElement>(`bot-slot-${slot}-pps-value`),
+    row: getElement<HTMLElement>(`bot-slot-${slot}-row`),
+  }));
   const botsBackButton = getElement<HTMLButtonElement>("bots-back-button");
   const botsGameTitle = getElement<HTMLElement>("bots-game-title");
+  const botsOpponentStation = getElement<HTMLElement>("bots-opponent-station");
   const botsHumanCanvas = getElement<HTMLCanvasElement>("bots-human-game");
   const botsHumanCtx = botsHumanCanvas.getContext("2d");
   if (!botsHumanCtx) return;
@@ -302,7 +310,7 @@ const mountApp = (): void => {
   let gameplayBlocked = false;
   let multiplayerGameplayBlocked = false;
   let localBotsGameplayBlocked = false;
-  let botTargetPps = Number(botPpsSlider.value);
+  let localBotSlots: LocalBotSlotConfig[] = getDefaultLocalBotSlots();
   let last = performance.now();
 
   const supabase = isSupabaseConfigured() ? getSupabase() : null;
@@ -664,6 +672,7 @@ const mountApp = (): void => {
     humanCanvas: botsHumanCanvas,
     backButton: botsBackButton,
     title: botsGameTitle,
+    botStation: botsOpponentStation,
     humanRenderer: localBotsHumanRenderer,
     botRenderer: localBotsBotRenderer,
     humanHud: localBotsHumanHudUpdater,
@@ -695,7 +704,7 @@ const mountApp = (): void => {
     setHumanGame: (next) => {
       localBotsHumanGame = next;
     },
-    getBotTargetPps: () => botTargetPps,
+    getBotSlots: () => localBotSlots,
   });
 
   settingsScreen = initSettingsScreen({
@@ -847,11 +856,10 @@ const mountApp = (): void => {
   initLocalBotsSetupScreen({
     backButton: botsSetupBackButton,
     startButton: startBotsButton,
-    ppsSlider: botPpsSlider,
-    ppsValue: botPpsValue,
+    slotControls: botSlotControls,
     navigate,
-    setTargetPps: (pps) => {
-      botTargetPps = pps;
+    setBotSlots: (slots) => {
+      localBotSlots = slots;
     },
     startMatch: () => localBotsPlayingScreen?.startMatch(),
   });

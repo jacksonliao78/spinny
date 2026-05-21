@@ -1,34 +1,76 @@
+import { getDefaultLocalBotSlots, normalizeLocalBotSlots, type LocalBotSlotConfig } from "../localBots/config";
+import type { BotKind } from "../localBots/types";
 import type { AppScreen } from "../constants";
+
+type LocalBotSlotControls = {
+  enabled: HTMLInputElement;
+  type: HTMLSelectElement;
+  ppsSlider: HTMLInputElement;
+  ppsValue: HTMLElement;
+  row: HTMLElement;
+};
 
 type LocalBotsSetupScreenOptions = {
   backButton: HTMLButtonElement;
   startButton: HTMLButtonElement;
-  ppsSlider: HTMLInputElement;
-  ppsValue: HTMLElement;
+  slotControls: LocalBotSlotControls[];
   navigate: (screen: AppScreen) => void;
   startMatch: () => void;
-  setTargetPps: (pps: number) => void;
+  setBotSlots: (slots: LocalBotSlotConfig[]) => void;
 };
+
+const isBotKind = (value: string): value is BotKind => value === "bot-a" || value === "bot-b";
 
 const initLocalBotsSetupScreen = ({
   backButton,
   startButton,
-  ppsSlider,
-  ppsValue,
+  slotControls,
   navigate,
   startMatch,
-  setTargetPps,
+  setBotSlots,
 }: LocalBotsSetupScreenOptions): void => {
-  const syncPps = (): void => {
-    const pps = Number(ppsSlider.value);
-    setTargetPps(pps);
-    ppsValue.textContent = pps.toFixed(1);
+  const defaults = getDefaultLocalBotSlots();
+
+  const readSlots = (): LocalBotSlotConfig[] =>
+    normalizeLocalBotSlots(
+      slotControls.map((controls, index) => ({
+        id: defaults[index].id,
+        label: defaults[index].label,
+        enabled: controls.enabled.checked,
+        botKind: isBotKind(controls.type.value) ? controls.type.value : defaults[index].botKind,
+        targetPps: Number(controls.ppsSlider.value),
+      })),
+    );
+
+  const syncSlots = (): void => {
+    const slots = readSlots();
+    slots.forEach((slot, index) => {
+      const controls = slotControls[index];
+      controls.ppsValue.textContent = slot.targetPps.toFixed(1);
+      controls.row.setAttribute("aria-disabled", slot.enabled ? "false" : "true");
+      controls.type.disabled = !slot.enabled;
+      controls.ppsSlider.disabled = !slot.enabled;
+    });
+    startButton.disabled = !slots.some((slot) => slot.enabled);
+    setBotSlots(slots);
   };
 
-  syncPps();
+  defaults.forEach((slot, index) => {
+    const controls = slotControls[index];
+    controls.enabled.checked = slot.enabled;
+    controls.type.value = slot.botKind;
+    controls.ppsSlider.value = slot.targetPps.toFixed(1);
+  });
+  syncSlots();
+
   backButton.addEventListener("click", () => navigate("multiplayer"));
   startButton.addEventListener("click", startMatch);
-  ppsSlider.addEventListener("input", syncPps);
+  slotControls.forEach((controls) => {
+    controls.enabled.addEventListener("change", syncSlots);
+    controls.type.addEventListener("change", syncSlots);
+    controls.ppsSlider.addEventListener("input", syncSlots);
+  });
 };
 
 export { initLocalBotsSetupScreen };
+export type { LocalBotSlotControls };

@@ -144,15 +144,61 @@
         </div>
         <div class="setup-grid">
           <div class="bot-setup-panel">
-            <h2>1v1 FFA</h2>
-            <p>Play a local free-for-all against one bot on the regular board. More bots come next once this foundation feels good.</p>
-            <div class="bot-count-pill">Regular / 1 bot</div>
-            <div class="bot-speed-row">
-              <div class="setting-label">
-                <strong>Bot PPS</strong>
-                <span id="bot-pps-value" class="setting-value">1.6</span>
+            <h2>Local FFA</h2>
+            <p>Play a regular-board free-for-all against configurable local bots.</p>
+            <div class="bot-count-pill">Regular / up to 3 bots</div>
+            <div class="bot-slot-list">
+              <div id="bot-slot-1-row" class="bot-slot-row">
+                <label class="bot-slot-toggle">
+                  <input id="bot-slot-1-enabled" type="checkbox" checked />
+                  <span>Bot 1</span>
+                </label>
+                <select id="bot-slot-1-type" aria-label="Bot 1 type">
+                  <option value="bot-a">Bot A</option>
+                  <option value="bot-b" selected>Bot B</option>
+                </select>
+                <div class="bot-speed-row">
+                  <div class="setting-label">
+                    <strong>PPS</strong>
+                    <span id="bot-slot-1-pps-value" class="setting-value">1.6</span>
+                  </div>
+                  <input id="bot-slot-1-pps" type="range" min="0.4" max="4" step="0.1" value="1.6" />
+                </div>
               </div>
-              <input id="bot-pps-slider" type="range" min="0.4" max="4" step="0.1" value="1.6" />
+              <div id="bot-slot-2-row" class="bot-slot-row">
+                <label class="bot-slot-toggle">
+                  <input id="bot-slot-2-enabled" type="checkbox" />
+                  <span>Bot 2</span>
+                </label>
+                <select id="bot-slot-2-type" aria-label="Bot 2 type">
+                  <option value="bot-a" selected>Bot A</option>
+                  <option value="bot-b">Bot B</option>
+                </select>
+                <div class="bot-speed-row">
+                  <div class="setting-label">
+                    <strong>PPS</strong>
+                    <span id="bot-slot-2-pps-value" class="setting-value">1.6</span>
+                  </div>
+                  <input id="bot-slot-2-pps" type="range" min="0.4" max="4" step="0.1" value="1.6" />
+                </div>
+              </div>
+              <div id="bot-slot-3-row" class="bot-slot-row">
+                <label class="bot-slot-toggle">
+                  <input id="bot-slot-3-enabled" type="checkbox" />
+                  <span>Bot 3</span>
+                </label>
+                <select id="bot-slot-3-type" aria-label="Bot 3 type">
+                  <option value="bot-a" selected>Bot A</option>
+                  <option value="bot-b">Bot B</option>
+                </select>
+                <div class="bot-speed-row">
+                  <div class="setting-label">
+                    <strong>PPS</strong>
+                    <span id="bot-slot-3-pps-value" class="setting-value">1.6</span>
+                  </div>
+                  <input id="bot-slot-3-pps" type="range" min="0.4" max="4" step="0.1" value="1.6" />
+                </div>
+              </div>
             </div>
           </div>
           <aside class="setup-controls">
@@ -229,7 +275,7 @@
               </div>
             </div>
           </div>
-          <div class="player-station player-station--opponent">
+          <div id="bots-opponent-station" class="player-station player-station--opponent">
             <div class="game-sidebar game-sidebar--left">
               <div class="game-box">
                 <h3 class="game-box__title">Hold</h3>
