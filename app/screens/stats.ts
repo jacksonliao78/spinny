@@ -51,6 +51,11 @@ const RUN_STATS_SELECT = [
   "allspins",
 ].join(",");
 
+const getSavedRunRows = (data: unknown): SavedRunRow[] => {
+  if (!Array.isArray(data)) return [];
+  return data as SavedRunRow[];
+};
+
 const renderStats = (container: HTMLElement, stats: PlayerStat[]): void => {
   container.replaceChildren(
     ...stats.map((stat) => {
@@ -164,7 +169,7 @@ const initStatsScreen = ({
           email: usernameFromAuthEmail(user.email) ? null : (user.email ?? null),
           createdAt: user.created_at ?? null,
         },
-        (data ?? []) as SavedRunRow[],
+        getSavedRunRows(data),
       );
 
       renderStats(statsAccount, view.account);
