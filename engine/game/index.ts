@@ -11,7 +11,7 @@ import { Hold } from "../hold";
 import type { PieceType } from "../piece";
 import { Piece } from "../piece";
 import { Queue } from "../queue";
-import { try180Kicks, tryKicks } from "../srs";
+import { normalizeRotation, try180Kicks, tryKicks } from "../srs";
 import { getAttackLines } from "./attack";
 import type { GameConfig, GameMode, GameModePolicy } from "./rules";
 import { pieceLow, syncLowProgress } from "./progression";
@@ -59,7 +59,6 @@ class Game {
   private readonly config: GameConfig;
   private readonly gameMode: GameMode;
   private readonly modePolicy: GameModePolicy;
-  private readonly timedDurationMs: number;
   private readonly sprintTargetClears: number;
   private score = 0;
   private level = 1;
@@ -93,9 +92,8 @@ class Game {
     this.holdSlot = new Hold();
     this.gameMode = this.config.mode.kind;
     this.modePolicy = GAME_MODE_POLICIES[this.gameMode];
-    this.timedDurationMs = this.config.mode.timedDurationMs;
     this.sprintTargetClears = Math.max(1, Math.floor(this.config.mode.sprintTargetClears));
-    this.remainingMs = this.modePolicy.timerStyle === "countdown" ? this.timedDurationMs : null;
+    this.remainingMs = this.modePolicy.timerStyle === "countdown" ? this.config.mode.timedDurationMs : null;
     if (!options.deferFirstSpawn) this.beginRun();
   }
 
@@ -260,7 +258,7 @@ class Game {
     options: { markAsRotated?: boolean } = {},
   ): boolean {
     if (!this.activePiece || this.gameOver) return false;
-    const normalizedRotation = (((rotation % 4) + 4) % 4);
+    const normalizedRotation = normalizeRotation(rotation);
     if (!this.canPlacePiece(this.activePiece, normalizedRotation, x, y)) return false;
 
     this.activePiece.x = x;
@@ -360,7 +358,7 @@ class Game {
   /** Applies rotation (with SRS kicks) and grounded reset rules. */
   private tryRotate(rotations: number): void {
     if (!this.activePiece || this.gameOver) return;
-    const step = ((rotations % 4) + 4) % 4;
+    const step = normalizeRotation(rotations);
     if (step === 0) return;
 
     if (this.canRotatePiece(this.activePiece, rotations)) {
@@ -370,7 +368,7 @@ class Game {
       return;
     }
 
-    const newRotation = (((this.activePiece.rotation + rotations) % 4) + 4) % 4;
+    const newRotation = normalizeRotation(this.activePiece.rotation + rotations);
 
     if (step === 2) {
       const placement = try180Kicks({
@@ -724,7 +722,7 @@ class Game {
 
   /** Returns whether you can feasibly rotate a piece */
   private canRotatePiece(piece: Piece, rotations: number): boolean {
-    const newRotation = (((piece.rotation + rotations) % 4) + 4) % 4;
+    const newRotation = normalizeRotation(piece.rotation + rotations);
     return this.canPlacePiece(piece, newRotation, piece.x, piece.y);
   }
 
