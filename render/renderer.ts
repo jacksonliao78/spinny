@@ -31,6 +31,7 @@ type Renderer = {
   syncGameConfig: (game: Game) => void;
   updateRotation: (boardRotation: number, dtMs: number) => void;
   draw: (game: Game, paused: boolean) => void;
+  clear: () => void;
   isSpinAnimating: () => boolean;
   reset: (boardRotation?: number) => void;
 };
@@ -117,6 +118,10 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     ctx.clearRect(0, 0, layout.canvasWidth, layout.canvasHeight);
     drawPlayfield(game, snap, layout);
     drawOverlay(snap, paused, layout);
+  };
+
+  const clear = (): void => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
   const buildLayoutMetrics = (snap: ReturnType<Game["getSnapshot"]>): LayoutMetrics => {
@@ -292,6 +297,7 @@ function createRenderer(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D
     syncGameConfig,
     updateRotation,
     draw,
+    clear,
     isSpinAnimating,
     reset,
   };

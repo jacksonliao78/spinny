@@ -144,6 +144,7 @@ const mountApp = (): void => {
   }));
   const botsBackButton = getElement<HTMLButtonElement>("bots-back-button");
   const botsGameTitle = getElement<HTMLElement>("bots-game-title");
+  const botsPlayArea = getElement<HTMLElement>("bots-play-area");
   const botsOpponentStation = getElement<HTMLElement>("bots-opponent-station");
   const botsHumanCanvas = getElement<HTMLCanvasElement>("bots-human-game");
   const botsHumanCtx = botsHumanCanvas.getContext("2d");
@@ -672,6 +673,7 @@ const mountApp = (): void => {
     humanCanvas: botsHumanCanvas,
     backButton: botsBackButton,
     title: botsGameTitle,
+    playArea: botsPlayArea,
     botStation: botsOpponentStation,
     humanRenderer: localBotsHumanRenderer,
     botRenderer: localBotsBotRenderer,

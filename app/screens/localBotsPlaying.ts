@@ -24,6 +24,7 @@ type LocalBotsPlayingScreenOptions = {
   humanCanvas: HTMLCanvasElement;
   backButton: HTMLButtonElement;
   title: HTMLElement;
+  playArea: HTMLElement;
   botStation: HTMLElement;
   humanRenderer: Renderer;
   botRenderer: Renderer;
@@ -95,6 +96,7 @@ const initLocalBotsPlayingScreen = ({
   humanCanvas,
   backButton,
   title,
+  playArea,
   botStation,
   humanRenderer,
   botRenderer,
@@ -166,11 +168,54 @@ const initLocalBotsPlayingScreen = ({
     renderer.syncGameConfig(combatant.game);
   };
 
+  const clearBotPresentation = (): void => {
+    renderedBotId = null;
+    botRenderer.reset();
+    botRenderer.clear();
+    botHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
+    botStatus.textContent = "";
+    botTarget.textContent = "-";
+    setGarbageMeter(botGarbageMeter, botGarbageValue, 0);
+  };
+
+  const resetMatchPresentation = (): void => {
+    renderedPrimaryId = null;
+    renderedBotId = null;
+    renderedLayoutMode = null;
+    humanRenderer.reset();
+    botRenderer.reset();
+    humanRenderer.clear();
+    botRenderer.clear();
+    humanHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
+    botHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
+    humanStatus.textContent = "You";
+    botStatus.textContent = "";
+    humanTarget.textContent = "-";
+    botTarget.textContent = "-";
+    setGarbageMeter(humanGarbageMeter, humanGarbageValue, 0);
+    setGarbageMeter(botGarbageMeter, botGarbageValue, 0);
+  };
+
+  const leaveMatchPresentation = (): void => {
+    match = null;
+    human = null;
+    durationMs = 0;
+    resultShown = false;
+    setHumanGame(null);
+    resultEl.hidden = true;
+    botStation.hidden = true;
+    playArea.dataset.layout = "player-only";
+    resetMatchPresentation();
+    setGameplayBlocked(false);
+  };
+
   const updateLayout = (): LocalBotsCombatantLayout | null => {
     if (!match) return null;
     const layout = getLocalBotsCombatantLayout(match);
     title.textContent = `Bots / ${layout.aliveCount}/${layout.totalCount} alive`;
-    botStation.hidden = layout.mode !== "side-by-side" || layout.opponent === null;
+    const sideBySide = layout.mode === "side-by-side" && layout.opponent !== null;
+    playArea.dataset.layout = sideBySide ? "side-by-side" : "player-only";
+    botStation.hidden = !sideBySide;
 
     if (layout.mode !== renderedLayoutMode || layout.primary.id !== renderedPrimaryId) {
       renderedLayoutMode = layout.mode;
@@ -184,7 +229,7 @@ const initLocalBotsPlayingScreen = ({
       syncRendererForCombatant(botRenderer, layout.opponent);
       botHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
     } else if (!layout.opponent) {
-      renderedBotId = null;
+      if (renderedBotId !== null) clearBotPresentation();
     }
 
     return layout;
@@ -234,18 +279,14 @@ const initLocalBotsPlayingScreen = ({
       createSeededRandom(`${seed}:targets`),
     );
     human = match.combatants[0];
-    renderedPrimaryId = null;
-    renderedBotId = null;
-    renderedLayoutMode = null;
     durationMs = 0;
     resultShown = false;
     resultEl.hidden = true;
     setHumanGame(humanGame);
     humanController.setEnabled(true);
     setGameplayBlocked(false);
-    humanHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
-    botHud.configure("versus", SPRINT_TARGET_CLEARS.rectangular);
     navigate("bots-playing");
+    resetMatchPresentation();
     updateLayout();
     resetLastFrameTime();
     humanCanvas.focus();
@@ -254,21 +295,12 @@ const initLocalBotsPlayingScreen = ({
   };
 
   backButton.addEventListener("click", () => {
-    match = null;
-    human = null;
-    setHumanGame(null);
-    resultEl.hidden = true;
-    botStation.hidden = false;
-    setGameplayBlocked(false);
+    leaveMatchPresentation();
     navigate("bots-setup");
   });
   rematchButton.addEventListener("click", startMatch);
   setupButton.addEventListener("click", () => {
-    match = null;
-    setHumanGame(null);
-    resultEl.hidden = true;
-    botStation.hidden = false;
-    setGameplayBlocked(false);
+    leaveMatchPresentation();
     navigate("bots-setup");
   });
 

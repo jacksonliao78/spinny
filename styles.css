@@ -1298,24 +1298,64 @@ select {
 }
 
 .bot-play-area {
+  position: relative;
+  display: grid;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.bot-play-area[data-layout="side-by-side"] {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  justify-items: stretch;
 }
 
-.bot-play-area:has(#bots-opponent-station[hidden]) {
-  grid-template-columns: minmax(0, 1fr);
-  justify-items: center;
-}
-
-.bot-play-area:has(#bots-opponent-station[hidden]) .player-station--local {
-  width: auto;
-  max-width: min(100%, 980px);
-  justify-self: center;
+.bot-play-area[data-layout="player-only"] {
+  display: flex;
   justify-content: center;
 }
 
-.bot-play-area:has(#bots-opponent-station[hidden]) .game-board-slot {
+.bot-play-area .player-station {
   width: auto;
+}
+
+.bot-play-area[data-layout="side-by-side"] .player-station {
+  width: 100%;
+}
+
+.bot-play-area[data-layout="side-by-side"] .player-station--local {
+  justify-content: flex-end;
+}
+
+.bot-play-area[data-layout="side-by-side"] .player-station--opponent {
+  justify-content: flex-start;
+}
+
+.bot-play-area[data-layout="player-only"] .player-station--local {
+  width: auto;
+  max-width: min(100%, 980px);
   flex: 0 0 auto;
+  justify-content: center;
+}
+
+.bot-play-area[data-layout="player-only"] .player-station--opponent {
+  display: none !important;
+}
+
+.bot-play-area .game-sidebar {
+  width: clamp(108px, 10vw, 138px);
+}
+
+.bot-play-area .game-board-slot {
+  flex: 0 0 auto;
+  justify-content: flex-start;
+  padding-left: 34px;
+}
+
+.bot-play-area[data-layout="player-only"] .game-board-slot {
+  width: auto;
 }
 
 .garbage-meter {
